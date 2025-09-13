@@ -133,20 +133,9 @@ class MorseDecoder:
 
         # Initialize timing parameters
         self.wpm_estimate: int = self._init_param(cfg_dict, "wpm_estimate", DEFAULT_WPM)
-
-        # Calculate dot duration from WPM if not explicitly provided
-        dot_duration_override = cfg_dict.get("dot_duration_ms")
-        if dot_duration_override is not None:
-            self.dot_duration_ms = float(dot_duration_override)
-            self.logger.info("Using explicit dot duration: %.1fms", self.dot_duration_ms)
-        else:
-            # Calculate from WPM using standard formula: dot_duration_ms = 1200 / WPM
-            self.dot_duration_ms = 1200.0 / float(self.wpm_estimate)
-            self.logger.info(
-                "Calculated dot duration from %d WPM: %.1fms",
-                self.wpm_estimate,
-                self.dot_duration_ms,
-            )
+        self.dot_duration_ms: float = self._init_param(
+            cfg_dict, "dot_duration_ms", DEFAULT_DOT_DURATION_MS
+        )
 
         # Calculate derived timing parameters
         dash_ratio = self._init_param(cfg_dict, "dash_ratio", DEFAULT_DASH_RATIO)

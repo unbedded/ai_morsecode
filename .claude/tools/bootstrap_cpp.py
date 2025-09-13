@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-<DATE>2025-09-08</DATE>
+"""<DATE>2025-09-08</DATE>
 
 C++ project bootstrap tool using template system.
 
@@ -17,42 +16,39 @@ Example usage (FUTURE):
 
 import argparse
 import logging
-import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from bootstrap_common import ProjectBootstrapper, setup_logging
 
 
 class CppProjectBootstrapper:
-    """
-    Bootstrap C++ projects with complete development environment.
-    
+    """Bootstrap C++ projects with complete development environment.
+
     TODO: This class needs to be implemented with C++-specific functionality
     including CMake setup, package management (Conan/vcpkg), compiler configuration,
     and C++ testing frameworks (Google Test, Catch2).
     """
-    
-    def __init__(self, cfg_dict: Optional[Dict[str, Any]] = None) -> None:
-        """
-        Initialize C++ project bootstrapper.
-        
+
+    def __init__(self, cfg_dict: dict[str, Any] | None = None) -> None:
+        """Initialize C++ project bootstrapper.
+
         Args:
             cfg_dict: Configuration dictionary with C++ project settings
         """
         # STEP_1: Initialize logging first
         self.logger = logging.getLogger(__name__)
-        
-        # STEP_2: Configuration management  
+
+        # STEP_2: Configuration management
         self.cfg_dict = self._apply_config_defaults(cfg_dict or {})
-        
+
         # STEP_3: Initialize common bootstrapper
         self.common = ProjectBootstrapper(self.cfg_dict)
-        
+
         self.logger.info("CppProjectBootstrapper initialized with config: %s", self.cfg_dict)
-    
-    def _apply_config_defaults(self, cfg_dict: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _apply_config_defaults(self, cfg_dict: dict[str, Any]) -> dict[str, Any]:
         """Apply C++-specific configuration defaults."""
         # TODO: Define C++-specific configuration defaults
         defaults = {
@@ -69,19 +65,19 @@ class CppProjectBootstrapper:
             "include_benchmarks": False,
             "header_only": False,
         }
-        
+
         for key, default_value in defaults.items():
             if key not in cfg_dict:
                 cfg_dict[key] = default_value
                 self.logger.debug("Applied C++ default for missing key %s: %s", key, default_value)
-        
+
         return cfg_dict
-    
-    def get_cfg(self) -> Dict[str, Any]:
+
+    def get_cfg(self) -> dict[str, Any]:
         """Return current configuration dictionary."""
         return self.cfg_dict.copy()
-    
-    def set_cfg(self, cfg_dict: Dict[str, Any]) -> None:
+
+    def set_cfg(self, cfg_dict: dict[str, Any]) -> None:
         """Update configuration with new values."""
         for key, value in cfg_dict.items():
             if key in self.cfg_dict:
@@ -90,11 +86,10 @@ class CppProjectBootstrapper:
                 self.logger.info("Updated config %s: %s -> %s", key, old_value, value)
             else:
                 self.logger.warning("Unknown config key ignored: %s", key)
-    
+
     def create_cpp_directory_structure(self) -> bool:
-        """
-        Create C++-specific directory structure.
-        
+        """Create C++-specific directory structure.
+
         TODO: Implement C++ directory structure creation
         - src/ (source files)
         - include/ (header files)
@@ -103,16 +98,16 @@ class CppProjectBootstrapper:
         - docs/ (documentation)
         - build/ (build artifacts)
         - cmake/ (CMake modules)
-        
+
         Returns:
             True if successful
         """
         self.logger.info("Creating C++ directory structure")
-        
+
         # TODO: Define C++ directory structure
         cpp_dirs = [
             "src",
-            f"include/{self.cfg_dict['package_name']}", 
+            f"include/{self.cfg_dict['package_name']}",
             "tests",
             "docs",
             "cmake",
@@ -121,18 +116,17 @@ class CppProjectBootstrapper:
             ".github/workflows",
             ".vscode",
         ]
-        
+
         if self.cfg_dict["include_benchmarks"]:
             cpp_dirs.append("benchmark")
-        
+
         return self.common.create_directory_structure(cpp_dirs)
-    
+
     def create_cpp_gitignore(self) -> bool:
-        """
-        Create C++-specific .gitignore file.
-        
+        """Create C++-specific .gitignore file.
+
         TODO: Add comprehensive C++ .gitignore patterns
-        
+
         Returns:
             True if successful
         """
@@ -148,7 +142,7 @@ class CppProjectBootstrapper:
             "*.a",
             "*.lib",
             "",
-            "# Build directories", 
+            "# Build directories",
             "build/",
             "Build/",
             "cmake-build-*/",
@@ -164,7 +158,7 @@ class CppProjectBootstrapper:
             "",
             "# Package managers",
             "conan.lock",
-            "conanbuildinfo.*", 
+            "conanbuildinfo.*",
             "vcpkg_installed/",
             "",
             "# Testing",
@@ -173,29 +167,28 @@ class CppProjectBootstrapper:
             "",
             "# TODO: Add more C++ specific patterns",
             "# - CMake cache and generated files",
-            "# - Compiler-specific temporary files", 
+            "# - Compiler-specific temporary files",
             "# - Package manager artifacts",
             "# - Static analysis output",
         ]
-        
+
         return self.common.create_gitignore(cpp_patterns)
-    
+
     def create_cmake_files(self) -> bool:
-        """
-        Create CMakeLists.txt and CMake configuration files.
-        
+        """Create CMakeLists.txt and CMake configuration files.
+
         TODO: Implement comprehensive CMake setup
         - Root CMakeLists.txt with project configuration
         - src/CMakeLists.txt for library/executable
         - tests/CMakeLists.txt for test configuration
         - cmake/modules for custom CMake functions
-        
+
         Returns:
             True if successful
         """
         try:
             # TODO: Create comprehensive CMakeLists.txt
-            cmake_content = f'''# TODO: Implement complete CMakeLists.txt for C++ project
+            cmake_content = f"""# TODO: Implement complete CMakeLists.txt for C++ project
 cmake_minimum_required(VERSION {self.cfg_dict["cmake_version"]})
 
 project({self.cfg_dict["package_name"]}
@@ -233,38 +226,37 @@ target_include_directories({self.cfg_dict["package_name"]} INTERFACE
 # if(BUILD_BENCHMARKS)
 #     add_subdirectory(benchmark)
 # endif()
-'''
-            
+"""
+
             Path("CMakeLists.txt").write_text(cmake_content)
-            
+
             self.logger.info("Created CMake files (placeholder)")
             print("✅ Created CMakeLists.txt (TODO: Needs full implementation)")
             return True
-            
+
         except Exception as e:
             error_msg = f"Failed to create CMake files: {e}"
             self.logger.exception(error_msg)
             print(f"❌ {error_msg}")
             return False
-    
+
     def create_cpp_source_structure(self) -> bool:
-        """
-        Create C++ source file structure with headers and implementation.
-        
+        """Create C++ source file structure with headers and implementation.
+
         TODO: Implement C++ source file templates
         - Header files with proper include guards
         - Implementation files with CLAUDE.md patterns
         - Namespace organization
         - Documentation comments
-        
+
         Returns:
             True if successful
         """
         try:
             package_name = self.cfg_dict["package_name"]
-            
+
             # TODO: Create header file template
-            header_content = f'''#pragma once
+            header_content = f"""#pragma once
 // TODO: Implement comprehensive header file template
 // <DATE>2025-09-08</DATE>
 
@@ -308,15 +300,15 @@ namespace {package_name} {{
     // TODO: Add main class/function declarations
     
 }} // namespace {package_name}
-'''
-            
+"""
+
             header_dir = Path(f"include/{package_name}")
             header_file = header_dir / f"{package_name}.hpp"
             header_file.write_text(header_content)
-            
+
             # TODO: Create source file if not header-only
             if not self.cfg_dict["header_only"]:
-                src_content = f'''// TODO: Implement source file template
+                src_content = f"""// TODO: Implement source file template
 // <DATE>2025-09-08</DATE>
 
 /**
@@ -339,41 +331,40 @@ namespace {package_name} {{
     // TODO: Add implementations
 
 }} // namespace {package_name}
-'''
-                
+"""
+
                 src_file = Path(f"src/{package_name}.cpp")
                 src_file.write_text(src_content)
-            
+
             self.logger.info("Created C++ source structure (placeholder)")
-            print(f"✅ Created C++ source structure (TODO: Needs implementation)")
+            print("✅ Created C++ source structure (TODO: Needs implementation)")
             return True
-            
+
         except Exception as e:
             error_msg = f"Failed to create C++ source structure: {e}"
             self.logger.exception(error_msg)
             print(f"❌ {error_msg}")
             return False
-    
+
     def create_cpp_test_structure(self) -> bool:
-        """
-        Create C++ test structure with chosen testing framework.
-        
+        """Create C++ test structure with chosen testing framework.
+
         TODO: Implement test framework setup
         - Google Test integration
-        - Catch2 integration  
+        - Catch2 integration
         - Test CMakeLists.txt
         - Sample test files
-        
+
         Returns:
             True if successful
         """
         try:
             test_framework = self.cfg_dict["test_framework"]
             package_name = self.cfg_dict["package_name"]
-            
+
             # TODO: Create test file template based on framework
             if test_framework == "gtest":
-                test_content = f'''// TODO: Implement Google Test template
+                test_content = f"""// TODO: Implement Google Test template
 // <DATE>2025-09-08</DATE>
 
 /**
@@ -420,9 +411,9 @@ int main(int argc, char** argv) {{
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }}
-'''
+"""
             elif test_framework == "catch2":
-                test_content = f'''// TODO: Implement Catch2 template
+                test_content = f"""// TODO: Implement Catch2 template
 // <DATE>2025-09-08</DATE>
 
 #define CATCH_CONFIG_MAIN
@@ -439,39 +430,38 @@ TEST_CASE("{package_name} edge cases", "[{package_name}]") {{
     // TODO: Add edge case tests
     REQUIRE(true); // Placeholder
 }}
-'''
+"""
             else:
                 test_content = f"// TODO: Implement test template for {test_framework}"
-            
+
             test_file = Path(f"tests/test_{package_name}.cpp")
             test_file.write_text(test_content)
-            
+
             self.logger.info("Created C++ test structure (placeholder)")
             print(f"✅ Created C++ test files for {test_framework} (TODO: Needs implementation)")
             return True
-            
+
         except Exception as e:
             error_msg = f"Failed to create C++ test structure: {e}"
             self.logger.exception(error_msg)
             print(f"❌ {error_msg}")
             return False
-    
+
     def setup_package_manager(self) -> bool:
-        """
-        Setup package manager (Conan or vcpkg).
-        
+        """Setup package manager (Conan or vcpkg).
+
         TODO: Implement package manager setup
         - Conan conanfile.py/txt creation
         - vcpkg.json manifest creation
         - CMake integration
-        
+
         Returns:
             True if successful
         """
         try:
             if self.cfg_dict["use_conan"]:
                 # TODO: Create conanfile.py or conanfile.txt
-                conan_content = f'''# TODO: Implement Conan configuration
+                conan_content = """# TODO: Implement Conan configuration
 [requires]
 # Add your dependencies here
 # fmt/9.1.0
@@ -487,49 +477,51 @@ CMakeToolchain
 
 [settings]
 # Conan settings are managed by profile
-'''
+"""
                 Path("conanfile.txt").write_text(conan_content)
                 print("✅ Created conanfile.txt (TODO: Add actual dependencies)")
-            
+
             elif self.cfg_dict["use_vcpkg"]:
                 # TODO: Create vcpkg.json
                 import json
+
                 vcpkg_config = {
                     "name": self.cfg_dict["package_name"],
                     "version": "0.1.0",
                     "dependencies": [
                         # "fmt",
-                        # "spdlog", 
+                        # "spdlog",
                         # "gtest"
                     ],
-                    "$comment": "TODO: Add actual dependencies"
+                    "$comment": "TODO: Add actual dependencies",
                 }
-                
+
                 with open("vcpkg.json", "w") as f:
                     json.dump(vcpkg_config, f, indent=2)
                 print("✅ Created vcpkg.json (TODO: Add actual dependencies)")
-            
+
             return True
-            
+
         except Exception as e:
             error_msg = f"Failed to setup package manager: {e}"
             self.logger.exception(error_msg)
             print(f"❌ {error_msg}")
             return False
-    
+
     def bootstrap_cpp_project(self) -> bool:
-        """
-        Execute complete C++ project bootstrap process.
-        
+        """Execute complete C++ project bootstrap process.
+
         TODO: This is a placeholder implementation that needs to be completed
         with full C++ project setup functionality.
-        
+
         Returns:
             True if successful
         """
         self.logger.info("Starting C++ project bootstrap (TODO: Placeholder implementation)")
-        print(f"⚡ Bootstrapping C++ project: {self.cfg_dict['package_name']} (TODO: Not fully implemented)")
-        
+        print(
+            f"⚡ Bootstrapping C++ project: {self.cfg_dict['package_name']} (TODO: Not fully implemented)"
+        )
+
         steps = [
             ("Create directory structure", self.create_cpp_directory_structure),
             ("Setup git repository", self.common.setup_git_repository),
@@ -542,20 +534,23 @@ CMakeToolchain
             ("Create VS Code settings", self.common.create_vscode_settings),
             ("Initialize changelog", self.common.initialize_changelog),
             ("Copy .claude directory", lambda: self.common.copy_claude_directory()),
-            ("Copy C++ CLAUDE.md standards", lambda: self.common.copy_language_specific_claude_md("cpp")),
+            (
+                "Copy C++ CLAUDE.md standards",
+                lambda: self.common.copy_language_specific_claude_md("cpp"),
+            ),
         ]
-        
+
         failed_steps = []
-        
+
         for step_name, step_func in steps:
             print(f"🔄 {step_name}...")
-            
+
             if step_func():
                 print(f"✅ {step_name} - COMPLETED")
             else:
                 print(f"❌ {step_name} - FAILED")
                 failed_steps.append(step_name)
-        
+
         if failed_steps:
             self.logger.error("Bootstrap failed at steps: %s", failed_steps)
             print(f"\n❌ Bootstrap FAILED. Failed steps: {', '.join(failed_steps)}")
@@ -580,7 +575,7 @@ def main() -> int:
     """Main entry point for command-line usage."""
     setup_logging()
     logger = logging.getLogger(__name__)
-    
+
     parser = argparse.ArgumentParser(
         description="Bootstrap C++ project from template (TODO: Placeholder implementation)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -591,69 +586,37 @@ Examples (FUTURE):
   python .claude/tools/bootstrap_cpp.py --package myproject --cmake 3.20 --std 20
   python .claude/tools/bootstrap_cpp.py --package game_engine --conan --std 23
   python .claude/tools/bootstrap_cpp.py --package lib --header-only --test-framework catch2
-        """
+        """,
     )
-    
-    parser.add_argument(
-        "--package",
-        required=True,
-        help="Package name (C++ project name)"
-    )
-    
-    parser.add_argument(
-        "--cmake",
-        default="3.20",
-        help="Minimum CMake version (default: 3.20)"
-    )
-    
-    parser.add_argument(
-        "--std",
-        default="20",
-        help="C++ standard version (default: 20)"
-    )
-    
-    parser.add_argument(
-        "--author",
-        default="Your Name",
-        help="Author name for project metadata"
-    )
-    
-    parser.add_argument(
-        "--conan",
-        action="store_true",
-        help="Use Conan package manager"
-    )
-    
-    parser.add_argument(
-        "--vcpkg",
-        action="store_true",
-        help="Use vcpkg package manager"
-    )
-    
+
+    parser.add_argument("--package", required=True, help="Package name (C++ project name)")
+
+    parser.add_argument("--cmake", default="3.20", help="Minimum CMake version (default: 3.20)")
+
+    parser.add_argument("--std", default="20", help="C++ standard version (default: 20)")
+
+    parser.add_argument("--author", default="Your Name", help="Author name for project metadata")
+
+    parser.add_argument("--conan", action="store_true", help="Use Conan package manager")
+
+    parser.add_argument("--vcpkg", action="store_true", help="Use vcpkg package manager")
+
     parser.add_argument(
         "--test-framework",
         choices=["gtest", "catch2", "doctest"],
         default="gtest",
-        help="Testing framework to use (default: gtest)"
+        help="Testing framework to use (default: gtest)",
     )
-    
-    parser.add_argument(
-        "--header-only",
-        action="store_true",
-        help="Create header-only library"
-    )
-    
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
-    
+
+    parser.add_argument("--header-only", action="store_true", help="Create header-only library")
+
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
+
     args = parser.parse_args()
-    
+
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
-    
+
     # TODO: Build comprehensive configuration
     config = {
         "package_name": args.package,
@@ -665,12 +628,12 @@ Examples (FUTURE):
         "test_framework": args.test_framework,
         "header_only": args.header_only,
     }
-    
+
     try:
         bootstrapper = CppProjectBootstrapper(config)
         success = bootstrapper.bootstrap_cpp_project()
         return 0 if success else 1
-        
+
     except Exception as e:
         logger.error("Bootstrap execution failed: %s", e)
         print(f"Error: {e}")
@@ -683,5 +646,5 @@ if __name__ == "__main__":
     print("This will create a basic project structure with TODO placeholders.")
     print("For production use, complete the TODO items throughout this file.")
     print()
-    
+
     sys.exit(main())
