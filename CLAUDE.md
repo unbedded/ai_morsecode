@@ -78,30 +78,73 @@ class LayoutConstants:
 - Support multiple config sources: environment variables, `.env` files, and direct instantiation.
 - Use secure defaults and validate all configuration values on startup.
 - Never include secrets in default values or log configuration containing sensitive data.
-- Example pattern:
+
+### Configuration Architecture Patterns
+
+#### Shared Configuration Classes
+Create shared configuration dataclasses for settings used by multiple modules:
+
 ```python
+from dataclasses import dataclass
 from pydantic import BaseSettings, Field, validator
 from typing import Optional
 
-class AppConfig(BaseSettings):
-    debug: bool = False  # Secure default
-    log_level: str = Field(default="WARNING", env="LOG_LEVEL")
-    database_url: Optional[str] = Field(default=None, env="DATABASE_URL")
-    api_key: Optional[str] = Field(default=None, env="API_KEY")
-    
-    @validator('log_level')
-    def validate_log_level(cls, v):
-        valid_levels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
-        if v.upper() not in valid_levels:
-            raise ValueError(f'Invalid log level: {v}')
-        return v.upper()
-    
+# Shared configuration for cross-module constants
+@dataclass
+class SharedAudioConfig:
+    sample_rate_hz: int = 44100
+    chunk_size_ms: int = 50
+
+@dataclass
+class SharedTimingConfig:
+    update_interval_ms: int = 20
+    processing_timeout_sec: float = 30.0
+```
+
+#### Module-Specific Configuration
+Each module gets its own Pydantic Settings class with shared config composition:
+
+```python
+class SignalProcessorConfig(BaseSettings):
+    # Compose shared config
+    audio: SharedAudioConfig = SharedAudioConfig()
+    timing: SharedTimingConfig = SharedTimingConfig()
+
+    # Module-specific settings
+    target_frequency_hz: int = Field(default=600, description="CW tone frequency")
+    detection_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+
+    @validator('target_frequency_hz')
+    def validate_frequency(cls, v):
+        if not (200 <= v <= 2000):
+            raise ValueError(f'Frequency must be 200-2000 Hz, got {v}')
+        return v
     class Config:
         env_file = ".env"
-        case_sensitive = False
+        env_prefix = "SIGNAL_"
 ```
-- Pass config objects to class constructors instead of raw dictionaries.
-- Validate configuration on startup and fail fast with clear error messages.
+
+#### Configuration Dependency Injection
+Pass configuration objects to module constructors, not raw dictionaries:
+
+```python
+# BAD: Raw dictionary configuration
+processor = SignalProcessor(cfg_dict={"sample_rate_hz": 44100})
+
+# GOOD: Typed configuration object injection
+config = SignalProcessorConfig()
+processor = SignalProcessor(config=config)
+
+# BEST: Shared configuration consistency
+shared_audio = SharedAudioConfig(sample_rate_hz=48000)
+processor_config = SignalProcessorConfig(audio=shared_audio)
+processor = SignalProcessor(config=processor_config)
+```
+
+- **Pass config objects** to class constructors instead of raw dictionaries
+- **Validate configuration on startup** and fail fast with clear error messages
+- **Use shared config classes** to avoid duplicating constants across modules
+- **Support environment variables** with appropriate prefixes for each module
 
 ## Testing Standards
 - Generate comprehensive pytest test cases covering edge cases and all possible scenarios.

@@ -1,0 +1,37 @@
+# Morse Code Decoder Configuration
+# Registry-generated with profile support
+
+# App Configuration
+app:
+  debug: false
+  log_level: WARNING
+  log_level_debug: DEBUG
+  output_file: null
+  real_time: false
+
+# Audio Configuration
+audio:
+  sample_rate: 44100
+  sample_rate_debug: 8000  # Lower for debug
+  auto_gain_control: true
+  chunk_size_ms: 50
+  wav_filename: null
+
+# Signal Configuration
+signal:
+  frequency: 600
+  frequency_debug: 400     # Different for debug
+  threshold: 0.3
+  threshold_debug: 0.1     # More sensitive
+  bandwidth: 50
+  sample_rate: 44100
+
+# Decoder Configuration
+decoder:
+  wpm: 15
+  wpm_debug: 10            # Slower for debug
+  tolerance: 0.3
+  tolerance_debug: 0.5     # More forgiving
+  dot_duration_ms: null
+  min_silence_ms: 200
+

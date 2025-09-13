@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "__PKG__"
+name = "morsecode"
 dynamic = ["version"]
 description = "Python project template for Claude Code development"
 authors = [{name = "Your Name", email = "your.email@example.com"}]
@@ -17,7 +17,16 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = []
+dependencies = [
+    "scipy>=1.11.0",
+    "numpy>=1.24.0",
+    "pyqtgraph>=0.13.0",
+    "PyQt5>=5.15.0",
+    "pyyaml>=6.0",
+    "toml>=0.10.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -29,10 +38,13 @@ dev = [
     "black>=23.0",
 ]
 
+[project.scripts]
+morsecode = "morsecode.cli:main"
+
 [project.urls]
-Homepage = "https://github.com/yourusername/__PKG__"
-Repository = "https://github.com/yourusername/__PKG__.git"
-Issues = "https://github.com/yourusername/__PKG__/issues"
+Homepage = "https://github.com/yourusername/morsecode"
+Repository = "https://github.com/yourusername/morsecode.git"
+Issues = "https://github.com/yourusername/morsecode/issues"
 
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}
@@ -70,7 +82,7 @@ omit = [
 ]
 
 [tool.ruff]
-target-version = "__RUFF_TARGET__"
+target-version = "py313"
 line-length = 100
 fix = true
 
@@ -100,7 +112,7 @@ convention = "google"
 "__init__.py" = ["D104"]
 
 [tool.mypy]
-python_version = "__MYPY_PY_VERSION__"
+python_version = "3.13"
 ignore_missing_imports = true
 strict = true
 warn_return_any = true
