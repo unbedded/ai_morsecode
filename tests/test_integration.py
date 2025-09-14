@@ -13,9 +13,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from morsecode.hal import HardwareAbstractionLayer
-from morsecode.morse_decoder import MorseDecoder
-from morsecode.signal_processor import SignalProcessor
+from morsecode.components.audio.hal import HardwareAbstractionLayer
+from morsecode.components.decoder.morse_decoder import MorseDecoder
+from morsecode.components.signal.signal_processor import SignalProcessor
 
 
 class TestMorseCodeIntegration:

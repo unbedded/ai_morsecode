@@ -11,7 +11,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from morsecode.signal_processor import (
+from morsecode.components.signal.signal_processor import (
     DEFAULT_DETECTION_THRESHOLD,
     DEFAULT_FFT_WINDOW_SIZE,
     DEFAULT_FILTER_BANDWIDTH_HZ,
@@ -231,7 +231,7 @@ class TestSignalProcessor:
         with pytest.raises(RuntimeError, match="Band-pass filtering failed"):
             processor.apply_bandpass_filter(np.array([]))
 
-    @patch("morsecode.signal_processor.signal.butter")
+    @patch("morsecode.components.signal.signal_processor.signal.butter")
     def test_apply_bandpass_filter_error_handling(self, mock_butter: Any) -> None:
         """Test band-pass filter error handling."""
         processor = SignalProcessor()
@@ -315,7 +315,7 @@ class TestSignalProcessor:
         freq = processor.get_dominant_frequency(np.array([]))
         assert freq == 0.0
 
-    @pytest.mark.parametrize(  # type: ignore[misc]
+    @pytest.mark.parametrize(
         "sample_rate,target_freq,window_size",
         [
             (22050, 400, 512),  # Low rate, low frequency
@@ -369,7 +369,7 @@ class TestSignalProcessor:
         """Test that processing errors are properly handled and logged."""
         # Test initialization error by mocking the initialization during construction
         with patch(
-            "morsecode.signal_processor.SignalProcessor._initialize_processing",
+            "morsecode.components.signal.signal_processor.SignalProcessor._initialize_processing",
             side_effect=Exception("Init failed"),
         ):
             with pytest.raises(RuntimeError, match="Failed to initialize signal processor"):

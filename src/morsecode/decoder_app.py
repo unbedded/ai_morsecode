@@ -6,14 +6,77 @@ and MorseDecoder components using the registry-based configuration system.
 
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
-from .hal import HardwareAbstractionLayer
-from .morse_decoder import MorseDecoder
-from .signal_processor import SignalProcessor
+from .components.audio.hal import HardwareAbstractionLayer
+from .components.decoder.morse_decoder import MorseDecoder
+from .components.signal.signal_processor import SignalProcessor
+from .events.bus import get_global_event_bus
+from .events.types import AudioChunkEvent, MorsePatternEvent, TextDecodedEvent, ToneDetectedEvent
 
 logger = logging.getLogger(__name__)
+
+
+class ProgressReporter:
+    """Progress reporting for CLI using events."""
+
+    def __init__(self) -> None:
+        """Initialize the progress reporter."""
+        self.start_time = time.time()
+        self.chunk_count = 0
+        self.tone_detections = 0
+        self.patterns_decoded = 0
+        self.characters_decoded = 0
+        self.current_text = ""
+        self.last_progress_time = time.time()
+
+    def handle_audio_chunk(self, event: AudioChunkEvent) -> None:
+        """Handle audio chunk events for progress tracking."""
+        self.chunk_count += 1
+
+        # Show progress every 100 chunks or when reaching end
+        if self.chunk_count % 100 == 0 or not event.has_more_data:
+            elapsed = time.time() - self.start_time
+            chunks_per_sec = self.chunk_count / elapsed if elapsed > 0 else 0
+
+            print(
+                f"\rProcessed {self.chunk_count} chunks "
+                f"({chunks_per_sec:.1f}/sec) | "
+                f"Tones: {self.tone_detections} | "
+                f"Patterns: {self.patterns_decoded} | "
+                f"Text: '{self.current_text}'",
+                end="",
+                flush=True,
+            )
+
+            if not event.has_more_data:
+                print()  # New line at completion
+
+    def handle_tone_detected(self, event: ToneDetectedEvent) -> None:
+        """Handle tone detection events."""
+        if event.detected:
+            self.tone_detections += 1
+
+    def handle_morse_pattern(self, event: MorsePatternEvent) -> None:
+        """Handle morse pattern events."""
+        if event.pattern_type in ("dot", "dash"):
+            self.patterns_decoded += 1
+
+    def handle_text_decoded(self, event: TextDecodedEvent) -> None:
+        """Handle text decoded events."""
+        self.characters_decoded += 1
+        # Keep only last 20 characters for display
+        self.current_text = (self.current_text + event.text)[-20:]
+
+    def setup_event_subscriptions(self) -> None:
+        """Subscribe to relevant events."""
+        event_bus = get_global_event_bus()
+        event_bus.subscribe(AudioChunkEvent, self.handle_audio_chunk)
+        event_bus.subscribe(ToneDetectedEvent, self.handle_tone_detected)
+        event_bus.subscribe(MorsePatternEvent, self.handle_morse_pattern)
+        event_bus.subscribe(TextDecodedEvent, self.handle_text_decoded)
 
 
 def run_decoder_legacy(
@@ -48,6 +111,10 @@ def run_decoder_legacy(
         logger.info("Target frequency: %d Hz", signal_config.get("target_frequency_hz", 600))
         logger.info("Estimated WPM: %d", decoder_config.get("wpm_estimate", 15))
 
+        # Set up progress reporting via events
+        progress_reporter = ProgressReporter()
+        progress_reporter.setup_event_subscriptions()
+
         # Process audio
         return _process_audio(hal, processor, decoder, app_config)
 
@@ -70,27 +137,22 @@ def _process_audio(hal: Any, processor: Any, decoder: Any, app_config: dict[str,
         Exit code
     """
     try:
-        chunk_count = 0
         update_interval_ms = 20  # Fixed for now
 
         logger.info("Starting audio processing")
+        print("Processing audio...", flush=True)
 
         while hal.has_data():
-            # Get next audio chunk
+            # Get next audio chunk (publishes AudioChunkEvent)
             chunk = hal.get_next_chunk(update_interval_ms=update_interval_ms)
 
-            # Process signal for tone detection
+            # Process signal for tone detection (publishes ToneDetectedEvent)
             tone_detected = processor.detect_tone(chunk)
 
-            # Feed to Morse decoder
+            # Feed to Morse decoder (publishes MorsePatternEvent and TextDecodedEvent)
             decoder.process_tone_detection(tone_detected, float(update_interval_ms))
 
-            chunk_count += 1
-
-            if chunk_count % 100 == 0:
-                logger.debug("Processed %d chunks", chunk_count)
-
-        logger.info("Audio processing complete (%d chunks)", chunk_count)
+        print("Audio processing complete")
 
         # Finalize decoding
         logger.info("Finalizing Morse code decoding")

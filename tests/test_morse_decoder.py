@@ -10,7 +10,7 @@ Example usage:
 
 import pytest
 
-from morsecode.morse_decoder import MorseDecoder
+from morsecode.components.decoder.morse_decoder import MorseDecoder
 
 
 class TestMorseDecoder:

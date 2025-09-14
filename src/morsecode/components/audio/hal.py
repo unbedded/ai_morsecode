@@ -24,6 +24,9 @@ from typing import Any
 import numpy as np
 from scipy.io import wavfile
 
+from morsecode.events.bus import get_global_event_bus
+from morsecode.events.types import AudioChunkEvent
+
 # Constants
 DEFAULT_WAV_FILENAME = None
 DEFAULT_AUDIO_RATE_HZ = 44100
@@ -58,6 +61,10 @@ class HardwareAbstractionLayer:
         self.wav_filename: str | None = self._init_param(
             cfg_dict, "wav_filename", DEFAULT_WAV_FILENAME
         )
+        self._chunk_counter: int = 0
+
+        # Get global event bus for publishing events
+        self._event_bus = get_global_event_bus()
 
         self.load_audio_file()
 
@@ -142,11 +149,27 @@ class HardwareAbstractionLayer:
             if update_interval_ms <= 0:
                 raise ValueError("update_interval_ms must be positive")
 
+            # Increment chunk counter
+            self._chunk_counter += 1
+
             samples_per_chunk = int((update_interval_ms / 1000) * self.audio_rate_hz)
 
             if len(self.audio_data) == 0:
                 self.logger.warning("No audio data available. Returning zeros")
-                return np.zeros(samples_per_chunk)
+                chunk = np.zeros(samples_per_chunk)
+                has_more_data = False
+
+                # Publish audio chunk event for empty data
+                audio_event = AudioChunkEvent(
+                    chunk_data=chunk,
+                    chunk_size_ms=update_interval_ms,
+                    sample_rate=self.audio_rate_hz,
+                    chunk_number=self._chunk_counter,
+                    has_more_data=has_more_data,
+                )
+                self._event_bus.publish(audio_event)
+
+                return chunk
 
             # Extract chunk and update remaining data
             chunk = self.audio_data[:samples_per_chunk]
@@ -157,6 +180,19 @@ class HardwareAbstractionLayer:
                 padded_chunk = np.zeros(samples_per_chunk)
                 padded_chunk[: len(chunk)] = chunk
                 chunk = padded_chunk
+
+            # Check if more data is available after processing this chunk
+            has_more_data = len(self.audio_data) > 0
+
+            # Publish audio chunk event
+            audio_event = AudioChunkEvent(
+                chunk_data=chunk,
+                chunk_size_ms=update_interval_ms,
+                sample_rate=self.audio_rate_hz,
+                chunk_number=self._chunk_counter,
+                has_more_data=has_more_data,
+            )
+            self._event_bus.publish(audio_event)
 
             return chunk
 

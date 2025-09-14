@@ -25,8 +25,8 @@ format: ## Format code with ruff
 lint: ## Lint code with ruff
 	ruff check .
 
-typecheck: ## Type check with mypy
-	mypy .
+typecheck: ## Type check with mypy (source code only)
+	mypy src/ --config-file pyproject.toml
 
 # Testing (used by enhanced git-flow commands)
 test: ## Run test suite quickly

@@ -6,8 +6,8 @@ with the existing legacy components through the adapter pattern.
 
 import pytest
 
-from morsecode.awesome_config import AwesomeConfigManager
 from morsecode.components.factory import ComponentFactory
+from morsecode.config.manager import AwesomeConfigManager
 from morsecode.interfaces.audio import AudioSource
 from morsecode.interfaces.decoder import MorseDecoder
 from morsecode.interfaces.signal import SignalProcessor

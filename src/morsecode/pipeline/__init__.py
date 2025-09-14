@@ -1,14 +1,19 @@
-"""Pipeline components for orchestrating Morse code processing.
+"""Pipeline package for Morse code processing.
 
-This package provides the dependency injection container and high-level
-pipeline orchestration for combining audio sources, signal processors,
-and decoders into a complete processing pipeline.
+This package provides:
+- Container: Dependency injection container
+- PipelineBuilder: Fluent builder for creating pipelines
+- PipelineExecutor: Main execution engine
 """
 
+from .builder import PipelineBuilder
 from .container import Container, configure_global_container, get_container
+from .executor import PipelineExecutor
 
 __all__ = [
     "Container",
-    "configure_global_container",
     "get_container",
+    "configure_global_container",
+    "PipelineBuilder",
+    "PipelineExecutor",
 ]

@@ -7,11 +7,11 @@ the creation and lifecycle of components using the factory pattern.
 import logging
 from typing import Any, TypeVar, cast
 
-from morsecode.awesome_config import AwesomeConfigManager
-from morsecode.components.factory import ComponentFactory
-from morsecode.interfaces.audio import AudioSource
-from morsecode.interfaces.decoder import MorseDecoder
-from morsecode.interfaces.signal import SignalProcessor
+from ..components.factory import ComponentFactory
+from ..config.manager import AwesomeConfigManager
+from ..interfaces.audio import AudioSource
+from ..interfaces.decoder import MorseDecoder
+from ..interfaces.signal import SignalProcessor
 
 logger = logging.getLogger(__name__)
 

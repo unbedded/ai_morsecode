@@ -32,6 +32,9 @@ from typing import Any
 
 import numpy as np
 
+from morsecode.events.bus import get_global_event_bus
+from morsecode.events.types import MorsePatternEvent, TextDecodedEvent
+
 # Constants for morse code timing
 DEFAULT_WPM = 15
 DEFAULT_DOT_DURATION_MS = 80  # For 15 WPM
@@ -165,6 +168,9 @@ class MorseDecoder:
         self._total_dashes_decoded: int = 0
         self._total_characters_decoded: int = 0
 
+        # Get global event bus for publishing events
+        self._event_bus = get_global_event_bus()
+
         try:
             self._validate_configuration()
         except Exception as e:
@@ -277,15 +283,22 @@ class MorseDecoder:
             dot_threshold = self.dot_duration_ms * (1 + self.detection_tolerance)
             dash_threshold = self.dash_duration_ms * (1 - self.detection_tolerance)
 
+            element_type = ""
+            confidence = 0.0
+
             if duration_ms <= dot_threshold:
                 # This is a dot
+                element_type = "."
                 self._current_pattern.append(".")
                 self._total_dots_decoded += 1
+                confidence = 1.0 - abs(duration_ms - self.dot_duration_ms) / self.dot_duration_ms
                 self.logger.debug("Decoded DOT (%.1fms)", duration_ms)
             elif duration_ms >= dash_threshold:
                 # This is a dash
+                element_type = "-"
                 self._current_pattern.append("-")
                 self._total_dashes_decoded += 1
+                confidence = 1.0 - abs(duration_ms - self.dash_duration_ms) / self.dash_duration_ms
                 self.logger.debug("Decoded DASH (%.1fms)", duration_ms)
             else:
                 # Ambiguous duration - use closest match
@@ -293,13 +306,27 @@ class MorseDecoder:
                 dash_diff = abs(duration_ms - self.dash_duration_ms)
 
                 if dot_diff < dash_diff:
+                    element_type = "."
                     self._current_pattern.append(".")
                     self._total_dots_decoded += 1
+                    confidence = 0.5  # Lower confidence for ambiguous
                     self.logger.debug("Decoded ambiguous as DOT (%.1fms)", duration_ms)
                 else:
+                    element_type = "-"
                     self._current_pattern.append("-")
                     self._total_dashes_decoded += 1
+                    confidence = 0.5  # Lower confidence for ambiguous
                     self.logger.debug("Decoded ambiguous as DASH (%.1fms)", duration_ms)
+
+            # Publish morse pattern event
+            pattern_type = "dot" if element_type == "." else "dash"
+            pattern_event = MorsePatternEvent(
+                pattern_type=pattern_type,
+                duration_ms=duration_ms,
+                wpm_estimate=float(self.wpm_estimate),
+                confidence=min(1.0, max(0.0, confidence)),
+            )
+            self._event_bus.publish(pattern_event)
 
         except Exception as e:
             self.logger.exception("Error processing tone element: %s", str(e))
@@ -343,6 +370,8 @@ class MorseDecoder:
 
             # Convert pattern to string
             pattern_str = "".join(self._current_pattern)
+            character = ""
+            confidence = 1.0
 
             # Look up character in morse code table
             if pattern_str in MORSE_CODE_TABLE:
@@ -352,8 +381,20 @@ class MorseDecoder:
                 self.logger.debug("Decoded pattern '%s' as character '%s'", pattern_str, character)
             else:
                 # Unknown pattern - add placeholder
+                character = "?"
+                confidence = 0.0
                 self._decoded_characters.append("?")
                 self.logger.warning("Unknown morse pattern: '%s'", pattern_str)
+
+            # Publish text decoded event
+            text_event = TextDecodedEvent(
+                text=character,
+                pattern_sequence=pattern_str,
+                wpm_estimate=float(self.wpm_estimate),
+                confidence=confidence,
+                is_complete_word=False,  # Individual characters, not complete words
+            )
+            self._event_bus.publish(text_event)
 
             # Reset current pattern
             self._current_pattern.clear()

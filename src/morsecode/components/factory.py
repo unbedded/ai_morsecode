@@ -8,9 +8,9 @@ between the configuration system and the component implementations.
 import logging
 from typing import Any
 
-from morsecode.interfaces.audio import AudioSource
-from morsecode.interfaces.decoder import MorseDecoder
-from morsecode.interfaces.signal import SignalProcessor
+from ..interfaces.audio import AudioSource
+from ..interfaces.decoder import MorseDecoder
+from ..interfaces.signal import SignalProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class ComponentFactory:
         """
         try:
             # Import here to avoid circular imports
-            from morsecode.hal import HardwareAbstractionLayer
+            from .audio.hal import HardwareAbstractionLayer
 
             self.logger.debug("Creating audio source with config: %s", config)
 
@@ -90,7 +90,7 @@ class ComponentFactory:
         """
         try:
             # Import here to avoid circular imports
-            from morsecode.signal_processor import SignalProcessor as LegacySignalProcessor
+            from .signal.signal_processor import SignalProcessor as LegacySignalProcessor
 
             self.logger.debug("Creating signal processor with config: %s", config)
 
@@ -122,7 +122,7 @@ class ComponentFactory:
         """
         try:
             # Import here to avoid circular imports
-            from morsecode.morse_decoder import MorseDecoder as LegacyMorseDecoder
+            from .decoder.morse_decoder import MorseDecoder as LegacyMorseDecoder
 
             self.logger.debug("Creating Morse decoder with config: %s", config)
 

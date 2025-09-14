@@ -26,6 +26,9 @@ import numpy as np
 from scipy import signal
 from scipy.fft import fft, fftfreq
 
+from morsecode.events.bus import get_global_event_bus
+from morsecode.events.types import AudioChunkEvent, ToneDetectedEvent
+
 # Constants
 DEFAULT_SAMPLE_RATE_HZ = 44100
 DEFAULT_TARGET_FREQUENCY_HZ = 600  # Common CW frequency
@@ -87,6 +90,10 @@ class SignalProcessor:
         # Initialize processing state
         self._frequency_bins: np.ndarray | None = None
         self._window: np.ndarray | None = None
+        self._chunk_counter: int = 0
+
+        # Get global event bus for publishing events
+        self._event_bus = get_global_event_bus()
 
         try:
             self._initialize_processing()
@@ -212,6 +219,20 @@ class SignalProcessor:
                 self.logger.warning("Empty audio data provided to tone detection")
                 return False
 
+            # Increment chunk counter
+            self._chunk_counter += 1
+
+            # Publish audio chunk event
+            chunk_size_ms = int((len(audio_data) / self.sample_rate_hz) * 1000)
+            audio_event = AudioChunkEvent(
+                chunk_data=audio_data,
+                chunk_size_ms=chunk_size_ms,
+                sample_rate=self.sample_rate_hz,
+                chunk_number=self._chunk_counter,
+                has_more_data=True,  # Assume more data is coming in streaming scenario
+            )
+            self._event_bus.publish(audio_event)
+
             # Compute FFT of audio data
             frequencies, magnitudes = self.compute_fft(audio_data)
 
@@ -246,8 +267,25 @@ class SignalProcessor:
             else:
                 energy_ratio = 0.0
 
+            # Calculate confidence
+            confidence = min(1.0, energy_ratio * 2.0)  # Scale confidence
+
+            # Calculate SNR for additional context
+            snr_db = self.calculate_snr(audio_data)
+
             # Determine if tone is detected
             tone_detected = energy_ratio > self.detection_threshold
+
+            # Publish tone detection event
+            tone_event = ToneDetectedEvent(
+                detected=tone_detected,
+                frequency=float(target_frequency),
+                confidence=confidence,
+                snr_db=snr_db,
+                chunk_number=self._chunk_counter,
+                detection_threshold=self.detection_threshold,
+            )
+            self._event_bus.publish(tone_event)
 
             self.logger.debug(
                 "Tone detection: frequency=%.1f Hz, energy_ratio=%.3f, detected=%s",

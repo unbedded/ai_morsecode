@@ -9,8 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from morsecode import decoder_app
-from morsecode.config_registry import ConfigRegistry
+from .. import decoder_app
+from ..config.registry import ConfigRegistry
 
 logger = logging.getLogger(__name__)
 

@@ -13,7 +13,11 @@ import numpy as np
 import pytest
 from scipy.io import wavfile
 
-from morsecode.hal import DEFAULT_AUDIO_RATE_HZ, DEFAULT_WAV_FILENAME, HardwareAbstractionLayer
+from morsecode.components.audio.hal import (
+    DEFAULT_AUDIO_RATE_HZ,
+    DEFAULT_WAV_FILENAME,
+    HardwareAbstractionLayer,
+)
 
 
 class TestHardwareAbstractionLayer:
@@ -222,7 +226,7 @@ class TestHardwareAbstractionLayer:
         # Chunks should be different (different parts of the audio)
         assert not np.array_equal(chunk1, chunk2)
 
-    @pytest.mark.parametrize(  # type: ignore[misc]
+    @pytest.mark.parametrize(
         "rate,duration",
         [
             (8000, 0.1),  # Low rate, short duration
@@ -253,7 +257,7 @@ class TestHardwareAbstractionLayer:
         # Should log about missing configuration parameters
         assert any("not found in configuration" in record.message for record in caplog.records)
 
-    @patch("morsecode.hal.wavfile.read")
+    @patch("morsecode.components.audio.hal.wavfile.read")
     def test_load_audio_file_error_handling(self, mock_read: Any, tmp_path: Path) -> None:
         """Test error handling during audio file loading."""
         wav_file = tmp_path / "test.wav"
