@@ -6,11 +6,11 @@ between the configuration system and the component implementations.
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from morsecode.interfaces.audio import AudioSource
-from morsecode.interfaces.signal import SignalProcessor
 from morsecode.interfaces.decoder import MorseDecoder
+from morsecode.interfaces.signal import SignalProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class ComponentFactory:
         """Initialize the component factory."""
         self.logger = logging.getLogger(__name__)
 
-    def create_audio_source(self, config: Dict[str, Any]) -> AudioSource:
+    def create_audio_source(self, config: dict[str, Any]) -> AudioSource:
         """Create an audio source from configuration.
 
         Args:
@@ -72,7 +72,7 @@ class ComponentFactory:
             self.logger.error("Failed to create audio source: %s", e)
             raise ValueError(f"Cannot create audio source: {e}") from e
 
-    def create_signal_processor(self, config: Dict[str, Any]) -> SignalProcessor:
+    def create_signal_processor(self, config: dict[str, Any]) -> SignalProcessor:
         """Create a signal processor from configuration.
 
         Args:
@@ -104,7 +104,7 @@ class ComponentFactory:
             self.logger.error("Failed to create signal processor: %s", e)
             raise ValueError(f"Cannot create signal processor: {e}") from e
 
-    def create_decoder(self, config: Dict[str, Any]) -> MorseDecoder:
+    def create_decoder(self, config: dict[str, Any]) -> MorseDecoder:
         """Create a Morse decoder from configuration.
 
         Args:
@@ -139,6 +139,7 @@ class ComponentFactory:
 
 # Adapter classes to bridge legacy implementations with new protocols
 
+
 class AudioSourceAdapter:
     """Adapter to make HardwareAbstractionLayer work with AudioSource protocol."""
 
@@ -158,7 +159,7 @@ class AudioSourceAdapter:
         """Get sample rate."""
         # HAL doesn't expose this directly, so we'll use a reasonable default
         # In a full implementation, this should be exposed by HAL
-        return getattr(self._hal, 'sample_rate_hz', 44100)
+        return getattr(self._hal, "sample_rate_hz", 44100)
 
     def get_total_duration_ms(self) -> float | None:
         """Get total duration if available."""
@@ -180,7 +181,7 @@ class SignalProcessorAdapter:
     def get_dominant_frequency(self, audio_data: Any) -> float:
         """Get dominant frequency."""
         # Legacy processor doesn't expose this, implement basic version
-        return getattr(self._processor, 'target_frequency_hz', 0.0)
+        return getattr(self._processor, "target_frequency_hz", 0.0)
 
     def get_signal_strength(self, audio_data: Any) -> float:
         """Get signal strength."""
@@ -194,7 +195,7 @@ class SignalProcessorAdapter:
 
     def get_target_frequency(self) -> float:
         """Get target frequency."""
-        return getattr(self._processor, 'target_frequency_hz', 600.0)
+        return getattr(self._processor, "target_frequency_hz", 600.0)
 
 
 class MorseDecoderAdapter:
@@ -221,14 +222,14 @@ class MorseDecoderAdapter:
         # Legacy decoder doesn't have reset, would need to be added
         pass
 
-    def get_statistics(self) -> Dict[str, int | float]:
+    def get_statistics(self) -> dict[str, int | float]:
         """Get decoding statistics."""
         return {
-            'characters_decoded': getattr(self._decoder, '_total_characters_decoded', 0),
-            'dots_detected': getattr(self._decoder, '_total_dots_decoded', 0),
-            'dashes_detected': getattr(self._decoder, '_total_dashes_decoded', 0),
-            'words_decoded': 0,  # Not tracked by legacy decoder
-            'estimated_wpm': getattr(self._decoder, 'wpm_estimate', 15),
+            "characters_decoded": getattr(self._decoder, "_total_characters_decoded", 0),
+            "dots_detected": getattr(self._decoder, "_total_dots_decoded", 0),
+            "dashes_detected": getattr(self._decoder, "_total_dashes_decoded", 0),
+            "words_decoded": 0,  # Not tracked by legacy decoder
+            "estimated_wpm": getattr(self._decoder, "wpm_estimate", 15),
         }
 
     def set_wpm_estimate(self, wpm: float) -> None:
@@ -237,5 +238,5 @@ class MorseDecoderAdapter:
             raise ValueError(f"WPM must be positive, got {wpm}")
         self._decoder.wpm_estimate = int(wpm)  # Legacy decoder uses int
         # Recalculate dot duration if needed
-        if hasattr(self._decoder, 'dot_duration_ms'):
+        if hasattr(self._decoder, "dot_duration_ms"):
             self._decoder.dot_duration_ms = 1200.0 / wpm

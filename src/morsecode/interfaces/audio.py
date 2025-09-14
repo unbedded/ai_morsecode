@@ -5,6 +5,7 @@ enabling flexible audio source implementations and easy testing.
 """
 
 from typing import Protocol
+
 import numpy as np
 
 

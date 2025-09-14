@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""<DATE>2025-09-08</DATE>
+"""<DATE>2025-09-08</DATE>.
 
 C++ project bootstrap tool using template system.
 
@@ -264,10 +264,10 @@ target_include_directories({self.cfg_dict["package_name"]} INTERFACE
  * @file {package_name}.hpp
  * @brief Main header for {package_name} library
  * @author {self.cfg_dict["author"]}
- * 
+ *
  * This header provides the main interface for the {package_name} library
  * following modern C++ practices and CLAUDE.md standards.
- * 
+ *
  * TODO: Add the following:
  * 1. Proper namespace organization
  * 2. Class/function declarations
@@ -275,11 +275,11 @@ target_include_directories({self.cfg_dict["package_name"]} INTERFACE
  * 4. Comprehensive documentation
  * 5. Include necessary standard library headers
  * 6. Forward declarations where appropriate
- * 
+ *
  * Example usage:
  * ```cpp
  * #include "{package_name}/{package_name}.hpp"
- * 
+ *
  * int main() {{
  *     {package_name}::SampleClass obj;
  *     return 0;
@@ -294,11 +294,11 @@ namespace {package_name} {{
 
     // TODO: Add version constants
     constexpr int VERSION_MAJOR = 0;
-    constexpr int VERSION_MINOR = 1; 
+    constexpr int VERSION_MINOR = 1;
     constexpr int VERSION_PATCH = 0;
-    
+
     // TODO: Add main class/function declarations
-    
+
 }} // namespace {package_name}
 """
 
@@ -389,9 +389,9 @@ protected:
     void SetUp() override {{
         // TODO: Setup test environment
     }}
-    
+
     void TearDown() override {{
-        // TODO: Cleanup test environment  
+        // TODO: Cleanup test environment
     }}
 }};
 
@@ -519,7 +519,8 @@ CMakeToolchain
         """
         self.logger.info("Starting C++ project bootstrap (TODO: Placeholder implementation)")
         print(
-            f"⚡ Bootstrapping C++ project: {self.cfg_dict['package_name']} (TODO: Not fully implemented)"
+            f"⚡ Bootstrapping C++ project: {self.cfg_dict['package_name']} "
+            "(TODO: Not fully implemented)"
         )
 
         steps = [

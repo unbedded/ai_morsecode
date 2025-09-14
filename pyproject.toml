@@ -131,6 +131,7 @@ module = ["tests.*"]
 disallow_untyped_defs = false
 warn_return_any = false
 warn_unused_ignores = false
+disable_error_code = ["misc"]
 
 [tool.black]
 line-length = 100

@@ -25,7 +25,7 @@ import numpy as np
 from scipy.io import wavfile
 
 # Constants
-DEFAULT_WAV_FILENAME = "tests/data/NightOfNights2015-various-12Jul2015.wav"
+DEFAULT_WAV_FILENAME = None
 DEFAULT_AUDIO_RATE_HZ = 44100
 
 
@@ -55,7 +55,9 @@ class HardwareAbstractionLayer:
 
         self.audio_data: np.ndarray = np.array([])
         self.audio_rate_hz: int = self._init_param(cfg_dict, "audio_rate_hz", DEFAULT_AUDIO_RATE_HZ)
-        self.wav_filename: str = self._init_param(cfg_dict, "wav_filename", DEFAULT_WAV_FILENAME)
+        self.wav_filename: str | None = self._init_param(
+            cfg_dict, "wav_filename", DEFAULT_WAV_FILENAME
+        )
 
         self.load_audio_file()
 
@@ -94,6 +96,11 @@ class HardwareAbstractionLayer:
             RuntimeError: If there's an error reading the audio file.
         """
         try:
+            # Handle synthetic audio generation for testing
+            if self.wav_filename is None:
+                self._generate_synthetic_audio()
+                return
+
             wav_path = Path(self.wav_filename)
             if not wav_path.exists():
                 raise FileNotFoundError(f"Audio file '{self.wav_filename}' not found")
@@ -180,3 +187,36 @@ class HardwareAbstractionLayer:
             True if audio data is available, False otherwise.
         """
         return len(self.audio_data) > 0
+
+    def _generate_synthetic_audio(self) -> None:
+        """Generate synthetic audio data for testing purposes."""
+        # Generate 1 second of synthetic audio at the configured sample rate
+        duration_seconds = 1.0
+        sample_count = int(self.audio_rate_hz * duration_seconds)
+
+        # Generate a simple sine wave at 600 Hz for testing
+        t = np.linspace(0, duration_seconds, sample_count, endpoint=False)
+        frequency = 600.0  # Hz
+        amplitude = 0.5
+
+        # Create synthetic Morse-like pattern: tone, silence, tone, silence
+        pattern_length = sample_count // 4
+        audio_data: list[np.ndarray] = []
+
+        for i in range(4):
+            if i % 2 == 0:
+                # Tone segments
+                segment = amplitude * np.sin(
+                    2 * np.pi * frequency * t[i * pattern_length : (i + 1) * pattern_length]
+                )
+            else:
+                # Silence segments
+                segment = np.zeros(pattern_length)
+            audio_data.extend(segment)
+
+        self.audio_data = np.array(audio_data, dtype=np.float32)
+        self.logger.info(
+            "Generated synthetic audio data: %d samples at %d Hz",
+            len(self.audio_data),
+            self.audio_rate_hz,
+        )

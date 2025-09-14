@@ -190,10 +190,13 @@ class MorseDecoder:
             The parameter value from config or default.
         """
         value = cfg_dict.get(key, default)
-        if key not in cfg_dict:
+        if key not in cfg_dict or value is None:
             self.logger.info(
-                "Parameter '%s' not found in configuration. Using default: %s", key, default
+                "Parameter '%s' not found in configuration or is None. Using default: %s",
+                key,
+                default,
             )
+            return default
         return value
 
     def _validate_configuration(self) -> None:

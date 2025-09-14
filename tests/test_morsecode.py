@@ -13,14 +13,14 @@ Example usage:
 from morsecode import __version__
 
 
-def test_version():
+def test_version() -> None:
     """Test that version is defined and valid."""
     assert __version__ is not None
     assert isinstance(__version__, str)
     assert len(__version__) > 0
 
 
-def test_package_import():
+def test_package_import() -> None:
     """Test that package can be imported successfully."""
     import morsecode
 
@@ -30,12 +30,12 @@ def test_package_import():
 class TestSanity:
     """Sanity test suite to ensure basic functionality."""
 
-    def test_basic_functionality(self):
+    def test_basic_functionality(self) -> None:
         """Test basic package functionality."""
         # Add your basic functionality tests here
         assert True  # Placeholder test
 
-    def test_environment_setup(self):
+    def test_environment_setup(self) -> None:
         """Test that development environment is properly configured."""
         # Test that required dependencies are available
         import sys

@@ -6,8 +6,8 @@ easy testing through mock implementations.
 """
 
 from .audio import AudioSource
-from .signal import SignalProcessor
 from .decoder import MorseDecoder
+from .signal import SignalProcessor
 
 __all__ = [
     "AudioSource",

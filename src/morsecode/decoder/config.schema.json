@@ -4,14 +4,14 @@
   "description": "Morse code pattern recognition and decoding configuration",
   "type": "object",
   "properties": {
-    "wpm": {
+    "wpm_estimate": {
       "type": "integer",
       "minimum": 5,
       "maximum": 60,
       "default": 15,
       "description": "Initial WPM estimate for timing analysis"
     },
-    "tolerance": {
+    "detection_tolerance": {
       "type": "number",
       "minimum": 0.0,
       "maximum": 1.0,
@@ -25,10 +25,10 @@
       ],
       "minimum": 10,
       "maximum": 1000,
-      "default": null,
+      "default": 80.0,
       "description": "Override dot duration in milliseconds"
     },
-    "min_silence_ms": {
+    "min_silence_duration_ms": {
       "type": "number",
       "minimum": 50,
       "maximum": 2000,

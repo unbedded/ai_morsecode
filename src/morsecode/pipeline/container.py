@@ -5,17 +5,17 @@ the creation and lifecycle of components using the factory pattern.
 """
 
 import logging
-from typing import Any, Callable, Dict, Protocol, TypeVar
+from typing import Any, TypeVar, cast
 
-from morsecode.interfaces.audio import AudioSource
-from morsecode.interfaces.signal import SignalProcessor
-from morsecode.interfaces.decoder import MorseDecoder
-from morsecode.components.factory import ComponentFactory
 from morsecode.awesome_config import AwesomeConfigManager
+from morsecode.components.factory import ComponentFactory
+from morsecode.interfaces.audio import AudioSource
+from morsecode.interfaces.decoder import MorseDecoder
+from morsecode.interfaces.signal import SignalProcessor
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Container:
@@ -42,11 +42,11 @@ class Container:
         self.logger = logging.getLogger(__name__)
         self._factory = ComponentFactory()
         self._config_manager: AwesomeConfigManager | None = None
-        self._singletons: Dict[type, Any] = {}
-        self._registered_configs: Dict[type, str] = {
+        self._singletons: dict[type, Any] = {}
+        self._registered_configs: dict[type, str] = {
             AudioSource: "audio",
             SignalProcessor: "signal",
-            MorseDecoder: "decoder"
+            MorseDecoder: "decoder",
         }
 
     def configure_from_config(self, config_file: str, profile: str | None = None) -> None:
@@ -76,13 +76,16 @@ class Container:
             config_key: Configuration section name (audio, signal, decoder, etc.)
         """
         self._registered_configs[component_type] = config_key
-        self.logger.debug("Registered config mapping: %s -> %s", component_type.__name__, config_key)
+        self.logger.debug(
+            "Registered config mapping: %s -> %s", component_type.__name__, config_key
+        )
 
     def resolve(self, component_type: type[T], *, singleton: bool = True) -> T:
         """Resolve a component instance by type.
 
         Args:
-            component_type: The protocol type to resolve (AudioSource, SignalProcessor, MorseDecoder)
+            component_type: The protocol type to resolve (AudioSource, SignalProcessor,
+                MorseDecoder)
             singleton: Whether to reuse the same instance (default: True)
 
         Returns:
@@ -106,7 +109,7 @@ class Container:
         # Return singleton if already created
         if singleton and component_type in self._singletons:
             self.logger.debug("Returning singleton instance of %s", component_type.__name__)
-            return self._singletons[component_type]
+            return cast(T, self._singletons[component_type])
 
         # Get configuration for this component type
         config_key = self._registered_configs[component_type]
@@ -115,21 +118,23 @@ class Container:
         # Create instance using factory
         try:
             if component_type == AudioSource:
-                instance = self._factory.create_audio_source(config)
+                instance = cast(T, self._factory.create_audio_source(config))
             elif component_type == SignalProcessor:
-                instance = self._factory.create_signal_processor(config)
+                instance = cast(T, self._factory.create_signal_processor(config))
             elif component_type == MorseDecoder:
-                instance = self._factory.create_decoder(config)
+                instance = cast(T, self._factory.create_decoder(config))
             else:
                 raise ValueError(f"No factory method for {component_type.__name__}")
 
-            self.logger.debug("Created %s instance with config: %s", component_type.__name__, config_key)
+            self.logger.debug(
+                "Created %s instance with config: %s", component_type.__name__, config_key
+            )
 
             # Store as singleton if requested
             if singleton:
                 self._singletons[component_type] = instance
 
-            return instance  # type: ignore[return-value]
+            return instance
 
         except Exception as e:
             self.logger.error("Failed to resolve %s: %s", component_type.__name__, e)

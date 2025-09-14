@@ -5,6 +5,7 @@ analyze audio data and detect tones or other signal characteristics.
 """
 
 from typing import Protocol
+
 import numpy as np
 
 
