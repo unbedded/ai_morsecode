@@ -8,10 +8,10 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .awesome_config import AwesomeConfigManager
-from .hal import HardwareAbstractionLayer
-from .morse_decoder import MorseDecoder
-from .signal_processor import SignalProcessor
+from ..components.audio.hal import HardwareAbstractionLayer
+from ..components.decoder.morse_decoder import MorseDecoder
+from ..components.signal.signal_processor import SignalProcessor
+from .manager import AwesomeConfigManager
 
 logger = logging.getLogger(__name__)
 

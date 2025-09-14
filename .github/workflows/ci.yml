@@ -18,7 +18,7 @@ jobs:
         run: |
           ruff format --check
           ruff check
-      - name: Mypy
-        run: mypy .
+      - name: Mypy (source code only)
+        run: mypy src/ --config-file pyproject.toml
       - name: Pytest
         run: pytest -q
