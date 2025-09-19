@@ -110,8 +110,7 @@ class EventBus:
         handler_name = getattr(handler, "__name__", str(handler))
 
         self.logger.debug(
-            f"Subscribed {handler_name} to {event_type.__name__} "
-            f"(total: {len(self._handlers[event_type])} handlers)"
+            f"Subscribed {handler_name} to {event_type.__name__} (total: {len(self._handlers[event_type])} handlers)"
         )
 
     def unsubscribe(self, event_type: type[T], handler: EventHandler[T]) -> bool:

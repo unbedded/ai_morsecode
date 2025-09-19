@@ -78,9 +78,7 @@ class Container:
             config_key: Configuration section name (audio, signal, decoder, etc.)
         """
         self._registered_configs[component_type] = config_key
-        self.logger.debug(
-            "Registered config mapping: %s -> %s", component_type.__name__, config_key
-        )
+        self.logger.debug("Registered config mapping: %s -> %s", component_type.__name__, config_key)
 
     def resolve(self, component_type: type[T], *, singleton: bool = True) -> T:
         """Resolve a component instance by type.
@@ -146,9 +144,7 @@ class Container:
             else:
                 raise ValueError(f"No factory method for {component_type.__name__}")
 
-            self.logger.debug(
-                "Created %s instance with config: %s", component_type.__name__, config_key
-            )
+            self.logger.debug("Created %s instance with config: %s", component_type.__name__, config_key)
 
             # Store as singleton if requested
             if singleton:

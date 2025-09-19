@@ -518,10 +518,7 @@ CMakeToolchain
             True if successful
         """
         self.logger.info("Starting C++ project bootstrap (TODO: Placeholder implementation)")
-        print(
-            f"⚡ Bootstrapping C++ project: {self.cfg_dict['package_name']} "
-            "(TODO: Not fully implemented)"
-        )
+        print(f"⚡ Bootstrapping C++ project: {self.cfg_dict['package_name']} (TODO: Not fully implemented)")
 
         steps = [
             ("Create directory structure", self.create_cpp_directory_structure),

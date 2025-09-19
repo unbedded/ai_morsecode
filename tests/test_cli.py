@@ -209,16 +209,12 @@ class TestLoggingSetup:
 
         # Check that debug logging was enabled
         root_logger = logging.getLogger()
-        assert root_logger.level <= logging.DEBUG or any(
-            h.level <= logging.DEBUG for h in root_logger.handlers
-        )
+        assert root_logger.level <= logging.DEBUG or any(h.level <= logging.DEBUG for h in root_logger.handlers)
 
         # Check stderr for debug message since it may go there instead of caplog
         captured = capsys.readouterr()
         debug_found = "Debug mode enabled" in caplog.text or "Debug mode enabled" in captured.err
-        assert debug_found, (
-            f"Debug message not found. Caplog: {caplog.text}, Stderr: {captured.err}"
-        )
+        assert debug_found, f"Debug message not found. Caplog: {caplog.text}, Stderr: {captured.err}"
 
     def test_setup_logging_level_override(self, caplog: Any) -> None:
         """Test logging setup with log level override."""
@@ -233,9 +229,7 @@ class TestLoggingSetup:
 
         # Check that INFO level was set
         root_logger = logging.getLogger()
-        assert root_logger.level <= logging.INFO or any(
-            h.level <= logging.INFO for h in root_logger.handlers
-        )
+        assert root_logger.level <= logging.INFO or any(h.level <= logging.INFO for h in root_logger.handlers)
 
     def test_setup_logging_config_error(self, caplog: Any) -> None:
         """Test logging setup when config fails."""
@@ -286,7 +280,7 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.return_value = {}
 
-        with patch('morsecode.cli.main.AwesomeConfigManager', return_value=mock_config_manager):
+        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             result = main(["--validate-config"])
 
         assert result == 0
@@ -300,7 +294,7 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.side_effect = Exception("Invalid config")
 
-        with patch('morsecode.cli.main.AwesomeConfigManager', return_value=mock_config_manager):
+        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             result = main(["--validate-config"])
 
         assert result == 1
@@ -314,7 +308,7 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.return_value = {}
 
-        with patch('morsecode.cli.main.AwesomeConfigManager', return_value=mock_config_manager):
+        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             result = main([])
 
         assert result == 1
@@ -348,7 +342,7 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.return_value = {}
 
-        with patch('morsecode.cli.main.AwesomeConfigManager', return_value=mock_config_manager):
+        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             with patch(
                 "morsecode.cli.main.decoder_app.run_decoder_typed",
                 side_effect=KeyboardInterrupt,
@@ -369,7 +363,7 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.return_value = {}
 
-        with patch('morsecode.cli.main.AwesomeConfigManager', return_value=mock_config_manager):
+        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             with patch(
                 "morsecode.cli.main.decoder_app.run_decoder_typed",
                 side_effect=RuntimeError("Unexpected"),
@@ -393,7 +387,7 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.return_value = {}
 
-        with patch('morsecode.cli.main.AwesomeConfigManager', return_value=mock_config_manager):
+        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             result = main(
                 [
                     str(wav_file),
@@ -504,9 +498,7 @@ decoder:
         """Test comprehensive error reporting."""
         # Test multiple validation errors - this will exit early due to validation
         try:
-            result = main(
-                ["nonexistent.wav", "--frequency", "5000", "--wpm", "200", "--threshold", "5.0"]
-            )
+            result = main(["nonexistent.wav", "--frequency", "5000", "--wpm", "200", "--threshold", "5.0"])
             assert result == 1
         except SystemExit:
             pass  # Expected due to validation failure

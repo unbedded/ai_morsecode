@@ -70,7 +70,10 @@ class HardwareAbstractionLayer:
 
         self.logger.info(
             "Audio HAL initialized: sample_rate=%dHz, file=%s, agc=%s, chunk=%dms",
-            self.audio_rate_hz, self.wav_filename, self.auto_gain_control, self.chunk_size_ms
+            self.audio_rate_hz,
+            self.wav_filename,
+            self.auto_gain_control,
+            self.chunk_size_ms,
         )
 
         # Initialize audio processing state
@@ -238,9 +241,7 @@ class HardwareAbstractionLayer:
         for i in range(4):
             if i % 2 == 0:
                 # Tone segments
-                segment = amplitude * np.sin(
-                    2 * np.pi * frequency * t[i * pattern_length : (i + 1) * pattern_length]
-                )
+                segment = amplitude * np.sin(2 * np.pi * frequency * t[i * pattern_length : (i + 1) * pattern_length])
             else:
                 # Silence segments
                 segment = np.zeros(pattern_length)

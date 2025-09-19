@@ -141,8 +141,7 @@ class TestSnippetGenerator:
             line = line.strip()
             # Skip header/footer markers and empty lines
             if (
-                line.startswith("=")
-                and ("WPM" in line.upper() or "END" in line.upper() or "TEXT" in line.upper())
+                line.startswith("=") and ("WPM" in line.upper() or "END" in line.upper() or "TEXT" in line.upper())
             ) or not line:
                 continue
             # Remove non-printable characters except basic punctuation
@@ -262,9 +261,7 @@ class TestSnippetGenerator:
             # Find each unique character
             for char in expected_text:
                 if char in self.MORSE_CODE and char not in found_chars:
-                    snippet_data = self.extract_snippet_by_text_position(
-                        wav_file, txt_file, char, context_chars=3
-                    )
+                    snippet_data = self.extract_snippet_by_text_position(wav_file, txt_file, char, context_chars=3)
 
                     if snippet_data:
                         # Save audio snippet (handle special characters in filename)
@@ -272,9 +269,7 @@ class TestSnippetGenerator:
                         snippet_filename = f"{safe_char}_{wpm}WPM.wav"
                         snippet_path = char_dir / snippet_filename
 
-                        self._save_audio_snippet(
-                            snippet_path, snippet_data["audio"], snippet_data["sample_rate"]
-                        )
+                        self._save_audio_snippet(snippet_path, snippet_data["audio"], snippet_data["sample_rate"])
 
                         # Create metadata
                         metadata = SnippetMetadata(
@@ -372,9 +367,7 @@ class TestSnippetGenerator:
                         snippet_filename = f"{clean_word}_{wpm}WPM.wav"
                         snippet_path = subdir / snippet_filename
 
-                        self._save_audio_snippet(
-                            snippet_path, snippet_data["audio"], snippet_data["sample_rate"]
-                        )
+                        self._save_audio_snippet(snippet_path, snippet_data["audio"], snippet_data["sample_rate"])
 
                         # Create metadata
                         metadata = SnippetMetadata(
@@ -437,9 +430,7 @@ class TestSnippetGenerator:
 
             for phrase in target_phrases:
                 if phrase in expected_text:
-                    snippet_data = self.extract_snippet_by_text_position(
-                        wav_file, txt_file, phrase, context_chars=5
-                    )
+                    snippet_data = self.extract_snippet_by_text_position(wav_file, txt_file, phrase, context_chars=5)
 
                     if snippet_data:
                         # Choose subdirectory based on phrase length
@@ -451,9 +442,7 @@ class TestSnippetGenerator:
                         snippet_filename = f"{safe_phrase}_{wpm}WPM.wav"
                         snippet_path = subdir / snippet_filename
 
-                        self._save_audio_snippet(
-                            snippet_path, snippet_data["audio"], snippet_data["sample_rate"]
-                        )
+                        self._save_audio_snippet(snippet_path, snippet_data["audio"], snippet_data["sample_rate"])
 
                         # Create metadata
                         metadata = SnippetMetadata(
@@ -491,9 +480,7 @@ class TestSnippetGenerator:
 
         wavfile.write(filepath, sample_rate, audio_int16)
 
-    def generate_all_snippets(
-        self, snippet_types: list[str] | None = None
-    ) -> dict[str, list[SnippetMetadata]]:
+    def generate_all_snippets(self, snippet_types: list[str] | None = None) -> dict[str, list[SnippetMetadata]]:
         """Generate all requested snippet types."""
         if snippet_types is None:
             snippet_types = ["characters", "words", "phrases"]
@@ -527,9 +514,7 @@ class TestSnippetGenerator:
             "output_directory": str(self.output_dir),
             "snippet_counts": {k: len(v) for k, v in all_snippets.items()},
             "total_snippets": sum(len(v) for v in all_snippets.values()),
-            "snippets_by_type": {
-                k: [asdict(snippet) for snippet in v] for k, v in all_snippets.items()
-            },
+            "snippets_by_type": {k: [asdict(snippet) for snippet in v] for k, v in all_snippets.items()},
         }
 
         metadata_file = self.output_dir / "generated_metadata.json"
@@ -568,9 +553,7 @@ Examples:
     gen_parser.add_argument(
         "--source", "-s", type=Path, required=True, help="Source directory containing WAV/TXT pairs"
     )
-    gen_parser.add_argument(
-        "--output", "-o", type=Path, required=True, help="Output directory for generated snippets"
-    )
+    gen_parser.add_argument("--output", "-o", type=Path, required=True, help="Output directory for generated snippets")
     gen_parser.add_argument(
         "--types",
         nargs="+",
@@ -578,25 +561,17 @@ Examples:
         default=["characters", "words", "phrases"],
         help="Types of snippets to generate",
     )
-    gen_parser.add_argument(
-        "--min-word-length", type=int, default=2, help="Minimum word length for word snippets"
-    )
-    gen_parser.add_argument(
-        "--max-word-length", type=int, default=15, help="Maximum word length for word snippets"
-    )
+    gen_parser.add_argument("--min-word-length", type=int, default=2, help="Minimum word length for word snippets")
+    gen_parser.add_argument("--max-word-length", type=int, default=15, help="Maximum word length for word snippets")
     gen_parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 
     # List sources command
     list_parser = subparsers.add_parser("list-sources", help="List available WAV/TXT pairs")
-    list_parser.add_argument(
-        "--source", "-s", type=Path, required=True, help="Source directory to scan"
-    )
+    list_parser.add_argument("--source", "-s", type=Path, required=True, help="Source directory to scan")
 
     # List snippets command
     snippets_parser = subparsers.add_parser("list-snippets", help="List generated snippets")
-    snippets_parser.add_argument(
-        "--snippets", type=Path, required=True, help="Snippets directory to scan"
-    )
+    snippets_parser.add_argument("--snippets", type=Path, required=True, help="Snippets directory to scan")
 
     args = parser.parse_args()
 

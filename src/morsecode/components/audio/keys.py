@@ -5,6 +5,7 @@ from enum import Enum
 
 class CfgKey(Enum):
     """Config keys for Audio component - auto-complete friendly!"""
+
     SAMPLE_RATE = "sample_rate"
     WAV_FILENAME = "wav_filename"
     AUTO_GAIN_CONTROL = "auto_gain_control"
@@ -13,4 +14,5 @@ class CfgKey(Enum):
 
 class CfgSection(Enum):
     """Section names for audio configuration."""
+
     AUDIO = "audio"

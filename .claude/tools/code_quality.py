@@ -288,9 +288,7 @@ Examples:
 
     try:
         pipeline = CodeQualityPipeline()
-        success = pipeline.run_pipeline(
-            fix=args.fix, coverage=args.coverage, verbose=args.verbose, report=args.report
-        )
+        success = pipeline.run_pipeline(fix=args.fix, coverage=args.coverage, verbose=args.verbose, report=args.report)
         return 0 if success else 1
 
     except Exception as e:

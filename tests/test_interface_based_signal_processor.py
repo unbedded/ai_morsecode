@@ -135,9 +135,7 @@ class TestInterfaceBasedSignalProcessor:
         noise_chunk = self.create_synthetic_audio(1200.0)  # Off-target frequency
 
         # Setup mock audio source
-        mock_source = MockAudioSource(
-            sample_rate=44100, chunks=[tone_chunk, noise_chunk, tone_chunk]
-        )
+        mock_source = MockAudioSource(sample_rate=44100, chunks=[tone_chunk, noise_chunk, tone_chunk])
 
         processor = SignalProcessor()
 
@@ -210,9 +208,7 @@ class TestInterfaceBasedSignalProcessor:
             frequency = mock_processor.get_dominant_frequency(chunk)
             confidence = mock_processor.get_detection_confidence(chunk)
 
-            results.append(
-                {"detected": detection, "frequency": frequency, "confidence": confidence}
-            )
+            results.append({"detected": detection, "frequency": frequency, "confidence": confidence})
 
         # Verify mock behavior matches expectations
         assert len(results) == 5

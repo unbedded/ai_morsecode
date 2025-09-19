@@ -97,8 +97,7 @@ class LoggingEventHandler:
         """Log tone detection events."""
         status = "🎵 TONE" if event.detected else "🔇 SILENCE"
         self.logger.debug(
-            f"{status} @ {event.frequency:.0f}Hz "
-            f"(confidence: {event.confidence:.2f}, SNR: {event.snr_db:.1f}dB)"
+            f"{status} @ {event.frequency:.0f}Hz (confidence: {event.confidence:.2f}, SNR: {event.snr_db:.1f}dB)"
         )
 
     def _log_pattern_event(self, event: MorsePatternEvent) -> None:
@@ -106,8 +105,7 @@ class LoggingEventHandler:
         pattern_symbols = {"dot": "●", "dash": "▬", "letter_space": "·", "word_space": "   "}
         symbol = pattern_symbols.get(event.pattern_type, event.pattern_type)
         self.logger.debug(
-            f"Pattern: {symbol} ({event.pattern_type}) "
-            f"[{event.duration_ms:.0f}ms, WPM: {event.wpm_estimate:.1f}]"
+            f"Pattern: {symbol} ({event.pattern_type}) [{event.duration_ms:.0f}ms, WPM: {event.wpm_estimate:.1f}]"
         )
 
     def _log_state_event(self, event: PipelineStateEvent) -> None:
@@ -130,8 +128,7 @@ class LoggingEventHandler:
     def _log_audio_event(self, event: AudioChunkEvent) -> None:
         """Log audio chunk events (very verbose)."""
         self.logger.debug(
-            f"🎧 Audio chunk #{event.chunk_number}: "
-            f"{len(event.chunk_data)} samples @ {event.sample_rate}Hz"
+            f"🎧 Audio chunk #{event.chunk_number}: {len(event.chunk_data)} samples @ {event.sample_rate}Hz"
         )
 
     def _log_generic_event(self, event: BaseEvent) -> None:

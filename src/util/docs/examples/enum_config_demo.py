@@ -25,11 +25,11 @@ class MockConfigManager:
         self.schemas = {}
         self.configs = {
             "signal": {
-                "frequency": 700,      # Override default
-                "threshold": 0.25,     # Override default
-                "bandwidth": 75,       # Override default
+                "frequency": 700,  # Override default
+                "threshold": 0.25,  # Override default
+                "bandwidth": 75,  # Override default
                 "sample_rate": 48000,  # Override default
-                "mode": "ADAPTIVE"     # Override default
+                "mode": "ADAPTIVE",  # Override default
             }
         }
 
@@ -96,7 +96,10 @@ class SignalProcessor:
 
         self.logger.info(
             "SignalProcessor initialized: freq=%dHz, threshold=%.2f, bandwidth=%dHz, mode=%s",
-            self.target_frequency_hz, self.detection_threshold, self.filter_bandwidth_hz, self.mode.value
+            self.target_frequency_hz,
+            self.detection_threshold,
+            self.filter_bandwidth_hz,
+            self.mode.value,
         )
 
     def process_signal(self, data):
@@ -114,7 +117,7 @@ def demo_enum_config_pattern():
     print("=== Enum-Based Config Pattern Demo ===\\n")
 
     # Setup logging
-    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
     # Create mock config manager
     config_mgr = MockConfigManager()

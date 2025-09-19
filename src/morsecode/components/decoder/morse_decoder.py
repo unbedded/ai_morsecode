@@ -229,9 +229,7 @@ class MorseDecoder:
                     self._last_tone_end_time = self._current_time
                     self._tone_start_time = None
 
-                    self.logger.debug(
-                        "Tone ended at %.1fms, duration: %.1fms", self._current_time, tone_duration
-                    )
+                    self.logger.debug("Tone ended at %.1fms, duration: %.1fms", self._current_time, tone_duration)
 
             # Update current time
             self._current_time += chunk_duration_ms
@@ -313,16 +311,12 @@ class MorseDecoder:
                 self._finalize_current_character()
                 if self._decoded_characters and self._decoded_characters[-1] != " ":
                     self._decoded_characters.append(" ")
-                    self.logger.debug(
-                        "Word boundary detected (%.1fms silence)", silence_duration_ms
-                    )
+                    self.logger.debug("Word boundary detected (%.1fms silence)", silence_duration_ms)
 
             elif silence_duration_ms >= character_threshold:
                 # Character boundary
                 self._finalize_current_character()
-                self.logger.debug(
-                    "Character boundary detected (%.1fms silence)", silence_duration_ms
-                )
+                self.logger.debug("Character boundary detected (%.1fms silence)", silence_duration_ms)
 
             # Keep last tone end time for continued silence tracking
 
@@ -429,9 +423,7 @@ class MorseDecoder:
         except Exception as e:
             self.logger.exception("Error resetting decoder: %s", str(e))
 
-    def estimate_wpm_from_timing(
-        self, sample_dots: list[float], sample_dashes: list[float]
-    ) -> float:
+    def estimate_wpm_from_timing(self, sample_dots: list[float], sample_dashes: list[float]) -> float:
         """Estimate WPM from sample dot and dash durations.
 
         Args:
@@ -454,9 +446,7 @@ class MorseDecoder:
             # At 1 WPM: 60 seconds / word = 60000ms / 50 units = 1200ms per dot unit
             estimated_wpm = 1200.0 / median_dot_duration
 
-            self.logger.info(
-                "Estimated WPM: %.1f (from %.1fms dot duration)", estimated_wpm, median_dot_duration
-            )
+            self.logger.info("Estimated WPM: %.1f (from %.1fms dot duration)", estimated_wpm, median_dot_duration)
 
             return estimated_wpm
 

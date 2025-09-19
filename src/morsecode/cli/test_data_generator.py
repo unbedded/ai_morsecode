@@ -257,9 +257,7 @@ class TestDataGenerator:
 
         return hashlib.md5(audio_data.tobytes()).hexdigest()[:8]
 
-    def save_test_pair(
-        self, test_case: TestCase, audio_data: np.ndarray, sample_rate: int = 44100
-    ) -> TestDataMetadata:
+    def save_test_pair(self, test_case: TestCase, audio_data: np.ndarray, sample_rate: int = 44100) -> TestDataMetadata:
         """Save a test WAV/TXT pair and return metadata."""
         # Determine output directory based on difficulty
         output_dir = self.dirs[test_case.difficulty]
@@ -335,22 +333,12 @@ class TestDataGenerator:
                 "Single dash",
                 ["character", "basic"],
             ),
-            TestCase(
-                "Single_A", "A", 15, 600, "basic", "characters", "Dot-dash", ["character", "basic"]
-            ),
-            TestCase(
-                "Single_N", "N", 15, 600, "basic", "characters", "Dash-dot", ["character", "basic"]
-            ),
+            TestCase("Single_A", "A", 15, 600, "basic", "characters", "Dot-dash", ["character", "basic"]),
+            TestCase("Single_N", "N", 15, 600, "basic", "characters", "Dash-dot", ["character", "basic"]),
             # Simple words
-            TestCase(
-                "Word_THE", "THE", 15, 600, "basic", "words", "Common word", ["word", "common"]
-            ),
-            TestCase(
-                "Word_AND", "AND", 15, 600, "basic", "words", "Common word", ["word", "common"]
-            ),
-            TestCase(
-                "Word_TO", "TO", 15, 600, "basic", "words", "Two letter word", ["word", "short"]
-            ),
+            TestCase("Word_THE", "THE", 15, 600, "basic", "words", "Common word", ["word", "common"]),
+            TestCase("Word_AND", "AND", 15, 600, "basic", "words", "Common word", ["word", "common"]),
+            TestCase("Word_TO", "TO", 15, 600, "basic", "words", "Two letter word", ["word", "short"]),
             # Numbers
             TestCase(
                 "Numbers_12345",
@@ -465,8 +453,7 @@ class TestDataGenerator:
             # Longer text passages
             TestCase(
                 "Paragraph_Text",
-                "THIS IS A LONGER TEXT PASSAGE TO TEST THE DECODER WITH CONTINUOUS MORSE "
-                "CODE OVER MULTIPLE SENTENCES",
+                "THIS IS A LONGER TEXT PASSAGE TO TEST THE DECODER WITH CONTINUOUS MORSE CODE OVER MULTIPLE SENTENCES",
                 15,
                 600,
                 "intermediate",
@@ -750,9 +737,7 @@ class TestDataGenerator:
         self.logger.info(f"Generated {len(metadata_list)} reference test cases")
         return metadata_list
 
-    def generate_all_tests(
-        self, test_types: list[str] | None = None
-    ) -> dict[str, list[TestDataMetadata]]:
+    def generate_all_tests(self, test_types: list[str] | None = None) -> dict[str, list[TestDataMetadata]]:
         """Generate all requested test types."""
         if test_types is None:
             test_types = ["basic", "intermediate", "advanced", "stress", "reference"]
@@ -832,9 +817,7 @@ Examples:
 
     # Generate command
     gen_parser = subparsers.add_parser("generate", help="Generate test data")
-    gen_parser.add_argument(
-        "--output", "-o", type=Path, required=True, help="Output directory for generated test data"
-    )
+    gen_parser.add_argument("--output", "-o", type=Path, required=True, help="Output directory for generated test data")
     gen_parser.add_argument(
         "--types",
         nargs="+",
@@ -850,9 +833,7 @@ Examples:
 
     # Stats command
     stats_parser = subparsers.add_parser("stats", help="Show test statistics")
-    stats_parser.add_argument(
-        "--data", type=Path, required=True, help="Test data directory to analyze"
-    )
+    stats_parser.add_argument("--data", type=Path, required=True, help="Test data directory to analyze")
 
     args = parser.parse_args()
 
@@ -936,15 +917,8 @@ Examples:
                     print(f"    {wpm} WPM: {wpms[wpm]} tests")
 
                 # Total duration
-                total_duration = sum(
-                    test["duration"]
-                    for tests in metadata["tests_by_type"].values()
-                    for test in tests
-                )
-                print(
-                    f"\nTotal audio duration: {total_duration:.1f} seconds "
-                    f"({total_duration / 60:.1f} minutes)"
-                )
+                total_duration = sum(test["duration"] for tests in metadata["tests_by_type"].values() for test in tests)
+                print(f"\nTotal audio duration: {total_duration:.1f} seconds ({total_duration / 60:.1f} minutes)")
 
             else:
                 print(f"No test data metadata found in {args.data}")

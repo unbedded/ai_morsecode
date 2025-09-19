@@ -26,9 +26,7 @@ def analyze_snippet(snippet_file):
     try:
         sample_rate, audio_data = wavfile.read(snippet_file)
         print(f"Sample rate: {sample_rate} Hz")
-        print(
-            f"Audio length: {len(audio_data)} samples ({len(audio_data) / sample_rate:.3f} seconds)"
-        )
+        print(f"Audio length: {len(audio_data)} samples ({len(audio_data) / sample_rate:.3f} seconds)")
         print(f"Audio data type: {audio_data.dtype}")
         print(f"Audio range: [{audio_data.min()}, {audio_data.max()}]")
 

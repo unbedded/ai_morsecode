@@ -156,9 +156,7 @@ class AudioChunkEvent(BaseEvent):
         if len(payload) < 14:
             raise ValueError("AudioChunkEvent payload too short")
 
-        chunk_size_ms, sample_rate, chunk_number, has_more_data_int = struct.unpack(
-            "!IIIH", payload[:14]
-        )
+        chunk_size_ms, sample_rate, chunk_number, has_more_data_int = struct.unpack("!IIIH", payload[:14])
 
         # Create empty array - real audio data not serialized
         empty_array = np.array([], dtype=np.float32)
@@ -225,8 +223,8 @@ class ToneDetectedEvent(BaseEvent):
         if len(payload) < 22:  # 2+4*4+4 bytes
             raise ValueError("ToneDetectedEvent payload too short")
 
-        detected_int, frequency, confidence, snr_db, detection_threshold, chunk_number = (
-            struct.unpack("!HffffI", payload[:22])
+        detected_int, frequency, confidence, snr_db, detection_threshold, chunk_number = struct.unpack(
+            "!HffffI", payload[:22]
         )
 
         return cls(
@@ -274,9 +272,7 @@ class MorsePatternEvent(BaseEvent):
         pattern_types = {"dot": 1, "dash": 2, "letter_space": 3, "word_space": 4}
         pattern_id = pattern_types.get(self.pattern_type, 0)
 
-        return struct.pack(
-            "!Hfff", pattern_id, self.duration_ms, self.wpm_estimate, self.confidence
-        )
+        return struct.pack("!Hfff", pattern_id, self.duration_ms, self.wpm_estimate, self.confidence)
 
     @classmethod
     def _deserialize_payload(cls, timestamp: int, payload: bytes) -> "MorsePatternEvent":
@@ -346,9 +342,7 @@ class TextDecodedEvent(BaseEvent):
             raise ValueError("TextDecodedEvent payload too short")
 
         # Parse header
-        text_len, wpm_estimate, confidence, pattern_len, is_word_int = struct.unpack(
-            "!HffHH", payload[:14]
-        )
+        text_len, wpm_estimate, confidence, pattern_len, is_word_int = struct.unpack("!HffHH", payload[:14])
 
         # Extract strings
         text_start = 14  # After the 14-byte header
@@ -485,9 +479,7 @@ def create_text_event(
     )
 
 
-def create_error_event(
-    error: Exception, component: str, recoverable: bool = True, **context: Any
-) -> ErrorEvent:
+def create_error_event(error: Exception, component: str, recoverable: bool = True, **context: Any) -> ErrorEvent:
     """Convenience function for creating error events from exceptions."""
     return ErrorEvent(
         error_type=type(error).__name__,

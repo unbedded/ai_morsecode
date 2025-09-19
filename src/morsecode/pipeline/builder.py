@@ -152,9 +152,7 @@ class PipelineBuilder:
         if not self._container.get_config_manager() and not any(
             [self._custom_audio, self._custom_signal, self._custom_decoder]
         ):
-            raise ValueError(
-                "Pipeline must be configured from config file or have custom components"
-            )
+            raise ValueError("Pipeline must be configured from config file or have custom components")
 
         # Resolve or use custom components
         audio_source = self._custom_audio or self._container.resolve(AudioSource)  # type: ignore[type-abstract]

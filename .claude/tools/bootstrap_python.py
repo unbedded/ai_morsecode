@@ -66,9 +66,7 @@ class PythonProjectBootstrapper:
         for key, default_value in defaults.items():
             if key not in cfg_dict:
                 cfg_dict[key] = default_value
-                self.logger.debug(
-                    "Applied Python default for missing key %s: %s", key, default_value
-                )
+                self.logger.debug("Applied Python default for missing key %s: %s", key, default_value)
 
         return cfg_dict
 
@@ -425,9 +423,7 @@ class TestSanity:
             return False
         else:
             self.logger.info("Python project bootstrap completed successfully")
-            print(
-                f"\n✅ Python project '{self.cfg_dict['package_name']}' bootstrapped successfully!"
-            )
+            print(f"\n✅ Python project '{self.cfg_dict['package_name']}' bootstrapped successfully!")
             print("\nNext steps:")
             print("1. Activate virtual environment: source .venv/bin/activate")
             print("2. Run quality check: /check-code --fix")
@@ -452,17 +448,13 @@ Examples:
         """,
     )
 
-    parser.add_argument(
-        "--package", required=True, help="Package name (replaces __PKG__ placeholder)"
-    )
+    parser.add_argument("--package", required=True, help="Package name (replaces __PKG__ placeholder)")
 
     parser.add_argument("--python", default="3.13", help="Python version (default: 3.13)")
 
     parser.add_argument("--author", default="Your Name", help="Author name for project metadata")
 
-    parser.add_argument(
-        "--email", default="your.email@example.com", help="Author email for project metadata"
-    )
+    parser.add_argument("--email", default="your.email@example.com", help="Author email for project metadata")
 
     parser.add_argument("--create-venv", action="store_true", help="Create virtual environment")
 
@@ -473,13 +465,9 @@ Examples:
         help="Install dependencies after setup",
     )
 
-    parser.add_argument(
-        "--include-fastapi", action="store_true", help="Include FastAPI dependencies"
-    )
+    parser.add_argument("--include-fastapi", action="store_true", help="Include FastAPI dependencies")
 
-    parser.add_argument(
-        "--include-cli", action="store_true", help="Include CLI dependencies (click, rich)"
-    )
+    parser.add_argument("--include-cli", action="store_true", help="Include CLI dependencies (click, rich)")
 
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 

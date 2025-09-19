@@ -229,9 +229,7 @@ class ProjectBootstrapper:
             gitignore_content = "\n".join(common_patterns + language_patterns)
 
             Path(".gitignore").write_text(gitignore_content)
-            self.logger.info(
-                "Created .gitignore with %d patterns", len(common_patterns + language_patterns)
-            )
+            self.logger.info("Created .gitignore with %d patterns", len(common_patterns + language_patterns))
             print("✅ Created .gitignore file")
             return True
 
@@ -395,9 +393,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
             file_path.write_text(content)
 
-            self.logger.debug(
-                "Replaced placeholders in %s: %s", file_path, list(replacements.keys())
-            )
+            self.logger.debug("Replaced placeholders in %s: %s", file_path, list(replacements.keys()))
             return True
 
         except Exception as e:
@@ -420,9 +416,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
             target_path = Path("CLAUDE.md")
 
             if not template_path.exists():
-                self.logger.error(
-                    "Language-specific CLAUDE.md template not found: %s", template_path
-                )
+                self.logger.error("Language-specific CLAUDE.md template not found: %s", template_path)
                 print(f"❌ Template not found: {template_name}")
                 return False
 

@@ -56,7 +56,7 @@ class ConfigRegistry:
                     "minimum": 200,
                     "maximum": 2000,
                     "default": 600,  # Registry as single source of truth
-                    "unit": "Hz"
+                    "unit": "Hz",
                 }
 
         elif "threshold" in param_name.lower():
@@ -95,9 +95,7 @@ class ConfigRegistry:
         """
         properties = {}
 
-        for param_name, (_yaml_key, legacy_key, description) in module_info[
-            "config_mapping"
-        ].items():
+        for param_name, (_yaml_key, legacy_key, description) in module_info["config_mapping"].items():
             # Infer type and constraints
             property_schema = self._infer_type_and_range(param_name, legacy_key)
             property_schema["description"] = description
@@ -122,9 +120,7 @@ class ConfigRegistry:
         # Schema generation disabled - enum-based system uses component-specific schema.py files
         self.logger.debug("Legacy schema generation disabled for module: %s", module_name)
 
-    def get_config_manager(
-        self, config_file: str | None = None, profile: str | None = None
-    ) -> AwesomeConfigManager:
+    def get_config_manager(self, config_file: str | None = None, profile: str | None = None) -> AwesomeConfigManager:
         """Get a configured AwesomeConfigManager instance.
 
         Args:
@@ -147,10 +143,10 @@ class ConfigRegistry:
 
     def _extract_unit_from_schema(self, schema_obj, field_name: str) -> str | None:
         """Extract unit metadata from CfgField schema object."""
-        if hasattr(schema_obj, '__dataclass_fields__'):
+        if hasattr(schema_obj, "__dataclass_fields__"):
             # Get the field from the dataclass
             field = getattr(schema_obj, field_name, None)
-            if hasattr(field, 'unit'):
+            if hasattr(field, "unit"):
                 return field.unit
         return None
 
@@ -197,9 +193,7 @@ class ConfigRegistry:
                     else str(value)
                 )
                 if type_info.startswith("{"):
-                    f.write(
-                        f"  {key}: {formatted_value:<11} # {help_text} | Options: {type_info}\n"
-                    )
+                    f.write(f"  {key}: {formatted_value:<11} # {help_text} | Options: {type_info}\n")
                 else:
                     f.write(f"  {key}: {formatted_value:<11} # {help_text} | Type: {type_info}\n")
             f.write("\n")

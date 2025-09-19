@@ -7,6 +7,7 @@ from typing import Any
 
 class CfgType(Enum):
     """Configuration field types."""
+
     INT = "int"
     DOUBLE = "double"
     STRING = "string"
@@ -17,6 +18,7 @@ class CfgType(Enum):
 @dataclass
 class CfgField:
     """Configuration field definition with validation rules and unit metadata."""
+
     type: CfgType
     default: Any
     min: Any | None = None
@@ -40,9 +42,4 @@ def enum_field(enum_class, default, prefix=""):
     """
     choices_str = ", ".join([e.value for e in enum_class])
     description = f"{prefix}: {choices_str}" if prefix else f"Options: {choices_str}"
-    return CfgField(
-        type=CfgType.ENUM,
-        default=default,
-        choices=list(enum_class),
-        description=description
-    )
+    return CfgField(type=CfgType.ENUM, default=default, choices=list(enum_class), description=description)

@@ -83,8 +83,7 @@ def create_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="morsecode",
-        description="Morse Code Decoder - Process audio files and extract "
-        "decoded text using YAML configuration",
+        description="Morse Code Decoder - Process audio files and extract decoded text using YAML configuration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Configuration:
@@ -252,9 +251,7 @@ def validate_args(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def setup_logging(
-    config_manager: Any, debug_override: bool = False, log_level_override: str | None = None
-) -> None:
+def setup_logging(config_manager: Any, debug_override: bool = False, log_level_override: str | None = None) -> None:
     """Configure logging based on configuration.
 
     Args:
@@ -389,9 +386,7 @@ def main(argv: list[str] | None = None) -> int:
             app_config.output_file = args.output
 
         # Run the decoder with typed configs
-        result: int = decoder_app.run_decoder_typed(
-            audio_config, signal_config, decoder_config, app_config
-        )
+        result: int = decoder_app.run_decoder_typed(audio_config, signal_config, decoder_config, app_config)
         return result
 
     except KeyboardInterrupt:

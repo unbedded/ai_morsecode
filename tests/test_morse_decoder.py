@@ -75,11 +75,13 @@ class TestMorseDecoder:
 
     def test_init_with_config(self) -> None:
         """Test decoder initialization with custom configuration."""
-        mock_cfg_mgr = self.create_mock_config_manager({
-            CfgKey.WPM: 20,
-            CfgKey.DOT_DURATION: 60.0,
-            CfgKey.TOLERANCE: 0.2,
-        })
+        mock_cfg_mgr = self.create_mock_config_manager(
+            {
+                CfgKey.WPM: 20,
+                CfgKey.DOT_DURATION: 60.0,
+                CfgKey.TOLERANCE: 0.2,
+            }
+        )
         decoder = MorseDecoder(mock_cfg_mgr)
 
         assert decoder.wpm_estimate == 20
@@ -395,9 +397,7 @@ class TestMorseDecoder:
             decoder.process_tone_detection(False, 150.0)  # Character spacing
             decoder.finalize_decoding()
 
-            assert decoder.get_decoded_text() == expected_char, (
-                f"Failed for pattern {morse_pattern}"
-            )
+            assert decoder.get_decoded_text() == expected_char, f"Failed for pattern {morse_pattern}"
 
     def test_continuous_processing(self) -> None:
         """Test continuous processing without explicit finalization."""
@@ -441,9 +441,9 @@ class TestMorseDecoder:
 
     def test_parameter_retrieval(self) -> None:
         """Test parameter retrieval and configuration access."""
-        mock_cfg_mgr = self.create_mock_config_manager({
-            CfgKey.WPM: 25, CfgKey.DOT_DURATION: 48.0, CfgKey.TOLERANCE: 0.25
-        })
+        mock_cfg_mgr = self.create_mock_config_manager(
+            {CfgKey.WPM: 25, CfgKey.DOT_DURATION: 48.0, CfgKey.TOLERANCE: 0.25}
+        )
         decoder = MorseDecoder(mock_cfg_mgr)
 
         params = decoder.get_params()

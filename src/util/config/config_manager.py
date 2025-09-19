@@ -139,10 +139,7 @@ class AwesomeConfigManager:
             return self._schemas[module_name]
 
         # Get schema from registry
-        if (
-            hasattr(self._registry, "_module_configs")
-            and module_name in self._registry._module_configs
-        ):
+        if hasattr(self._registry, "_module_configs") and module_name in self._registry._module_configs:
             schema = self._registry._module_configs[module_name]["schema"]
             self._schemas[module_name] = schema
             return schema
@@ -207,23 +204,18 @@ class AwesomeConfigManager:
 
                     if not any(isinstance(value, vt) for vt in valid_types):
                         raise ConfigValidationError(
-                            f"{module_name}.{key}: Expected {expected_type}, "
-                            f"got {type(value).__name__}"
+                            f"{module_name}.{key}: Expected {expected_type}, got {type(value).__name__}"
                         )
                 else:
                     # Single type
                     if expected_type == "string" and not isinstance(value, str):
-                        raise ConfigValidationError(
-                            f"{module_name}.{key}: Expected string, got {type(value).__name__}"
-                        )
+                        raise ConfigValidationError(f"{module_name}.{key}: Expected string, got {type(value).__name__}")
                     elif expected_type == "integer" and not isinstance(value, int):
                         raise ConfigValidationError(
                             f"{module_name}.{key}: Expected integer, got {type(value).__name__}"
                         )
                     elif expected_type == "number" and not isinstance(value, int | float):
-                        raise ConfigValidationError(
-                            f"{module_name}.{key}: Expected number, got {type(value).__name__}"
-                        )
+                        raise ConfigValidationError(f"{module_name}.{key}: Expected number, got {type(value).__name__}")
                     elif expected_type == "boolean" and not isinstance(value, bool):
                         raise ConfigValidationError(
                             f"{module_name}.{key}: Expected boolean, got {type(value).__name__}"
@@ -234,13 +226,9 @@ class AwesomeConfigManager:
                 minimum = prop_schema.get("minimum")
                 maximum = prop_schema.get("maximum")
                 if minimum is not None and value < minimum:
-                    raise ConfigValidationError(
-                        f"{module_name}.{key}: Value {value} below minimum {minimum}"
-                    )
+                    raise ConfigValidationError(f"{module_name}.{key}: Value {value} below minimum {minimum}")
                 if maximum is not None and value > maximum:
-                    raise ConfigValidationError(
-                        f"{module_name}.{key}: Value {value} above maximum {maximum}"
-                    )
+                    raise ConfigValidationError(f"{module_name}.{key}: Value {value} above maximum {maximum}")
 
             # Pattern validation (regex)
             if isinstance(value, str):
@@ -341,14 +329,14 @@ class AwesomeConfigManager:
             schema_obj: Schema dataclass with CfgField definitions
         """
         # Convert enum to string if needed
-        section_str = section_name.value if hasattr(section_name, 'value') else str(section_name)
+        section_str = section_name.value if hasattr(section_name, "value") else str(section_name)
 
         # For now, just log the registration - full implementation would convert
         # the schema_obj to JSON schema and store it
         self.logger.debug("Schema registered for section '%s': %s", section_str, schema_obj)
 
         # Store the schema object for future use
-        if not hasattr(self, '_enum_schemas'):
+        if not hasattr(self, "_enum_schemas"):
             self._enum_schemas = {}
         self._enum_schemas[section_str] = schema_obj
 
@@ -362,7 +350,7 @@ class AwesomeConfigManager:
             ConfigSection object with get_int, get_double, get_enum methods
         """
         # Convert enum to string if needed
-        section_str = section_name.value if hasattr(section_name, 'value') else str(section_name)
+        section_str = section_name.value if hasattr(section_name, "value") else str(section_name)
 
         # Get config data using existing method
         config_data = self.get_config(section_str)
@@ -382,7 +370,7 @@ class ConfigSection:
 
     def get_int(self, key) -> int:
         """Get integer value using enum key."""
-        key_str = key.value if hasattr(key, 'value') else str(key)
+        key_str = key.value if hasattr(key, "value") else str(key)
         value = self.config_data.get(key_str, 0)
         try:
             return int(value)
@@ -392,7 +380,7 @@ class ConfigSection:
 
     def get_double(self, key) -> float:
         """Get double/float value using enum key."""
-        key_str = key.value if hasattr(key, 'value') else str(key)
+        key_str = key.value if hasattr(key, "value") else str(key)
         value = self.config_data.get(key_str, 0.0)
         try:
             return float(value)
@@ -402,24 +390,24 @@ class ConfigSection:
 
     def get_string(self, key) -> str:
         """Get string value using enum key."""
-        key_str = key.value if hasattr(key, 'value') else str(key)
+        key_str = key.value if hasattr(key, "value") else str(key)
         value = self.config_data.get(key_str, "")
         return str(value)
 
     def get_bool(self, key) -> bool:
         """Get boolean value using enum key."""
-        key_str = key.value if hasattr(key, 'value') else str(key)
+        key_str = key.value if hasattr(key, "value") else str(key)
         value = self.config_data.get(key_str, False)
         if isinstance(value, bool):
             return value
         # Handle string representations
         if isinstance(value, str):
-            return value.lower() in ('true', 'yes', 'on', '1')
+            return value.lower() in ("true", "yes", "on", "1")
         return bool(value)
 
     def get_enum(self, key, enum_class):
         """Get enum value using enum key."""
-        key_str = key.value if hasattr(key, 'value') else str(key)
+        key_str = key.value if hasattr(key, "value") else str(key)
         value_str = self.config_data.get(key_str, "")
 
         # Convert string to enum
@@ -429,6 +417,11 @@ class ConfigSection:
 
         # Default to first enum value if not found
         default_val = list(enum_class)[0]
-        self.logger.warning("Unknown enum value '%s' for %s.%s, using default: %s",
-                           value_str, self.section_name, key_str, default_val.value)
+        self.logger.warning(
+            "Unknown enum value '%s' for %s.%s, using default: %s",
+            value_str,
+            self.section_name,
+            key_str,
+            default_val.value,
+        )
         return default_val

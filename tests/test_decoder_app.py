@@ -61,9 +61,7 @@ class TestProgressReporter:
         reporter = ProgressReporter()
         reporter.chunk_count = 99  # Set to 99 so next increment triggers output
 
-        event = AudioChunkEvent(
-            chunk_number=100, chunk_data=np.array([0.1, 0.2]), has_more_data=True
-        )
+        event = AudioChunkEvent(chunk_number=100, chunk_data=np.array([0.1, 0.2]), has_more_data=True)
 
         reporter.handle_audio_chunk(event)
         captured = capsys.readouterr()
@@ -82,9 +80,7 @@ class TestProgressReporter:
         reporter.patterns_decoded = 5
         reporter.current_text = "SOS"
 
-        event = AudioChunkEvent(
-            chunk_number=51, chunk_data=np.array([0.1, 0.2]), has_more_data=False
-        )
+        event = AudioChunkEvent(chunk_number=51, chunk_data=np.array([0.1, 0.2]), has_more_data=False)
 
         reporter.handle_audio_chunk(event)
         captured = capsys.readouterr()
@@ -256,9 +252,7 @@ class TestRunDecoderTyped:
 
     @patch("morsecode.decoder_app.HardwareAbstractionLayer")
     @patch("morsecode.decoder_app.SignalProcessor")
-    def test_run_decoder_typed_signal_failure(
-        self, mock_signal: Any, mock_hal: Any, capsys: Any
-    ) -> None:
+    def test_run_decoder_typed_signal_failure(self, mock_signal: Any, mock_hal: Any, capsys: Any) -> None:
         """Test run_decoder_typed with SignalProcessor initialization failure."""
         mock_signal.side_effect = Exception("Signal init failed")
 

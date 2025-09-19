@@ -159,10 +159,7 @@ class VersionBumper:
             # Check shortcuts
             pre_release = PRE_RELEASE_SHORTCUTS.get(pre_release, pre_release)
             if pre_release not in VALID_PRE_RELEASE_TYPES:
-                raise ValueError(
-                    f"Invalid pre-release type: {pre_release}. "
-                    f"Must be one of {VALID_PRE_RELEASE_TYPES}"
-                )
+                raise ValueError(f"Invalid pre-release type: {pre_release}. Must be one of {VALID_PRE_RELEASE_TYPES}")
 
         # STEP_6: Parse current version and apply bump
         components = self.parse_version(current)
@@ -264,10 +261,7 @@ class VersionBumper:
 
             # Find the [Unreleased] section and add new version
             unreleased_pattern = r"(## \[Unreleased\].*?)(## \[)"
-            replacement = (
-                f"\\1## [{new_version}] - {today}\n\n### Added\n"
-                f"- Version bump to {new_version}\n\n\\2"
-            )
+            replacement = f"\\1## [{new_version}] - {today}\n\n### Added\n- Version bump to {new_version}\n\n\\2"
 
             if "[Unreleased]" in content:
                 updated_content = re.sub(unreleased_pattern, replacement, content, flags=re.DOTALL)
@@ -290,9 +284,7 @@ class VersionBumper:
         Returns:
             New version string
         """
-        self.logger.info(
-            "Starting version bump: bump_type=%s, pre_release=%s", bump_type, pre_release
-        )
+        self.logger.info("Starting version bump: bump_type=%s, pre_release=%s", bump_type, pre_release)
 
         # STEP_8: Execute complete workflow
         current_version = self.read_current_version()
@@ -333,9 +325,7 @@ Examples:
         """,
     )
 
-    parser.add_argument(
-        "--bump", required=True, choices=VALID_BUMP_TYPES, help="Type of version bump to perform"
-    )
+    parser.add_argument("--bump", required=True, choices=VALID_BUMP_TYPES, help="Type of version bump to perform")
 
     parser.add_argument(
         "--pre-release",

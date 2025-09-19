@@ -85,7 +85,10 @@ class SignalProcessor:
 
             self.logger.info(
                 "SignalProcessor initialized with enum config: freq=%dHz, threshold=%.2f, bandwidth=%dHz, mode=%s",
-                self.target_frequency_hz, self.detection_threshold, self.filter_bandwidth_hz, self.mode.value
+                self.target_frequency_hz,
+                self.detection_threshold,
+                self.filter_bandwidth_hz,
+                self.mode.value,
             )
         else:
             # LEGACY: Dataclass config pattern (backward compatibility)
@@ -100,7 +103,9 @@ class SignalProcessor:
 
             self.logger.info(
                 "SignalProcessor initialized with legacy config: freq=%dHz, threshold=%.2f, bandwidth=%dHz",
-                self.target_frequency_hz, self.detection_threshold, self.filter_bandwidth_hz
+                self.target_frequency_hz,
+                self.detection_threshold,
+                self.filter_bandwidth_hz,
             )
 
         # Common initialization regardless of config method
@@ -121,9 +126,7 @@ class SignalProcessor:
             self.logger.exception("Error initializing SignalProcessor: %s", str(e))
             raise RuntimeError(f"Failed to initialize signal processor: {e}") from e
 
-        self.logger.info(
-            "SignalProcessor initialized with target frequency %d Hz", self.target_frequency_hz
-        )
+        self.logger.info("SignalProcessor initialized with target frequency %d Hz", self.target_frequency_hz)
 
     def _initialize_processing(self) -> None:
         """Initialize FFT processing components and pre-compute constants."""
@@ -134,9 +137,7 @@ class SignalProcessor:
             # Create Hanning window for FFT to reduce spectral leakage
             self._window = np.hanning(self.fft_window_size)
 
-            self.logger.debug(
-                "Processing initialization complete. FFT size: %d samples", self.fft_window_size
-            )
+            self.logger.debug("Processing initialization complete. FFT size: %d samples", self.fft_window_size)
 
         except Exception as e:
             self.logger.exception("Error initializing signal processing: %s", str(e))
@@ -254,10 +255,7 @@ class SignalProcessor:
                     max_magnitude = np.max(magnitudes)
                     noise_floor = np.mean(magnitudes) + 2 * np.std(magnitudes)
 
-                    if (
-                        valid_magnitudes[peak_idx] > noise_floor
-                        and valid_magnitudes[peak_idx] > max_magnitude * 0.3
-                    ):
+                    if valid_magnitudes[peak_idx] > noise_floor and valid_magnitudes[peak_idx] > max_magnitude * 0.3:
                         actual_target_freq = detected_frequency
                         self.logger.debug(
                             f"Adaptive frequency detection: {actual_target_freq:.1f} Hz "
@@ -354,9 +352,7 @@ class SignalProcessor:
             # Calculate filter parameters
             nyquist_freq = self.sample_rate_hz / 2
             low_cutoff = max(self.target_frequency_hz - self.filter_bandwidth_hz // 2, 1)
-            high_cutoff = min(
-                self.target_frequency_hz + self.filter_bandwidth_hz // 2, nyquist_freq - 1
-            )
+            high_cutoff = min(self.target_frequency_hz + self.filter_bandwidth_hz // 2, nyquist_freq - 1)
 
             # Normalize frequencies to [0, 1] range
             low_normalized = low_cutoff / nyquist_freq
@@ -364,9 +360,7 @@ class SignalProcessor:
 
             # Design Butterworth band-pass filter
             filter_order = 4
-            sos = signal.butter(
-                filter_order, [low_normalized, high_normalized], btype="band", output="sos"
-            )
+            sos = signal.butter(filter_order, [low_normalized, high_normalized], btype="band", output="sos")
 
             # Apply filter
             filtered_data = signal.sosfilt(sos, audio_data)

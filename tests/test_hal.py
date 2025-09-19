@@ -110,10 +110,7 @@ class TestHardwareAbstractionLayer:
         """Test HAL initialization with custom configuration."""
         wav_file = self.create_test_wav_file(tmp_path, rate=48000)
 
-        mock_cfg_mgr = self.create_mock_config_manager({
-            CfgKey.WAV_FILENAME: str(wav_file),
-            CfgKey.SAMPLE_RATE: 48000
-        })
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.WAV_FILENAME: str(wav_file), CfgKey.SAMPLE_RATE: 48000})
         hal = HardwareAbstractionLayer(mock_cfg_mgr)
 
         assert hal.audio_rate_hz == 48000
@@ -211,10 +208,7 @@ class TestHardwareAbstractionLayer:
     def test_get_params(self, tmp_path: Path) -> None:
         """Test getting configuration parameters."""
         wav_file = self.create_test_wav_file(tmp_path, rate=22050)
-        mock_cfg_mgr = self.create_mock_config_manager({
-            CfgKey.WAV_FILENAME: str(wav_file),
-            CfgKey.SAMPLE_RATE: 22050
-        })
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.WAV_FILENAME: str(wav_file), CfgKey.SAMPLE_RATE: 22050})
         hal = HardwareAbstractionLayer(mock_cfg_mgr)
 
         params = hal.get_params()

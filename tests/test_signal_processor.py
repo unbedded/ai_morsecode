@@ -164,9 +164,7 @@ class TestSignalProcessor:
         """Test tone detection when target tone is present."""
         processor = SignalProcessor(SignalConfig(threshold=0.1))
         # Create signal at target frequency with high amplitude
-        test_signal = self.create_test_signal(
-            frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1
-        )
+        test_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1)
 
         tone_detected = processor.detect_tone(test_signal)
 
@@ -217,12 +215,8 @@ class TestSignalProcessor:
         processor = SignalProcessor()
 
         # Create signal with target frequency + noise at other frequencies
-        target_signal = self.create_test_signal(
-            frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0
-        )
-        noise_signal = self.create_test_signal(
-            frequency=DEFAULT_TARGET_FREQUENCY_HZ + 500, amplitude=0.5
-        )
+        target_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0)
+        noise_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ + 500, amplitude=0.5)
         combined_signal = target_signal + noise_signal
 
         filtered_signal = processor.apply_bandpass_filter(combined_signal)
@@ -257,9 +251,7 @@ class TestSignalProcessor:
         """Test SNR calculation with clean signal."""
         processor = SignalProcessor()
         # Create clean signal at target frequency
-        clean_signal = self.create_test_signal(
-            frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1
-        )
+        clean_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1)
 
         snr_db = processor.calculate_snr(clean_signal)
 
@@ -333,9 +325,7 @@ class TestSignalProcessor:
             (96000, 1200, 4096),  # Very high rate, high frequency
         ],
     )
-    def test_different_configurations(
-        self, sample_rate: int, target_freq: int, window_size: int
-    ) -> None:
+    def test_different_configurations(self, sample_rate: int, target_freq: int, window_size: int) -> None:
         """Test SignalProcessor with different configuration parameters."""
         config = SignalConfig(
             sample_rate=sample_rate,
@@ -346,9 +336,7 @@ class TestSignalProcessor:
         processor = SignalProcessor(config=config)
 
         # Test signal at target frequency
-        test_signal = self.create_test_signal(
-            frequency=target_freq, sample_rate=sample_rate, duration_sec=0.1
-        )
+        test_signal = self.create_test_signal(frequency=target_freq, sample_rate=sample_rate, duration_sec=0.1)
 
         # All operations should work with different configurations
         frequencies, magnitudes = processor.compute_fft(test_signal)

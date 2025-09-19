@@ -5,6 +5,7 @@ from enum import Enum
 
 class SignalCfgKey(Enum):
     """Config keys for SignalProcessor - auto-complete friendly!"""
+
     FREQUENCY = "frequency"
     THRESHOLD = "threshold"
     BANDWIDTH = "bandwidth"
@@ -14,4 +15,5 @@ class SignalCfgKey(Enum):
 
 class SignalCfgSection(Enum):
     """Section names for signal configuration."""
+
     SIGNAL = "signal"

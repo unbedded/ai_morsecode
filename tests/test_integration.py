@@ -95,14 +95,14 @@ class TestMorseCodeIntegration:
         dot_duration_ms = 80  # For 15 WPM
 
         # Initialize components
-        signal_cfg_mgr = self.create_mock_signal_config_manager({
-            SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3
-        })
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+        )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
-        decoder_cfg_mgr = self.create_mock_decoder_config_manager({
-            DecoderCfgKey.WPM: wpm, DecoderCfgKey.DOT_DURATION: dot_duration_ms
-        })
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager(
+            {DecoderCfgKey.WPM: wpm, DecoderCfgKey.DOT_DURATION: dot_duration_ms}
+        )
         decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Create synthetic morse code for "SOS"
@@ -130,9 +130,7 @@ class TestMorseCodeIntegration:
         decoder.finalize_decoding()
         decoded_text = decoder.get_decoded_text()
 
-        assert "SOS" in decoded_text or "S O S" in decoded_text, (
-            f"Expected SOS, got: {decoded_text}"
-        )
+        assert "SOS" in decoded_text or "S O S" in decoded_text, f"Expected SOS, got: {decoded_text}"
 
         # Check statistics
         stats = decoder.get_statistics()
@@ -146,9 +144,9 @@ class TestMorseCodeIntegration:
         target_freq = 600
 
         # Initialize signal processor
-        signal_cfg_mgr = self.create_mock_signal_config_manager({
-            SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.2
-        })
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.2}
+        )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
         # Create pure tone
@@ -172,15 +170,14 @@ class TestMorseCodeIntegration:
         target_freq = 600
 
         # Initialize components
-        signal_cfg_mgr = self.create_mock_signal_config_manager({
-            SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3
-        })
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+        )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
-        decoder_cfg_mgr = self.create_mock_decoder_config_manager({
-            DecoderCfgKey.DOT_DURATION: 80,
-            DecoderCfgKey.TOLERANCE: 0.2
-        })
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager(
+            {DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.2}
+        )
         decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Simulate letter 'A' (dot-dash) with proper timing
@@ -239,9 +236,9 @@ class TestMorseCodeIntegration:
         sample_rate = 44100
         target_freq = 600
 
-        signal_cfg_mgr = self.create_mock_signal_config_manager({
-            SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3
-        })
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+        )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
         # First test that we can detect a clean signal
@@ -283,9 +280,9 @@ class TestMorseCodeIntegration:
 
     def test_timing_variation_tolerance(self) -> None:
         """Test tolerance to timing variations in real conditions."""
-        decoder_cfg_mgr = self.create_mock_decoder_config_manager({
-            DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.3
-        })
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager(
+            {DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.3}
+        )
         decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Test dots with variation (80ms ± 30%)
@@ -304,8 +301,7 @@ class TestMorseCodeIntegration:
 
             result = decoder.get_decoded_text()
             assert result == expected_char, (
-                f"Timing tolerance failed: {duration_ms}ms -> "
-                f"expected '{expected_char}', got '{result}'"
+                f"Timing tolerance failed: {duration_ms}ms -> expected '{expected_char}', got '{result}'"
             )
 
     def test_real_audio_file_structure(self) -> None:
@@ -343,9 +339,7 @@ class TestMorseCodeIntegration:
         except Exception as e:
             pytest.skip(f"Could not process test file {test_file}: {e}")
 
-    def _create_synthetic_sos(
-        self, sample_rate: int, freq: float, dot_duration_ms: float
-    ) -> np.ndarray:
+    def _create_synthetic_sos(self, sample_rate: int, freq: float, dot_duration_ms: float) -> np.ndarray:
         """Create synthetic SOS morse code signal.
 
         Args:
