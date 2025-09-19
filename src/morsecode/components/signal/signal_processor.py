@@ -6,15 +6,16 @@ configurable detection thresholds and real-time audio stream processing.
 
 Example usage:
     ```python
-    from morsecode.signal_processor import SignalProcessor
+    from morsecode.components.signal.signal_processor import SignalProcessor
+    from util.config.models import SignalConfig
 
-    cfg = {
-        'sample_rate_hz': 44100,
-        'target_frequency_hz': 600,
-        'fft_window_size': 1024
-    }
+    config = SignalConfig(
+        sample_rate=44100,
+        frequency=600,
+        bandwidth=50
+    )
 
-    processor = SignalProcessor(cfg_dict=cfg)
+    processor = SignalProcessor(config=config)
     tone_detected = processor.detect_tone(audio_chunk)
     ```
 """
@@ -26,12 +27,15 @@ import numpy as np
 from scipy import signal
 from scipy.fft import fft, fftfreq
 
+from morsecode.components.signal.signal_config_keys import SignalCfgKey, SignalCfgSection
+from morsecode.components.signal.signal_config_schema import SignalConfigSchema, SignalMode
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import AudioChunkEvent, ToneDetectedEvent
+from util.config.models import SignalConfig
 
-# Constants
+# Constants - components should get values from config, not import constants directly
 DEFAULT_SAMPLE_RATE_HZ = 44100
-DEFAULT_TARGET_FREQUENCY_HZ = 600  # Common CW frequency
+DEFAULT_TARGET_FREQUENCY_HZ = 600  # Fallback only - should come from config
 DEFAULT_FFT_WINDOW_SIZE = 1024
 DEFAULT_DETECTION_THRESHOLD = 0.1
 DEFAULT_FILTER_BANDWIDTH_HZ = 50
@@ -53,39 +57,55 @@ class SignalProcessor:
         noise_floor_db: Noise floor level in dB for SNR calculations.
     """
 
-    def __init__(self, cfg_dict: dict[str, Any] | None = None) -> None:
+    def __init__(self, config: SignalConfig | None = None, cfg_mgr=None) -> None:
         """Initialize the SignalProcessor with configuration parameters.
 
         Args:
-            cfg_dict: Configuration dictionary containing initialization parameters.
-                     Expected keys: 'sample_rate_hz', 'target_frequency_hz',
-                     'fft_window_size', 'detection_threshold', 'filter_bandwidth_hz',
-                     'noise_floor_db'
+            config: Legacy SignalConfig object (backward compatibility).
+            cfg_mgr: New config manager for enum-based configuration.
+                    If provided, takes precedence over config parameter.
         """
         # Initialize logging as the first step in constructor
         self.logger = logging.getLogger(__name__)
 
-        cfg_dict = cfg_dict or {}
+        if cfg_mgr is not None:
+            # NEW: Enum-based config pattern
+            # STEP 1: Register schema (visible in constructor!)
+            cfg_mgr.register_schema(SignalCfgSection.SIGNAL, SignalConfigSchema)
 
-        # Initialize configuration parameters
-        self.sample_rate_hz: int = self._init_param(
-            cfg_dict, "sample_rate_hz", DEFAULT_SAMPLE_RATE_HZ
-        )
-        self.target_frequency_hz: int = self._init_param(
-            cfg_dict, "target_frequency_hz", DEFAULT_TARGET_FREQUENCY_HZ
-        )
-        self.fft_window_size: int = self._init_param(
-            cfg_dict, "fft_window_size", DEFAULT_FFT_WINDOW_SIZE
-        )
-        self.detection_threshold: float = self._init_param(
-            cfg_dict, "detection_threshold", DEFAULT_DETECTION_THRESHOLD
-        )
-        self.filter_bandwidth_hz: int = self._init_param(
-            cfg_dict, "filter_bandwidth_hz", DEFAULT_FILTER_BANDWIDTH_HZ
-        )
-        self.noise_floor_db: int = self._init_param(
-            cfg_dict, "noise_floor_db", DEFAULT_NOISE_FLOOR_DB
-        )
+            # STEP 2: Get config section
+            cfg = cfg_mgr.get_section(SignalCfgSection.SIGNAL)
+
+            # STEP 3: Type-safe config access with auto-complete!
+            self.sample_rate_hz: int = cfg.get_int(SignalCfgKey.SAMPLE_RATE)
+            self.target_frequency_hz: int = cfg.get_int(SignalCfgKey.FREQUENCY)
+            self.detection_threshold: float = cfg.get_double(SignalCfgKey.THRESHOLD)
+            self.filter_bandwidth_hz: int = cfg.get_int(SignalCfgKey.BANDWIDTH)
+            self.mode: SignalMode = cfg.get_enum(SignalCfgKey.MODE, SignalMode)
+
+            self.logger.info(
+                "SignalProcessor initialized with enum config: freq=%dHz, threshold=%.2f, bandwidth=%dHz, mode=%s",
+                self.target_frequency_hz, self.detection_threshold, self.filter_bandwidth_hz, self.mode.value
+            )
+        else:
+            # LEGACY: Dataclass config pattern (backward compatibility)
+            if config is None:
+                config = SignalConfig()
+
+            self.sample_rate_hz = config.sample_rate
+            self.target_frequency_hz = config.frequency
+            self.detection_threshold = config.threshold
+            self.filter_bandwidth_hz = config.bandwidth
+            self.mode = SignalMode.AUTO  # Default for legacy configs
+
+            self.logger.info(
+                "SignalProcessor initialized with legacy config: freq=%dHz, threshold=%.2f, bandwidth=%dHz",
+                self.target_frequency_hz, self.detection_threshold, self.filter_bandwidth_hz
+            )
+
+        # Common initialization regardless of config method
+        self.fft_window_size: int = DEFAULT_FFT_WINDOW_SIZE
+        self.noise_floor_db: int = DEFAULT_NOISE_FLOOR_DB  # Not in config model yet
 
         # Initialize processing state
         self._frequency_bins: np.ndarray | None = None
@@ -104,24 +124,6 @@ class SignalProcessor:
         self.logger.info(
             "SignalProcessor initialized with target frequency %d Hz", self.target_frequency_hz
         )
-
-    def _init_param(self, cfg_dict: dict[str, Any], key: str, default: Any) -> Any:
-        """Initialize a parameter with a default value if the key is missing.
-
-        Args:
-            cfg_dict: Configuration dictionary.
-            key: Parameter key to look up.
-            default: Default value if key is not found.
-
-        Returns:
-            The parameter value from config or default.
-        """
-        value = cfg_dict.get(key, default)
-        if key not in cfg_dict:
-            self.logger.info(
-                "Parameter '%s' not found in configuration. Using default: %s", key, default
-            )
-        return value
 
     def _initialize_processing(self) -> None:
         """Initialize FFT processing components and pre-compute constants."""
@@ -202,11 +204,12 @@ class SignalProcessor:
             self.logger.exception("Error computing FFT: %s", str(e))
             raise RuntimeError(f"FFT computation failed: {e}") from e
 
-    def detect_tone(self, audio_data: np.ndarray) -> bool:
+    def detect_tone(self, audio_data: np.ndarray, adaptive_frequency: bool = True) -> bool:
         """Detect if target tone frequency is present in audio data.
 
         Args:
             audio_data: Audio samples to analyze for tone presence.
+            adaptive_frequency: If True, detect the strongest frequency and adapt to it.
 
         Returns:
             True if target tone is detected above threshold, False otherwise.
@@ -236,13 +239,44 @@ class SignalProcessor:
             # Compute FFT of audio data
             frequencies, magnitudes = self.compute_fft(audio_data)
 
-            # Find frequency bin closest to target frequency
-            target_bin_idx = np.argmin(np.abs(frequencies - self.target_frequency_hz))
+            # Determine actual target frequency
+            if adaptive_frequency:
+                # Find the strongest frequency peak in a reasonable range (200-2000 Hz)
+                valid_range_mask = (frequencies >= 200) & (frequencies <= 2000)
+                if np.any(valid_range_mask):
+                    valid_magnitudes = magnitudes[valid_range_mask]
+                    valid_frequencies = frequencies[valid_range_mask]
+                    peak_idx = np.argmax(valid_magnitudes)
+                    detected_frequency = valid_frequencies[peak_idx]
+
+                    # Always use the detected frequency if it's strong enough
+                    # This is more aggressive adaptation for better real-world performance
+                    max_magnitude = np.max(magnitudes)
+                    noise_floor = np.mean(magnitudes) + 2 * np.std(magnitudes)
+
+                    if (
+                        valid_magnitudes[peak_idx] > noise_floor
+                        and valid_magnitudes[peak_idx] > max_magnitude * 0.3
+                    ):
+                        actual_target_freq = detected_frequency
+                        self.logger.debug(
+                            f"Adaptive frequency detection: {actual_target_freq:.1f} Hz "
+                            f"(was {self.target_frequency_hz} Hz)"
+                        )
+                    else:
+                        actual_target_freq = self.target_frequency_hz
+                else:
+                    actual_target_freq = self.target_frequency_hz
+            else:
+                actual_target_freq = self.target_frequency_hz
+
+            # Find frequency bin closest to actual target frequency
+            target_bin_idx = np.argmin(np.abs(frequencies - actual_target_freq))
             target_frequency = frequencies[target_bin_idx]
 
-            # Define frequency range around target (bandwidth filter)
-            freq_range_start = self.target_frequency_hz - self.filter_bandwidth_hz // 2
-            freq_range_end = self.target_frequency_hz + self.filter_bandwidth_hz // 2
+            # Define frequency range around actual target (bandwidth filter)
+            freq_range_start = actual_target_freq - self.filter_bandwidth_hz // 2
+            freq_range_end = actual_target_freq + self.filter_bandwidth_hz // 2
 
             # Find all bins within the target frequency range
             freq_mask = (frequencies >= freq_range_start) & (frequencies <= freq_range_end)

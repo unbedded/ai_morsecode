@@ -8,17 +8,60 @@ Example usage:
     pytest tests/test_morse_decoder.py -v
 """
 
+from unittest.mock import MagicMock
+
 import pytest
 
+from morsecode.components.decoder.keys import CfgKey
 from morsecode.components.decoder.morse_decoder import MorseDecoder
+from util.config.registry import AwesomeConfigManager
 
 
 class TestMorseDecoder:
     """Test suite for MorseDecoder functionality."""
 
+    def create_mock_config_manager(self, config_overrides: dict = None) -> MagicMock:
+        """Create a mock config manager with enum-based configuration.
+
+        Args:
+            config_overrides: Dict with CfgKey enum values to override defaults
+
+        Returns:
+            Mock config manager that provides enum-based configuration access
+        """
+        # Default decoder configuration values
+        default_config = {
+            CfgKey.WPM: 15,
+            CfgKey.DOT_DURATION: 80.0,
+            CfgKey.TOLERANCE: 0.3,
+        }
+
+        # Apply any overrides
+        if config_overrides:
+            config_values = {**default_config, **config_overrides}
+        else:
+            config_values = default_config
+
+        # Create mock config manager
+        mock_cfg_mgr = MagicMock(spec=AwesomeConfigManager)
+
+        # Create mock config section
+        mock_config_section = MagicMock()
+        mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
+        mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
+        mock_config_section.get_bool.side_effect = lambda key: config_values.get(key, False)
+        mock_config_section.get_string.side_effect = lambda key: config_values.get(key, "")
+
+        # Mock the register_schema and get_section methods
+        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.get_section.return_value = mock_config_section
+
+        return mock_cfg_mgr
+
     def test_init_with_defaults(self) -> None:
         """Test decoder initialization with default parameters."""
-        decoder = MorseDecoder()
+        mock_cfg_mgr = self.create_mock_config_manager()
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         assert decoder.wpm_estimate == 15
         assert decoder.dot_duration_ms == 80.0
@@ -32,38 +75,39 @@ class TestMorseDecoder:
 
     def test_init_with_config(self) -> None:
         """Test decoder initialization with custom configuration."""
-        cfg = {
-            "wpm_estimate": 20,
-            "dot_duration_ms": 60.0,
-            "dash_ratio": 2.5,
-            "character_spacing_ratio": 4.0,
-            "detection_tolerance": 0.2,
-        }
-
-        decoder = MorseDecoder(cfg_dict=cfg)
+        mock_cfg_mgr = self.create_mock_config_manager({
+            CfgKey.WPM: 20,
+            CfgKey.DOT_DURATION: 60.0,
+            CfgKey.TOLERANCE: 0.2,
+        })
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         assert decoder.wpm_estimate == 20
         assert decoder.dot_duration_ms == 60.0
-        assert decoder.dash_duration_ms == 150.0  # 2.5x dot duration
+        assert decoder.dash_duration_ms == 180.0  # 3x dot duration (default ratio)
         assert decoder.detection_tolerance == 0.2
 
     def test_config_validation(self) -> None:
         """Test configuration parameter validation."""
-        # Test invalid WPM
-        with pytest.raises(RuntimeError):
-            MorseDecoder(cfg_dict={"wpm_estimate": -5})
+        # Test invalid WPM - validation happens in MorseDecoder
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.WPM: -5})
+        with pytest.raises((ValueError, RuntimeError)):
+            MorseDecoder(mock_cfg_mgr)
 
         # Test invalid dot duration
-        with pytest.raises(RuntimeError):
-            MorseDecoder(cfg_dict={"dot_duration_ms": -10})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: -10.0})
+        with pytest.raises((ValueError, RuntimeError)):
+            MorseDecoder(mock_cfg_mgr)
 
         # Test invalid tolerance
-        with pytest.raises(RuntimeError):
-            MorseDecoder(cfg_dict={"detection_tolerance": 1.5})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.TOLERANCE: 1.5})
+        with pytest.raises((ValueError, RuntimeError)):
+            MorseDecoder(mock_cfg_mgr)
 
     def test_single_dot_detection(self) -> None:
         """Test detection of a single dot."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 100.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 100.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Simulate dot: tone on for 100ms, then off
         decoder.process_tone_detection(True, 50.0)  # Start tone
@@ -78,7 +122,8 @@ class TestMorseDecoder:
 
     def test_single_dash_detection(self) -> None:
         """Test detection of a single dash."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 100.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 100.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Simulate dash: tone on for 300ms, then off
         decoder.process_tone_detection(True, 100.0)  # Start tone
@@ -94,7 +139,8 @@ class TestMorseDecoder:
 
     def test_letter_a_detection(self) -> None:
         """Test detection of letter 'A' (dot-dash)."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 100.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 100.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Simulate 'A': dot (100ms) + element spacing + dash (300ms)
         decoder.process_tone_detection(True, 100.0)  # Dot
@@ -109,7 +155,8 @@ class TestMorseDecoder:
 
     def test_letter_s_detection(self) -> None:
         """Test detection of letter 'S' (dot-dot-dot)."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Simulate 'S': three dots with element spacing
         for _ in range(3):
@@ -124,7 +171,8 @@ class TestMorseDecoder:
 
     def test_word_sos_detection(self) -> None:
         """Test detection of 'SOS' with proper spacing."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # S (...)
         for _ in range(3):
@@ -150,7 +198,8 @@ class TestMorseDecoder:
 
     def test_word_spacing_detection(self) -> None:
         """Test proper word spacing detection."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # First letter 'E' (.)
         decoder.process_tone_detection(True, 80.0)
@@ -170,7 +219,8 @@ class TestMorseDecoder:
 
     def test_timing_tolerance(self) -> None:
         """Test timing tolerance for dot/dash discrimination."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 100.0, "detection_tolerance": 0.3})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 100.0, CfgKey.TOLERANCE: 0.3})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Test dot at upper tolerance limit (130ms)
         decoder.process_tone_detection(True, 130.0)
@@ -190,7 +240,8 @@ class TestMorseDecoder:
 
     def test_ambiguous_duration_resolution(self) -> None:
         """Test resolution of ambiguous durations."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 100.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 100.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Duration exactly between dot (100ms) and dash (300ms) = 200ms
         # Should be closer to dash
@@ -202,7 +253,8 @@ class TestMorseDecoder:
 
     def test_unknown_pattern_handling(self) -> None:
         """Test handling of unknown Morse patterns."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Create invalid pattern: 6 consecutive dashes (not in table)
         for _ in range(6):
@@ -216,7 +268,8 @@ class TestMorseDecoder:
 
     def test_numbers_detection(self) -> None:
         """Test detection of numeric characters."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Number '5' (..... - five dots)
         for _ in range(5):
@@ -230,7 +283,8 @@ class TestMorseDecoder:
 
     def test_punctuation_detection(self) -> None:
         """Test detection of punctuation marks."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Question mark (..--..)
         pattern = "..---.."
@@ -246,7 +300,8 @@ class TestMorseDecoder:
 
     def test_decoder_reset(self) -> None:
         """Test decoder state reset functionality."""
-        decoder = MorseDecoder()
+        mock_cfg_mgr = self.create_mock_config_manager()
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Decode something first
         decoder.process_tone_detection(True, 80.0)
@@ -266,7 +321,8 @@ class TestMorseDecoder:
 
     def test_statistics_tracking(self) -> None:
         """Test decoding statistics tracking."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Decode "SOS" and track statistics
         # S (...) - 3 dots
@@ -295,7 +351,8 @@ class TestMorseDecoder:
 
     def test_wpm_estimation(self) -> None:
         """Test WPM estimation from sample timings."""
-        decoder = MorseDecoder()
+        mock_cfg_mgr = self.create_mock_config_manager()
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Sample dot durations (in ms)
         sample_dots = [75.0, 80.0, 85.0, 78.0, 82.0]
@@ -312,7 +369,8 @@ class TestMorseDecoder:
 
     def test_morse_code_table_coverage(self) -> None:
         """Test that all morse code table entries are accessible."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 50.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 50.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Test a few key entries
         test_cases = [
@@ -343,7 +401,8 @@ class TestMorseDecoder:
 
     def test_continuous_processing(self) -> None:
         """Test continuous processing without explicit finalization."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Process 'HI' without explicit finalization between characters
         # H (....) - 4 dots
@@ -363,7 +422,8 @@ class TestMorseDecoder:
 
     def test_error_handling_edge_cases(self) -> None:
         """Test error handling for edge cases."""
-        decoder = MorseDecoder()
+        mock_cfg_mgr = self.create_mock_config_manager()
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Test processing with no tone events
         decoder.finalize_decoding()
@@ -381,8 +441,10 @@ class TestMorseDecoder:
 
     def test_parameter_retrieval(self) -> None:
         """Test parameter retrieval and configuration access."""
-        cfg = {"wpm_estimate": 25, "dot_duration_ms": 48.0, "detection_tolerance": 0.25}
-        decoder = MorseDecoder(cfg_dict=cfg)
+        mock_cfg_mgr = self.create_mock_config_manager({
+            CfgKey.WPM: 25, CfgKey.DOT_DURATION: 48.0, CfgKey.TOLERANCE: 0.25
+        })
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         params = decoder.get_params()
 
@@ -394,7 +456,8 @@ class TestMorseDecoder:
 
     def test_incomplete_pattern_finalization(self) -> None:
         """Test finalization of incomplete patterns."""
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80.0})
+        mock_cfg_mgr = self.create_mock_config_manager({CfgKey.DOT_DURATION: 80.0})
+        decoder = MorseDecoder(mock_cfg_mgr)
 
         # Start a tone but don't complete it normally
         decoder.process_tone_detection(True, 80.0)

@@ -1,37 +1,47 @@
 # Morse Code Decoder Configuration
-# Registry-generated with profile support
+# Generated: 2025-09-18 20:24:37
+# 
+# This file was auto-generated with comprehensive documentation.
+# Edit values as needed - comments show valid ranges, units, and options.
+# 
+# Unit naming conventions (enforced via unit metadata):
+#   *_ms, *_sec, *_us = time units
+#   *_hz = frequency units
+#   *_norm = normalized values [0.0-1.0]
+#   *_pct = percentage values [0-100]
+# 
 
-# App Configuration
 app:
-  debug: false
-  log_level: WARNING
-  log_level_debug: DEBUG
-  output_file: null
-  real_time: false
+  debug: false       # Enable debug mode and verbose logging | Type: boolean
+  log_level: "INFO"      # Log level | Options: {DEBUG, INFO, WARNING, ERROR, CRITICAL}
+  output_file: null        # Output file path for decoded text (null = stdout) | Type: string|null
 
-# Audio Configuration
 audio:
-  sample_rate: 44100
-  sample_rate_debug: 8000  # Lower for debug
-  auto_gain_control: true
-  chunk_size_ms: 50
-  wav_filename: null
+  sample_rate: 44100   # Audio sample rate in Hz | INT | (Hz) | [8000-96000]
+  wav_filename: null    # Path to WAV audio file | STR|NULL
+  auto_gain_control: true    # Enable automatic gain control | BOOL
+  chunk_size_ms: 50      # Audio chunk size in milliseconds | INT | (ms) | [10-1000]
 
-# Signal Configuration
 signal:
-  frequency: 600
-  frequency_debug: 400     # Different for debug
-  threshold: 0.3
-  threshold_debug: 0.1     # More sensitive
-  bandwidth: 50
-  sample_rate: 44100
+  frequency: 600     # Target CW frequency in Hz for tone detection | INT | (Hz) | [200-2000]
+  threshold: 0.3     # Tone detection threshold (0.0-1.0) | FLOAT | (norm) | [0.0-1.0]
+  bandwidth: 50      # Filter bandwidth in Hz | INT | (Hz) | [10-500]
+  sample_rate: 44100   # Audio sample rate in Hz | INT | (Hz) | [8000-96000]
 
-# Decoder Configuration
 decoder:
-  wpm: 15
-  wpm_debug: 10            # Slower for debug
-  tolerance: 0.3
-  tolerance_debug: 0.5     # More forgiving
-  dot_duration_ms: null
-  min_silence_ms: 200
+  wpm: 15      # Initial WPM estimate for timing analysis | INT | (wpm) | [5-60]
+  tolerance: 0.3     # Timing tolerance for pattern recognition | FLOAT | (norm) | [0.0-1.0]
+  dot_duration_ms: null    # Override dot duration in milliseconds | FLOAT|NULL | (ms) | [10-1000]
+  min_silence_ms: 200     # Minimum silence for word separation | FLOAT | (ms) | [50-2000]
+
+# Profile Examples:
+# Use --profile debug to activate debug-specific overrides:
+#   app:
+#     log_level_debug: "DEBUG"     # Override for debug profile
+#     debug_debug: true            # Enable debug mode in debug profile
+# 
+# Use --profile production:
+#   signal:
+#     frequency_hz_production: 800 # Production frequency override
+#     threshold_norm_production: 0.2 # Stricter threshold for production
 

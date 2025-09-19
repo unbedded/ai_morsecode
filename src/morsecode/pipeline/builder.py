@@ -6,8 +6,9 @@ with customizable components, configuration, and execution strategies.
 
 import logging
 
-from ..config.manager import AwesomeConfigManager
-from ..config.models import MorseConfig
+from util.config.config_manager import AwesomeConfigManager
+from util.config.models import MorseConfig
+
 from ..interfaces.audio import AudioSource
 from ..interfaces.decoder import MorseDecoder
 from ..interfaces.signal import SignalProcessor

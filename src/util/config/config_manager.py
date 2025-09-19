@@ -1,13 +1,15 @@
-"""Awesome Configuration Manager with YAML + JSON Schema validation.
+"""Registry-Based Configuration Manager with YAML + JSON Schema validation.
 
 This module provides a simple, powerful config system that:
+- Uses ConfigRegistry to auto-discover module requirements
 - Uses single YAML file for all configuration
-- Validates against JSON schemas
+- Auto-creates default config if none exists
+- Searches multiple default locations
+- Validates against JSON schemas from registry
 - Supports profile postfix overrides (e.g., setting_debug, setting_production)
 - Provides excellent error handling and logging integration
 """
 
-import json
 import logging
 import re
 from pathlib import Path
@@ -25,23 +27,90 @@ class ConfigValidationError(Exception):
 
 
 class AwesomeConfigManager:
-    """Manages configuration with YAML files and JSON Schema validation."""
+    """Registry-based configuration manager with YAML files and JSON Schema validation."""
 
     def __init__(self, config_file: str | None = None, profile: str | None = None):
-        """Initialize the configuration manager.
+        """Initialize the registry-based configuration manager.
 
         Args:
-            config_file: Path to YAML config file (default: ./morse.yaml)
+            config_file: Path to YAML config file (searches default locations if None)
             profile: Profile name for postfix overrides (e.g., 'debug', 'production')
         """
         self.logger = logging.getLogger(__name__)
-        self.config_file = Path(config_file or "morse.yaml")
+        self.config_file: Path
+        self.was_created: bool = False  # Track if config was auto-created
+
+        # Initialize ConfigRegistry for module discovery
+        from .registry import ConfigRegistry
+
+        self._registry = ConfigRegistry()
+
+        self.config_file = self._resolve_config_file(config_file)
         self.profile = profile
         self._config_data: dict[str, Any] = {}
         self._schemas: dict[str, dict[str, Any]] = {}
 
         # Load configuration
         self._load_config()
+
+    def _resolve_config_file(self, config_file: str | None = None) -> Path:
+        """Resolve configuration file path with fallback locations.
+
+        Args:
+            config_file: Explicit config file path, if provided
+
+        Returns:
+            Path to configuration file (creates default if none found)
+        """
+        if config_file:
+            return Path(config_file)
+
+        # Default search locations in priority order
+        search_paths = [
+            Path("morse.yaml"),  # Current directory (project-specific)
+            Path.home() / ".config" / "morsecode" / "config.yaml",  # User config dir
+            Path.home() / ".morse.yaml",  # User home (fallback)
+        ]
+
+        # Check if any existing config exists
+        for path in search_paths:
+            if path.exists():
+                self.logger.debug("Found existing config at: %s", path)
+                return path
+
+        # No config found - create default in user config directory
+        default_path = search_paths[1]  # ~/.config/morsecode/config.yaml
+        self.logger.info("No configuration found, creating default at: %s", default_path)
+
+        # Create directory if it doesn't exist
+        default_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create sample config
+        self._create_initial_config(default_path)
+        self.was_created = True
+
+        return default_path
+
+    def _create_initial_config(self, config_path: Path) -> None:
+        """Create an initial configuration file with registry-discovered defaults.
+
+        Args:
+            config_path: Path where to create the config file
+        """
+        # Use registry to create documented config file
+        self._registry.create_sample_config(str(config_path))
+
+        self.logger.info("Created initial configuration at: %s", config_path)
+
+    def create_sample_config(self, output_file: str = "morse.yaml") -> None:
+        """Create a comprehensive sample configuration with registry-discovered modules.
+
+        Args:
+            output_file: Path to output YAML file
+        """
+        # Delegate to registry for consistency
+        self._registry.create_sample_config(output_file)
+        self.logger.info("Sample configuration created: %s", output_file)
 
     def _load_config(self) -> None:
         """Load configuration from YAML file with error handling."""
@@ -58,25 +127,42 @@ class AwesomeConfigManager:
             self._config_data = {}
 
     def _load_schema(self, module_name: str) -> dict[str, Any]:
-        """Load JSON schema for a module.
+        """Load JSON schema for a module from ConfigRegistry.
 
         Args:
             module_name: Name of module (e.g., 'audio', 'signal', 'decoder', 'app')
 
         Returns:
-            JSON schema as dictionary
+            JSON schema as dictionary from registry
         """
         if module_name in self._schemas:
             return self._schemas[module_name]
 
-        schema_path = Path(__file__).parent / module_name / "config.schema.json"
-        try:
-            with open(schema_path, encoding="utf-8") as f:
-                schema: dict[str, Any] = json.load(f)
+        # Get schema from registry
+        if (
+            hasattr(self._registry, "_module_configs")
+            and module_name in self._registry._module_configs
+        ):
+            schema = self._registry._module_configs[module_name]["schema"]
+            self._schemas[module_name] = schema
+            return schema
+        else:
+            # Handle app config (not in module registry)
+            if module_name == "app":
+                schema = {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "title": "App Configuration",
+                    "type": "object",
+                    "properties": {
+                        "debug": {"type": "boolean"},
+                        "log_level": {"type": "string"},
+                        "output_file": {"type": ["string", "null"]},
+                    },
+                }
                 self._schemas[module_name] = schema
                 return schema
-        except Exception as e:
-            self.logger.error("Failed to load schema for %s: %s", module_name, e)
+
+            self.logger.warning("No schema found for module: %s", module_name)
             return {}
 
     def _validate_against_schema(self, module_name: str, config: dict[str, Any]) -> None:
@@ -247,37 +333,102 @@ class AwesomeConfigManager:
             # Return defaults as fallback
             return self._get_defaults(module_name)
 
-    def create_sample_config(self, output_file: str = "morse.yaml") -> None:
-        """Create a sample configuration file with all defaults and documentation.
+    def register_schema(self, section_name, schema_obj) -> None:
+        """Register a schema for enum-based configuration.
 
         Args:
-            output_file: Path to output YAML file
+            section_name: Section name (enum or string)
+            schema_obj: Schema dataclass with CfgField definitions
         """
-        sample_config = {}
+        # Convert enum to string if needed
+        section_str = section_name.value if hasattr(section_name, 'value') else str(section_name)
 
-        for module_name in ["app", "audio", "signal", "decoder"]:
-            schema = self._load_schema(module_name)
-            if not schema:
-                continue
+        # For now, just log the registration - full implementation would convert
+        # the schema_obj to JSON schema and store it
+        self.logger.debug("Schema registered for section '%s': %s", section_str, schema_obj)
 
-            module_config = {}
-            properties = schema.get("properties", {})
+        # Store the schema object for future use
+        if not hasattr(self, '_enum_schemas'):
+            self._enum_schemas = {}
+        self._enum_schemas[section_str] = schema_obj
 
-            for key, prop_schema in properties.items():
-                default_value = prop_schema.get("default")
+    def get_section(self, section_name):
+        """Get a config section with enum-friendly access.
 
-                # Add the default value
-                if default_value is not None:
-                    module_config[key] = default_value
+        Args:
+            section_name: Section name (enum or string)
 
-                # Add commented description (for documentation)
-                # This is a simplified version - full implementation would need
-                # a YAML library that preserves comments
+        Returns:
+            ConfigSection object with get_int, get_double, get_enum methods
+        """
+        # Convert enum to string if needed
+        section_str = section_name.value if hasattr(section_name, 'value') else str(section_name)
 
-            sample_config[module_name] = module_config
+        # Get config data using existing method
+        config_data = self.get_config(section_str)
 
-        # Write sample config
-        with open(output_file, "w", encoding="utf-8") as f:
-            yaml.dump(sample_config, f, default_flow_style=False, sort_keys=False)
+        # Return wrapped section for enum-friendly access
+        return ConfigSection(config_data, section_str, self.logger)
 
-        self.logger.info("Sample configuration created: %s", output_file)
+
+class ConfigSection:
+    """Wrapper for config section data with type-safe access methods."""
+
+    def __init__(self, config_data: dict, section_name: str, logger):
+        """Initialize config section wrapper with data and logger."""
+        self.config_data = config_data
+        self.section_name = section_name
+        self.logger = logger
+
+    def get_int(self, key) -> int:
+        """Get integer value using enum key."""
+        key_str = key.value if hasattr(key, 'value') else str(key)
+        value = self.config_data.get(key_str, 0)
+        try:
+            return int(value)
+        except (ValueError, TypeError) as e:
+            self.logger.error("Failed to convert %s.%s to int: %s", self.section_name, key_str, e)
+            return 0
+
+    def get_double(self, key) -> float:
+        """Get double/float value using enum key."""
+        key_str = key.value if hasattr(key, 'value') else str(key)
+        value = self.config_data.get(key_str, 0.0)
+        try:
+            return float(value)
+        except (ValueError, TypeError) as e:
+            self.logger.error("Failed to convert %s.%s to float: %s", self.section_name, key_str, e)
+            return 0.0
+
+    def get_string(self, key) -> str:
+        """Get string value using enum key."""
+        key_str = key.value if hasattr(key, 'value') else str(key)
+        value = self.config_data.get(key_str, "")
+        return str(value)
+
+    def get_bool(self, key) -> bool:
+        """Get boolean value using enum key."""
+        key_str = key.value if hasattr(key, 'value') else str(key)
+        value = self.config_data.get(key_str, False)
+        if isinstance(value, bool):
+            return value
+        # Handle string representations
+        if isinstance(value, str):
+            return value.lower() in ('true', 'yes', 'on', '1')
+        return bool(value)
+
+    def get_enum(self, key, enum_class):
+        """Get enum value using enum key."""
+        key_str = key.value if hasattr(key, 'value') else str(key)
+        value_str = self.config_data.get(key_str, "")
+
+        # Convert string to enum
+        for enum_val in enum_class:
+            if enum_val.value == value_str:
+                return enum_val
+
+        # Default to first enum value if not found
+        default_val = list(enum_class)[0]
+        self.logger.warning("Unknown enum value '%s' for %s.%s, using default: %s",
+                           value_str, self.section_name, key_str, default_val.value)
+        return default_val

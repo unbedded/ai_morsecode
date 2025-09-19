@@ -6,22 +6,16 @@ and character boundaries for accurate Morse code translation.
 
 Example usage:
     ```python
-    from morsecode.morse_decoder import MorseDecoder
-    from morsecode.signal_processor import SignalProcessor
+    from morsecode.components.decoder.morse_decoder import MorseDecoder
+    from util.config.registry import AwesomeConfigManager
 
-    cfg = {
-        'wpm_estimate': 15,
-        'dot_duration_ms': 80,
-        'character_spacing_ratio': 3.0
-    }
+    cfg_mgr = AwesomeConfigManager("morse.yaml")
+    decoder = MorseDecoder(cfg_mgr)
 
-    decoder = MorseDecoder(cfg_dict=cfg)
-    processor = SignalProcessor()
-
-    # Process audio chunks
-    for audio_chunk in audio_stream:
-        tone_detected = processor.detect_tone(audio_chunk)
-        decoder.process_tone_detection(tone_detected, chunk_duration_ms)
+    # Process tone detection events
+    decoder.process_tone_detection(True, 80.0)   # Dot
+    decoder.process_tone_detection(False, 80.0)  # Silence
+    decoder.process_tone_detection(True, 240.0)  # Dash
 
     decoded_text = decoder.get_decoded_text()
     ```
@@ -32,6 +26,8 @@ from typing import Any
 
 import numpy as np
 
+from morsecode.components.decoder.keys import CfgKey, CfgSection
+from morsecode.components.decoder.schema import ConfigSchema
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import MorsePatternEvent, TextDecodedEvent
 
@@ -120,42 +116,41 @@ class MorseDecoder:
         detection_tolerance: Tolerance factor for timing variations (0.0-1.0).
     """
 
-    def __init__(self, cfg_dict: dict[str, Any] | None = None) -> None:
-        """Initialize the MorseDecoder with configuration parameters.
+    def __init__(self, cfg_mgr) -> None:
+        """Initialize the MorseDecoder with enum-based configuration.
 
         Args:
-            cfg_dict: Configuration dictionary containing timing parameters.
-                     Expected keys: 'wpm_estimate', 'dot_duration_ms',
-                     'dash_ratio', 'character_spacing_ratio', 'word_spacing_ratio',
-                     'detection_tolerance'
+            cfg_mgr: Config manager for enum-based configuration.
         """
         # Initialize logging as the first step in constructor
         self.logger = logging.getLogger(__name__)
 
-        cfg_dict = cfg_dict or {}
+        # STEP 1: Register schema (visible in constructor!)
+        cfg_mgr.register_schema(CfgSection.DECODER, ConfigSchema)
 
-        # Initialize timing parameters
-        self.wpm_estimate: int = self._init_param(cfg_dict, "wpm_estimate", DEFAULT_WPM)
-        self.dot_duration_ms: float = self._init_param(
-            cfg_dict, "dot_duration_ms", DEFAULT_DOT_DURATION_MS
-        )
+        # STEP 2: Get config section
+        cfg = cfg_mgr.get_section(CfgSection.DECODER)
 
-        # Calculate derived timing parameters
-        dash_ratio = self._init_param(cfg_dict, "dash_ratio", DEFAULT_DASH_RATIO)
-        character_spacing_ratio = self._init_param(
-            cfg_dict, "character_spacing_ratio", DEFAULT_CHARACTER_SPACING_RATIO
-        )
-        word_spacing_ratio = self._init_param(
-            cfg_dict, "word_spacing_ratio", DEFAULT_WORD_SPACING_RATIO
-        )
+        # STEP 3: Type-safe config access with auto-complete!
+        self.wpm_estimate: int = cfg.get_int(CfgKey.WPM)
+        self.dot_duration_ms: float = cfg.get_double(CfgKey.DOT_DURATION)
+        self.detection_tolerance: float = cfg.get_double(CfgKey.TOLERANCE)
+
+        # Calculate derived timing parameters using defaults
+        dash_ratio = DEFAULT_DASH_RATIO
+        character_spacing_ratio = DEFAULT_CHARACTER_SPACING_RATIO
+        word_spacing_ratio = DEFAULT_WORD_SPACING_RATIO
 
         self.dash_duration_ms: float = self.dot_duration_ms * dash_ratio
         self.element_spacing_ms: float = self.dot_duration_ms * DEFAULT_ELEMENT_SPACING_RATIO
         self.character_spacing_ms: float = self.dot_duration_ms * character_spacing_ratio
         self.word_spacing_ms: float = self.dot_duration_ms * word_spacing_ratio
 
-        self.detection_tolerance: float = self._init_param(
-            cfg_dict, "detection_tolerance", DEFAULT_DETECTION_TOLERANCE
+        self.logger.info(
+            "Decoder initialized: %d WPM, dot=%.1fms, tolerance=%.2f",
+            self.wpm_estimate,
+            self.dot_duration_ms,
+            self.detection_tolerance,
         )
 
         # Initialize decoding state
@@ -176,34 +171,6 @@ class MorseDecoder:
         except Exception as e:
             self.logger.exception("Error validating MorseDecoder configuration: %s", str(e))
             raise RuntimeError(f"Failed to initialize morse decoder: {e}") from e
-
-        self.logger.info(
-            "MorseDecoder initialized: %d WPM, dot=%.1fms, dash=%.1fms",
-            self.wpm_estimate,
-            self.dot_duration_ms,
-            self.dash_duration_ms,
-        )
-
-    def _init_param(self, cfg_dict: dict[str, Any], key: str, default: Any) -> Any:
-        """Initialize a parameter with a default value if the key is missing.
-
-        Args:
-            cfg_dict: Configuration dictionary.
-            key: Parameter key to look up.
-            default: Default value if key is not found.
-
-        Returns:
-            The parameter value from config or default.
-        """
-        value = cfg_dict.get(key, default)
-        if key not in cfg_dict or value is None:
-            self.logger.info(
-                "Parameter '%s' not found in configuration or is None. Using default: %s",
-                key,
-                default,
-            )
-            return default
-        return value
 
     def _validate_configuration(self) -> None:
         """Validate decoder configuration parameters."""

@@ -12,6 +12,7 @@ from morsecode.components.signal.signal_processor import SignalProcessor
 from morsecode.events.bus import EventBus
 from morsecode.events.types import ErrorEvent, ToneDetectedEvent
 from morsecode.interfaces.signal import SignalProcessor as SignalProcessorProtocol
+from util.config.models import SignalConfig
 
 
 class MockAudioSource:
@@ -276,13 +277,13 @@ class TestInterfaceBasedSignalProcessor:
         self, sample_rate: int, frequency: float, expected_detection: bool
     ) -> None:
         """Test using parameterization with interface-based testing."""
-        processor = SignalProcessor(
-            cfg_dict={"sample_rate_hz": sample_rate, "target_frequency_hz": 600.0}
-        )
+        # Configure processor with fixed target frequency (600 Hz) for all tests
+        processor = SignalProcessor(SignalConfig(sample_rate=sample_rate, frequency=600))
 
         test_audio = self.create_synthetic_audio(frequency=frequency, sample_rate=sample_rate)
 
-        detection = processor.detect_tone(test_audio)
+        # Disable adaptive frequency for tests that expect specific frequency detection
+        detection = processor.detect_tone(test_audio, adaptive_frequency=False)
         assert detection == expected_detection
 
     def test_performance_with_mock_data(self) -> None:

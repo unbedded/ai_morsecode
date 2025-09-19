@@ -7,7 +7,7 @@ combining the benefits of YAML configuration with type safety and validation.
 import logging
 from dataclasses import dataclass
 
-from .manager import AwesomeConfigManager
+from .config_manager import AwesomeConfigManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class AudioConfig:
 class SignalConfig:
     """Signal processing configuration."""
 
-    frequency: int = 600
+    frequency: int = 600  # Registry provides defaults, this is fallback only
     threshold: float = 0.3
     bandwidth: int = 50
     sample_rate: int = 44100

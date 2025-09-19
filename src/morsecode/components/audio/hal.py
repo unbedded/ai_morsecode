@@ -5,14 +5,15 @@ It supports configuration management and logging for debugging and error handlin
 
 Example usage:
     ```python
-    from morsecode.hal import HardwareAbstractionLayer
+    from morsecode.components.audio.hal import HardwareAbstractionLayer
+    from util.config.models import AudioConfig
 
-    cfg = {
-        'wav_filename': '/path/to/audio.wav',
-        'audio_rate_hz': 48000
-    }
+    config = AudioConfig(
+        wav_filename='/path/to/audio.wav',
+        sample_rate=48000
+    )
 
-    hal = HardwareAbstractionLayer(cfg_dict=cfg)
+    hal = HardwareAbstractionLayer(config=config)
     audio_chunk = hal.get_next_chunk(update_interval_ms=100)
     ```
 """
@@ -24,6 +25,8 @@ from typing import Any
 import numpy as np
 from scipy.io import wavfile
 
+from morsecode.components.audio.keys import CfgKey, CfgSection
+from morsecode.components.audio.schema import ConfigSchema
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import AudioChunkEvent
 
@@ -44,47 +47,40 @@ class HardwareAbstractionLayer:
         wav_filename: Path to the WAV file being processed.
     """
 
-    def __init__(self, cfg_dict: dict[str, Any] | None = None) -> None:
-        """Initialize the HardwareAbstractionLayer with configuration parameters.
+    def __init__(self, cfg_mgr) -> None:
+        """Initialize the HardwareAbstractionLayer with enum-based configuration.
 
         Args:
-            cfg_dict: Configuration dictionary containing initialization parameters.
-                     Expected keys: 'wav_filename', 'audio_rate_hz'
+            cfg_mgr: Config manager for enum-based configuration.
         """
         # Initialize logging as the first step in constructor
         self.logger = logging.getLogger(__name__)
 
-        cfg_dict = cfg_dict or {}
+        # STEP 1: Register schema (visible in constructor!)
+        cfg_mgr.register_schema(CfgSection.AUDIO, ConfigSchema)
 
-        self.audio_data: np.ndarray = np.array([])
-        self.audio_rate_hz: int = self._init_param(cfg_dict, "audio_rate_hz", DEFAULT_AUDIO_RATE_HZ)
-        self.wav_filename: str | None = self._init_param(
-            cfg_dict, "wav_filename", DEFAULT_WAV_FILENAME
+        # STEP 2: Get config section
+        cfg = cfg_mgr.get_section(CfgSection.AUDIO)
+
+        # STEP 3: Type-safe config access with auto-complete!
+        self.audio_rate_hz: int = cfg.get_int(CfgKey.SAMPLE_RATE)
+        self.wav_filename: str | None = cfg.get_string(CfgKey.WAV_FILENAME)
+        self.auto_gain_control: bool = cfg.get_bool(CfgKey.AUTO_GAIN_CONTROL)
+        self.chunk_size_ms: int = cfg.get_int(CfgKey.CHUNK_SIZE)
+
+        self.logger.info(
+            "Audio HAL initialized: sample_rate=%dHz, file=%s, agc=%s, chunk=%dms",
+            self.audio_rate_hz, self.wav_filename, self.auto_gain_control, self.chunk_size_ms
         )
+
+        # Initialize audio processing state
+        self.audio_data: np.ndarray = np.array([])
         self._chunk_counter: int = 0
 
         # Get global event bus for publishing events
         self._event_bus = get_global_event_bus()
 
         self.load_audio_file()
-
-    def _init_param(self, cfg_dict: dict[str, Any], key: str, default: Any) -> Any:
-        """Initialize a parameter with a default value if the key is missing.
-
-        Args:
-            cfg_dict: Configuration dictionary.
-            key: Parameter key to look up.
-            default: Default value if key is not found.
-
-        Returns:
-            The parameter value from config or default.
-        """
-        value = cfg_dict.get(key, default)
-        if key not in cfg_dict:
-            self.logger.info(
-                "Parameter '%s' not found in configuration. Using default: %s", key, default
-            )
-        return value
 
     def get_params(self) -> dict[str, Any]:
         """Return the current configuration parameters.

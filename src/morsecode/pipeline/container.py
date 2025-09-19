@@ -7,8 +7,10 @@ the creation and lifecycle of components using the factory pattern.
 import logging
 from typing import Any, TypeVar, cast
 
+from util.config.config_manager import AwesomeConfigManager
+from util.config.models import AudioConfig, DecoderConfig, SignalConfig
+
 from ..components.factory import ComponentFactory
-from ..config.manager import AwesomeConfigManager
 from ..interfaces.audio import AudioSource
 from ..interfaces.decoder import MorseDecoder
 from ..interfaces.signal import SignalProcessor
@@ -115,14 +117,32 @@ class Container:
         config_key = self._registered_configs[component_type]
         config = self._config_manager.get_config(config_key)
 
-        # Create instance using factory
+        # Create instance using factory with typed configs
         try:
             if component_type == AudioSource:
-                instance = cast(T, self._factory.create_audio_source(config))
+                audio_config = AudioConfig(
+                    sample_rate=config.get("sample_rate", 44100),
+                    wav_filename=config.get("wav_filename"),
+                    auto_gain_control=config.get("auto_gain_control", True),
+                    chunk_size_ms=config.get("chunk_size_ms", 50),
+                )
+                instance = cast(T, self._factory.create_audio_source(audio_config))
             elif component_type == SignalProcessor:
-                instance = cast(T, self._factory.create_signal_processor(config))
+                signal_config = SignalConfig(
+                    sample_rate=config.get("sample_rate", 44100),
+                    frequency=config.get("frequency", 600),
+                    threshold=config.get("threshold", 0.3),
+                    bandwidth=config.get("bandwidth", 50),
+                )
+                instance = cast(T, self._factory.create_signal_processor(signal_config))
             elif component_type == MorseDecoder:
-                instance = cast(T, self._factory.create_decoder(config))
+                decoder_config = DecoderConfig(
+                    wpm=config.get("wpm", 15),
+                    tolerance=config.get("tolerance", 0.3),
+                    dot_duration_ms=config.get("dot_duration_ms"),
+                    min_silence_ms=config.get("min_silence_ms", 200.0),
+                )
+                instance = cast(T, self._factory.create_decoder(decoder_config))
             else:
                 raise ValueError(f"No factory method for {component_type.__name__}")
 

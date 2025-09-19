@@ -1,18 +1,72 @@
 """Component factory for creating configured instances.
 
 This module provides a factory class that creates concrete implementations
-of the protocol interfaces using configuration data. It serves as the bridge
+of the protocol interfaces using typed configuration objects. It serves as the bridge
 between the configuration system and the component implementations.
 """
 
 import logging
 from typing import Any
+from unittest.mock import MagicMock
+
+from util.config.models import AudioConfig, DecoderConfig, SignalConfig
 
 from ..interfaces.audio import AudioSource
 from ..interfaces.decoder import MorseDecoder
 from ..interfaces.signal import SignalProcessor
 
 logger = logging.getLogger(__name__)
+
+
+def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
+    """Create mock config manager from AudioConfig."""
+    from .audio.keys import CfgKey as AudioCfgKey
+
+    config_data = {
+        AudioCfgKey.SAMPLE_RATE: audio_config.sample_rate,
+        AudioCfgKey.WAV_FILENAME: audio_config.wav_filename,
+        AudioCfgKey.AUTO_GAIN_CONTROL: audio_config.auto_gain_control,
+        AudioCfgKey.CHUNK_SIZE: audio_config.chunk_size_ms,
+    }
+
+    mock_config_manager = MagicMock()
+    mock_section = MagicMock()
+
+    def get_value(key):
+        return config_data.get(key)
+
+    mock_section.get_int.side_effect = lambda key: get_value(key)
+    mock_section.get_double.side_effect = lambda key: get_value(key)
+    mock_section.get_bool.side_effect = lambda key: get_value(key)
+    mock_section.get_string.side_effect = lambda key: get_value(key)
+
+    mock_config_manager.get_section.return_value = mock_section
+    return mock_config_manager
+
+
+def create_mock_decoder_config_manager(decoder_config: DecoderConfig) -> MagicMock:
+    """Create mock config manager from DecoderConfig."""
+    from .decoder.keys import CfgKey as DecoderCfgKey
+
+    config_data = {
+        DecoderCfgKey.WPM: decoder_config.wpm,
+        DecoderCfgKey.DOT_DURATION: decoder_config.dot_duration_ms,
+        DecoderCfgKey.TOLERANCE: decoder_config.tolerance,
+    }
+
+    mock_config_manager = MagicMock()
+    mock_section = MagicMock()
+
+    def get_value(key):
+        return config_data.get(key)
+
+    mock_section.get_int.side_effect = lambda key: get_value(key)
+    mock_section.get_double.side_effect = lambda key: get_value(key)
+    mock_section.get_bool.side_effect = lambda key: get_value(key)
+    mock_section.get_string.side_effect = lambda key: get_value(key)
+
+    mock_config_manager.get_section.return_value = mock_section
+    return mock_config_manager
 
 
 class ComponentFactory:
@@ -30,14 +84,11 @@ class ComponentFactory:
         """Initialize the component factory."""
         self.logger = logging.getLogger(__name__)
 
-    def create_audio_source(self, config: dict[str, Any]) -> AudioSource:
+    def create_audio_source(self, config: AudioConfig) -> AudioSource:
         """Create an audio source from configuration.
 
         Args:
-            config: Audio configuration dictionary containing:
-                - wav_filename: Path to WAV file (optional)
-                - sample_rate_hz: Sample rate in Hz
-                - chunk_size_ms: Chunk size in milliseconds
+            config: AudioConfig object with typed configuration parameters.
 
         Returns:
             AudioSource implementation configured with the given parameters.
@@ -48,11 +99,11 @@ class ComponentFactory:
         Example:
             ```python
             factory = ComponentFactory()
-            config = {
-                "wav_filename": "audio.wav",
-                "sample_rate_hz": 44100,
-                "chunk_size_ms": 20
-            }
+            config = AudioConfig(
+                wav_filename="audio.wav",
+                sample_rate=44100,
+                chunk_size_ms=20
+            )
             audio_source = factory.create_audio_source(config)
             ```
         """
@@ -60,27 +111,24 @@ class ComponentFactory:
             # Import here to avoid circular imports
             from .audio.hal import HardwareAbstractionLayer
 
-            self.logger.debug("Creating audio source with config: %s", config)
+            self.logger.debug("Creating audio source with typed config")
 
-            # Create HAL instance with legacy config format
-            hal_instance = HardwareAbstractionLayer(cfg_dict=config)
+            # Create HAL instance with mock config manager (converted from typed config)
+            audio_cfg_mgr = create_mock_audio_config_manager(config)
+            hal_instance = HardwareAbstractionLayer(cfg_mgr=audio_cfg_mgr)
 
-            # Wrap in adapter if needed (for now, return directly since HAL matches protocol)
+            # Wrap in adapter to match protocol interface
             return AudioSourceAdapter(hal_instance)
 
         except Exception as e:
             self.logger.error("Failed to create audio source: %s", e)
             raise ValueError(f"Cannot create audio source: {e}") from e
 
-    def create_signal_processor(self, config: dict[str, Any]) -> SignalProcessor:
+    def create_signal_processor(self, config: SignalConfig) -> SignalProcessor:
         """Create a signal processor from configuration.
 
         Args:
-            config: Signal processing configuration dictionary containing:
-                - target_frequency_hz: Target frequency in Hz
-                - detection_threshold: Detection threshold (0.0-1.0)
-                - filter_bandwidth_hz: Filter bandwidth in Hz
-                - sample_rate_hz: Sample rate in Hz
+            config: SignalConfig object with typed configuration parameters.
 
         Returns:
             SignalProcessor implementation configured with the given parameters.
@@ -92,10 +140,10 @@ class ComponentFactory:
             # Import here to avoid circular imports
             from .signal.signal_processor import SignalProcessor as LegacySignalProcessor
 
-            self.logger.debug("Creating signal processor with config: %s", config)
+            self.logger.debug("Creating signal processor with typed config")
 
-            # Create processor instance with legacy config format
-            processor_instance = LegacySignalProcessor(cfg_dict=config)
+            # Create processor instance with new typed config
+            processor_instance = LegacySignalProcessor(config=config)
 
             # Wrap in adapter
             return SignalProcessorAdapter(processor_instance)
@@ -104,15 +152,11 @@ class ComponentFactory:
             self.logger.error("Failed to create signal processor: %s", e)
             raise ValueError(f"Cannot create signal processor: {e}") from e
 
-    def create_decoder(self, config: dict[str, Any]) -> MorseDecoder:
+    def create_decoder(self, config: DecoderConfig) -> MorseDecoder:
         """Create a Morse decoder from configuration.
 
         Args:
-            config: Decoder configuration dictionary containing:
-                - wpm_estimate: Initial WPM estimate
-                - detection_tolerance: Timing tolerance (0.0-1.0)
-                - dot_duration_ms: Dot duration override (optional)
-                - min_silence_duration_ms: Minimum silence for word separation
+            config: DecoderConfig object with typed configuration parameters.
 
         Returns:
             MorseDecoder implementation configured with the given parameters.
@@ -124,10 +168,11 @@ class ComponentFactory:
             # Import here to avoid circular imports
             from .decoder.morse_decoder import MorseDecoder as LegacyMorseDecoder
 
-            self.logger.debug("Creating Morse decoder with config: %s", config)
+            self.logger.debug("Creating Morse decoder with typed config")
 
-            # Create decoder instance with legacy config format
-            decoder_instance = LegacyMorseDecoder(cfg_dict=config)
+            # Create decoder instance with mock config manager (converted from typed config)
+            decoder_cfg_mgr = create_mock_decoder_config_manager(config)
+            decoder_instance = LegacyMorseDecoder(cfg_mgr=decoder_cfg_mgr)
 
             # Wrap in adapter
             return MorseDecoderAdapter(decoder_instance)
@@ -181,7 +226,7 @@ class SignalProcessorAdapter:
     def get_dominant_frequency(self, audio_data: Any) -> float:
         """Get dominant frequency."""
         # Legacy processor doesn't expose this, implement basic version
-        return getattr(self._processor, "target_frequency_hz", 0.0)
+        return float(getattr(self._processor, "target_frequency_hz", 0))
 
     def get_signal_strength(self, audio_data: Any) -> float:
         """Get signal strength."""
@@ -195,7 +240,7 @@ class SignalProcessorAdapter:
 
     def get_target_frequency(self) -> float:
         """Get target frequency."""
-        return getattr(self._processor, "target_frequency_hz", 600.0)
+        return float(getattr(self._processor, "target_frequency_hz", 600))
 
 
 class MorseDecoderAdapter:

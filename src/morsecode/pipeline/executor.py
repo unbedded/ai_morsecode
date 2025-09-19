@@ -8,7 +8,8 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
-from ..config.models import MorseConfig
+from util.config.models import MorseConfig
+
 from ..interfaces.audio import AudioSource
 from ..interfaces.decoder import MorseDecoder
 from ..interfaces.signal import SignalProcessor

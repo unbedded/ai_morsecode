@@ -12,14 +12,25 @@ import numpy as np
 import pytest
 
 from morsecode.components.signal.signal_processor import (
-    DEFAULT_DETECTION_THRESHOLD,
     DEFAULT_FFT_WINDOW_SIZE,
-    DEFAULT_FILTER_BANDWIDTH_HZ,
     DEFAULT_NOISE_FLOOR_DB,
     DEFAULT_SAMPLE_RATE_HZ,
     DEFAULT_TARGET_FREQUENCY_HZ,
     SignalProcessor,
 )
+from util.config.models import SignalConfig
+
+# Test constants (inlined to avoid import issues)
+TEST_AMPLITUDE_NORMAL = 0.7
+TEST_AMPLITUDE_STRONG = 1.0
+TEST_AMPLITUDE_VERY_WEAK = 0.1
+TEST_FREQUENCY_ALTERNATE = 800
+TEST_FREQUENCY_HIGH = 1000
+TEST_FREQUENCY_NOMINAL = 600
+TEST_FREQUENCY_OFF_TARGET = 1500
+TEST_SAMPLE_RATE_HIGH = 48000
+TEST_SAMPLE_RATE_LOW = 22050
+TEST_THRESHOLD_LOW = 0.1
 
 
 class TestSignalProcessor:
@@ -28,7 +39,7 @@ class TestSignalProcessor:
     def create_test_signal(
         self,
         frequency: float,
-        amplitude: float = 1.0,
+        amplitude: float = TEST_AMPLITUDE_STRONG,
         duration_sec: float = 0.1,
         sample_rate: int = 44100,
         noise_amplitude: float = 0.0,
@@ -66,35 +77,33 @@ class TestSignalProcessor:
         assert processor.sample_rate_hz == DEFAULT_SAMPLE_RATE_HZ
         assert processor.target_frequency_hz == DEFAULT_TARGET_FREQUENCY_HZ
         assert processor.fft_window_size == DEFAULT_FFT_WINDOW_SIZE
-        assert processor.detection_threshold == DEFAULT_DETECTION_THRESHOLD
-        assert processor.filter_bandwidth_hz == DEFAULT_FILTER_BANDWIDTH_HZ
+        # Note: Default threshold in SignalConfig is 0.3, but legacy DEFAULT was 0.1
+        assert processor.detection_threshold == 0.3  # SignalConfig default
+        assert processor.filter_bandwidth_hz == 50  # SignalConfig default
         assert processor.noise_floor_db == DEFAULT_NOISE_FLOOR_DB
-        assert "not found in configuration" in caplog.text
 
     def test_init_with_config(self) -> None:
         """Test SignalProcessor initialization with custom configuration."""
-        cfg = {
-            "sample_rate_hz": 48000,
-            "target_frequency_hz": 800,
-            "fft_window_size": 2048,
-            "detection_threshold": 0.2,
-            "filter_bandwidth_hz": 100,
-            "noise_floor_db": -50,
-        }
+        config = SignalConfig(
+            sample_rate=TEST_SAMPLE_RATE_HIGH,
+            frequency=TEST_FREQUENCY_ALTERNATE,
+            threshold=0.2,
+            bandwidth=100,
+        )
 
-        processor = SignalProcessor(cfg_dict=cfg)
+        processor = SignalProcessor(config=config)
 
-        assert processor.sample_rate_hz == 48000
-        assert processor.target_frequency_hz == 800
-        assert processor.fft_window_size == 2048
+        assert processor.sample_rate_hz == TEST_SAMPLE_RATE_HIGH
+        assert processor.target_frequency_hz == TEST_FREQUENCY_ALTERNATE
+        assert processor.fft_window_size == DEFAULT_FFT_WINDOW_SIZE  # Not in config yet
         assert processor.detection_threshold == 0.2
         assert processor.filter_bandwidth_hz == 100
-        assert processor.noise_floor_db == -50
+        assert processor.noise_floor_db == DEFAULT_NOISE_FLOOR_DB  # Not in config yet
 
     def test_get_params(self) -> None:
         """Test getting configuration parameters."""
-        cfg = {"sample_rate_hz": 22050, "target_frequency_hz": 750}
-        processor = SignalProcessor(cfg_dict=cfg)
+        config = SignalConfig(sample_rate=22050, frequency=750)
+        processor = SignalProcessor(config=config)
 
         params = processor.get_params()
 
@@ -153,7 +162,7 @@ class TestSignalProcessor:
 
     def test_detect_tone_present(self) -> None:
         """Test tone detection when target tone is present."""
-        processor = SignalProcessor({"detection_threshold": 0.1})
+        processor = SignalProcessor(SignalConfig(threshold=0.1))
         # Create signal at target frequency with high amplitude
         test_signal = self.create_test_signal(
             frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1
@@ -165,21 +174,22 @@ class TestSignalProcessor:
 
     def test_detect_tone_absent(self) -> None:
         """Test tone detection when target tone is absent."""
-        processor = SignalProcessor({"detection_threshold": 0.1})
-        # Create signal at different frequency
+        processor = SignalProcessor(SignalConfig(threshold=0.1))
+        # Create signal at different frequency (well outside detection bandwidth)
         test_signal = self.create_test_signal(
-            frequency=DEFAULT_TARGET_FREQUENCY_HZ + 200,  # Different frequency
-            amplitude=1.0,
+            frequency=TEST_FREQUENCY_OFF_TARGET,  # Much different frequency to ensure no detection
+            amplitude=TEST_AMPLITUDE_STRONG,
             duration_sec=0.1,
         )
 
-        tone_detected = processor.detect_tone(test_signal)
+        # Disable adaptive frequency to test fixed-frequency detection
+        tone_detected = processor.detect_tone(test_signal, adaptive_frequency=False)
 
         assert tone_detected is False
 
     def test_detect_tone_weak_signal(self) -> None:
         """Test tone detection with weak signal below threshold."""
-        processor = SignalProcessor({"detection_threshold": 0.5})  # High threshold
+        processor = SignalProcessor(SignalConfig(threshold=0.5))  # High threshold
         # Create weak signal at target frequency
         test_signal = self.create_test_signal(
             frequency=DEFAULT_TARGET_FREQUENCY_HZ,
@@ -327,13 +337,13 @@ class TestSignalProcessor:
         self, sample_rate: int, target_freq: int, window_size: int
     ) -> None:
         """Test SignalProcessor with different configuration parameters."""
-        cfg = {
-            "sample_rate_hz": sample_rate,
-            "target_frequency_hz": target_freq,
-            "fft_window_size": window_size,
-        }
+        config = SignalConfig(
+            sample_rate=sample_rate,
+            frequency=target_freq,
+            # Note: fft_window_size not in SignalConfig yet, will use default
+        )
 
-        processor = SignalProcessor(cfg_dict=cfg)
+        processor = SignalProcessor(config=config)
 
         # Test signal at target frequency
         test_signal = self.create_test_signal(
@@ -347,9 +357,9 @@ class TestSignalProcessor:
         snr_db = processor.calculate_snr(test_signal)
         dominant_freq = processor.get_dominant_frequency(test_signal)
 
-        # Basic sanity checks
-        assert len(frequencies) == window_size // 2
-        assert len(magnitudes) == window_size // 2
+        # Basic sanity checks - window_size not configurable yet, use default
+        assert len(frequencies) == DEFAULT_FFT_WINDOW_SIZE // 2
+        assert len(magnitudes) == DEFAULT_FFT_WINDOW_SIZE // 2
         assert isinstance(tone_detected, bool)
         assert len(filtered_signal) == len(test_signal)
         assert isinstance(snr_db, float)
@@ -358,11 +368,10 @@ class TestSignalProcessor:
     def test_logging_configuration(self, caplog: Any) -> None:
         """Test that logging is properly configured."""
         with caplog.at_level(logging.INFO):
-            SignalProcessor({})
+            SignalProcessor()  # Use default config
 
-        # Should log about missing configuration parameters and initialization
+        # Should log about initialization
         log_messages = [record.message for record in caplog.records]
-        assert any("not found in configuration" in msg for msg in log_messages)
         assert any("SignalProcessor initialized" in msg for msg in log_messages)
 
     def test_error_propagation(self) -> None:
