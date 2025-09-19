@@ -18,7 +18,6 @@ Example usage:
     ```
 """
 
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -53,28 +52,41 @@ class HardwareAbstractionLayer:
         Args:
             cfg_mgr: Config manager for enum-based configuration.
         """
-        # Initialize logging as the first step in constructor
-        self.logger = logging.getLogger(__name__)
+        # STEP 1: Initialize ComponentLogger FIRST (required by CLAUDE.md)
+        from util.logging import ComponentLogger
 
-        # STEP 1: Register schema (visible in constructor!)
-        cfg_mgr.register_schema(CfgSection.AUDIO, ConfigSchema)
+        self.logger = ComponentLogger(__name__, cfg_mgr)
+        self.logger.info("HardwareAbstractionLayer initializing...")
 
-        # STEP 2: Get config section
+        # STEP 2: Register component configuration schema
+        cfg_mgr.register_enum_config(CfgSection.AUDIO, ConfigSchema)
         cfg = cfg_mgr.get_section(CfgSection.AUDIO)
 
-        # STEP 3: Type-safe config access with auto-complete!
+        # STEP 3: Register logging config for this component (enables config-driven log levels)
+        cfg_mgr.register_logging_config(__name__, default_level="INFO")
+
+        # STEP 4: Access configuration with type safety
         self.audio_rate_hz: int = cfg.get_int(CfgKey.SAMPLE_RATE)
         self.wav_filename: str | None = cfg.get_string(CfgKey.WAV_FILENAME)
         self.auto_gain_control: bool = cfg.get_bool(CfgKey.AUTO_GAIN_CONTROL)
         self.chunk_size_ms: int = cfg.get_int(CfgKey.CHUNK_SIZE)
 
+        # STEP 5: Global config for cross-cutting concerns (recommended)
+        global_cfg = cfg_mgr.get_section("global")
+        self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
+        self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
+
+        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
         self.logger.info(
-            "Audio HAL initialized: sample_rate=%dHz, file=%s, agc=%s, chunk=%dms",
+            "HardwareAbstractionLayer initialized: rate=%d Hz, file=%s, agc=%s, chunk=%d ms",
             self.audio_rate_hz,
             self.wav_filename,
             self.auto_gain_control,
             self.chunk_size_ms,
         )
+
+        # STEP 7: Debug logging controlled by config (not code!)
+        self.logger.debug("Internal state: ready for audio processing")
 
         # Initialize audio processing state
         self.audio_data: np.ndarray = np.array([])
@@ -119,11 +131,8 @@ class HardwareAbstractionLayer:
             else:
                 self.audio_data = data
 
-            self.logger.info(
-                "Audio file '%s' loaded successfully with rate %d Hz",
-                self.wav_filename,
-                self.audio_rate_hz,
-            )
+            # Simple, clean logging
+            self.logger.info("Audio file loaded: %s @ %dHz", self.wav_filename, self.audio_rate_hz)
 
         except FileNotFoundError:
             self.logger.exception("Audio file '%s' not found", self.wav_filename)

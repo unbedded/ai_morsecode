@@ -7,7 +7,6 @@ configurable detection thresholds and real-time audio stream processing.
 Example usage:
     ```python
     from morsecode.components.signal.signal_processor import SignalProcessor
-    from util.config.models import SignalConfig
 
     config = SignalConfig(
         sample_rate=44100,
@@ -20,7 +19,6 @@ Example usage:
     ```
 """
 
-import logging
 from typing import Any
 
 import numpy as np
@@ -31,7 +29,6 @@ from morsecode.components.signal.signal_config_keys import SignalCfgKey, SignalC
 from morsecode.components.signal.signal_config_schema import SignalConfigSchema, SignalMode
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import AudioChunkEvent, ToneDetectedEvent
-from util.config.models import SignalConfig
 
 # Constants - components should get values from config, not import constants directly
 DEFAULT_SAMPLE_RATE_HZ = 44100
@@ -57,56 +54,48 @@ class SignalProcessor:
         noise_floor_db: Noise floor level in dB for SNR calculations.
     """
 
-    def __init__(self, config: SignalConfig | None = None, cfg_mgr=None) -> None:
-        """Initialize the SignalProcessor with configuration parameters.
+    def __init__(self, cfg_mgr) -> None:
+        """Initialize the SignalProcessor with enum-based configuration.
 
         Args:
-            config: Legacy SignalConfig object (backward compatibility).
-            cfg_mgr: New config manager for enum-based configuration.
-                    If provided, takes precedence over config parameter.
+            cfg_mgr: Config manager for enum-based configuration.
         """
-        # Initialize logging as the first step in constructor
-        self.logger = logging.getLogger(__name__)
+        # STEP 1: Initialize ComponentLogger FIRST (required by CLAUDE.md)
+        from util.logging import ComponentLogger
 
-        if cfg_mgr is not None:
-            # NEW: Enum-based config pattern
-            # STEP 1: Register schema (visible in constructor!)
-            cfg_mgr.register_schema(SignalCfgSection.SIGNAL, SignalConfigSchema)
+        self.logger = ComponentLogger(__name__, cfg_mgr)
+        self.logger.info("SignalProcessor initializing...")
 
-            # STEP 2: Get config section
-            cfg = cfg_mgr.get_section(SignalCfgSection.SIGNAL)
+        # STEP 2: Register component configuration schema
+        cfg_mgr.register_enum_config(SignalCfgSection.SIGNAL, SignalConfigSchema)
+        cfg = cfg_mgr.get_section(SignalCfgSection.SIGNAL)
 
-            # STEP 3: Type-safe config access with auto-complete!
-            self.sample_rate_hz: int = cfg.get_int(SignalCfgKey.SAMPLE_RATE)
-            self.target_frequency_hz: int = cfg.get_int(SignalCfgKey.FREQUENCY)
-            self.detection_threshold: float = cfg.get_double(SignalCfgKey.THRESHOLD)
-            self.filter_bandwidth_hz: int = cfg.get_int(SignalCfgKey.BANDWIDTH)
-            self.mode: SignalMode = cfg.get_enum(SignalCfgKey.MODE, SignalMode)
+        # STEP 3: Register logging config for this component (enables config-driven log levels)
+        cfg_mgr.register_logging_config(__name__, default_level="INFO")
 
-            self.logger.info(
-                "SignalProcessor initialized with enum config: freq=%dHz, threshold=%.2f, bandwidth=%dHz, mode=%s",
-                self.target_frequency_hz,
-                self.detection_threshold,
-                self.filter_bandwidth_hz,
-                self.mode.value,
-            )
-        else:
-            # LEGACY: Dataclass config pattern (backward compatibility)
-            if config is None:
-                config = SignalConfig()
+        # STEP 4: Access configuration with type safety
+        self.sample_rate_hz: int = cfg.get_int(SignalCfgKey.SAMPLE_RATE)
+        self.target_frequency_hz: int = cfg.get_int(SignalCfgKey.FREQUENCY)
+        self.detection_threshold: float = cfg.get_double(SignalCfgKey.THRESHOLD)
+        self.filter_bandwidth_hz: int = cfg.get_int(SignalCfgKey.BANDWIDTH)
+        self.mode: SignalMode = cfg.get_enum(SignalCfgKey.MODE, SignalMode)
 
-            self.sample_rate_hz = config.sample_rate
-            self.target_frequency_hz = config.frequency
-            self.detection_threshold = config.threshold
-            self.filter_bandwidth_hz = config.bandwidth
-            self.mode = SignalMode.AUTO  # Default for legacy configs
+        # STEP 5: Global config for cross-cutting concerns (recommended)
+        global_cfg = cfg_mgr.get_section("global")
+        self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
+        self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
 
-            self.logger.info(
-                "SignalProcessor initialized with legacy config: freq=%dHz, threshold=%.2f, bandwidth=%dHz",
-                self.target_frequency_hz,
-                self.detection_threshold,
-                self.filter_bandwidth_hz,
-            )
+        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
+        self.logger.info(
+            "SignalProcessor initialized: freq=%d Hz, threshold=%.2f, bandwidth=%d Hz, mode=%s",
+            self.target_frequency_hz,
+            self.detection_threshold,
+            self.filter_bandwidth_hz,
+            self.mode.value,
+        )
+
+        # STEP 7: Debug logging controlled by config (not code!)
+        self.logger.debug("Internal state: ready for processing")
 
         # Common initialization regardless of config method
         self.fft_window_size: int = DEFAULT_FFT_WINDOW_SIZE

@@ -38,7 +38,7 @@ class SignalConfigSchema:
 
     bandwidth = CfgField(type=CfgType.INT, default=50, min=10, max=500, unit="Hz", description="Filter bandwidth")
 
-    sample_rate = CfgField(
+    sample_hz = CfgField(
         type=CfgType.INT, default=44100, min=8000, max=96000, unit="Hz", description="Audio sample rate"
     )
 

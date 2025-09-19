@@ -41,7 +41,7 @@ def show_config_info(config_manager: AwesomeConfigManager) -> None:
     # Show all possible locations
     print("📍 Config file search order:")
     search_paths = [
-        Path("morse.yaml"),
+        Path("config/morse.yaml"),
         Path.home() / ".config" / "morsecode" / "config.yaml",
         Path.home() / ".morse.yaml",
     ]
@@ -72,7 +72,7 @@ def show_config_info(config_manager: AwesomeConfigManager) -> None:
     print(f"   • Edit config file: {current_path}")
     print("   • Validate config: morsecode --validate-config")
     print("   • Create new config: morsecode --create-config")
-    print("   • Use project config: Create 'morse.yaml' in current directory")
+    print("   • Use project config: Create 'config/morse.yaml' in current directory")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -94,7 +94,7 @@ Configuration:
   - decoder: Morse decoding (wpm, tolerance, dot_duration_ms)
 
 Configuration Files (searched in order):
-  1. ./morse.yaml                               # Project-specific config
+  1. ./config/morse.yaml                        # Project-specific config
   2. ~/.config/morsecode/config.yaml           # User config (auto-created)
   3. ~/.morse.yaml                             # Fallback location
 
@@ -113,7 +113,7 @@ Examples:
   morsecode --config custom.yaml audio.wav     # Use custom config file
   morsecode audio.wav --frequency 800           # Override single parameter
   morsecode --show-config                       # Show config locations
-  morsecode --create-config                     # Create sample morse.yaml
+  morsecode --create-config                     # Create sample config/morse.yaml
         """,
     )
 
@@ -130,7 +130,7 @@ Examples:
         "--config",
         "-c",
         metavar="FILE",
-        help="YAML configuration file path (default: morse.yaml)",
+        help="YAML configuration file path (default: config/morse.yaml)",
         type=str,
         default=None,
     )
@@ -148,7 +148,7 @@ Examples:
     parser.add_argument(
         "--create-config",
         action="store_true",
-        help="Create a sample configuration file (morse.yaml in current directory)",
+        help="Create a sample configuration file (config/morse.yaml in current directory)",
     )
 
     parser.add_argument(
@@ -303,7 +303,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.create_config:
             # Use the config manager's create_sample_config method
             config_manager = AwesomeConfigManager()
-            output_file = "morse.yaml"
+            output_file = "config/morse.yaml"
             config_manager.create_sample_config(output_file)
             print(f"✅ Sample configuration created: {output_file}")
             print("💡 Edit this file to customize your settings, then run:")
@@ -326,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
                     print("💡 Tip: Edit this file to customize your settings")
                 elif config_path.name == "config.yaml" and ".config/morsecode" in str(config_path):
                     print(f"📁 Using config: {config_path}")
-                elif config_path.name == "morse.yaml":
+                elif str(config_path) == "config/morse.yaml":
                     print(f"📁 Using project config: {config_path}")
         except Exception as e:
             print(f"Error: Failed to load configuration - {e}", file=sys.stderr)

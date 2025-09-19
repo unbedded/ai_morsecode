@@ -9,12 +9,12 @@ from util.config.types import CfgField, CfgType
 class ConfigSchema:
     """Clean struct-like schema for Audio component configuration."""
 
-    sample_rate = CfgField(
+    sample_hz = CfgField(
         type=CfgType.INT, default=44100, min=8000, max=96000, unit="Hz", description="Audio sample rate"
     )
 
     wav_filename = CfgField(
-        type=CfgType.STRING, default=None, regex=r".*\.(wav|mp3|flac)$", description="Path to audio file"
+        type=CfgType.STRING, default=None, nullable=True, regex=r".*\.(wav|mp3|flac)$", description="Audio file path"
     )
 
     auto_gain_control = CfgField(type=CfgType.BOOL, default=True, description="Enable automatic gain control")

@@ -14,11 +14,10 @@ import pytest
 from morsecode.components.signal.signal_processor import (
     DEFAULT_FFT_WINDOW_SIZE,
     DEFAULT_NOISE_FLOOR_DB,
-    DEFAULT_SAMPLE_RATE_HZ,
     DEFAULT_TARGET_FREQUENCY_HZ,
     SignalProcessor,
 )
-from util.config.models import SignalConfig
+from tests.mock_config_manager import create_signal_config_manager
 
 # Test constants (inlined to avoid import issues)
 TEST_AMPLITUDE_NORMAL = 0.7
@@ -71,27 +70,28 @@ class TestSignalProcessor:
 
     def test_init_with_defaults(self, caplog: Any) -> None:
         """Test SignalProcessor initialization with default parameters."""
-        with caplog.at_level(logging.INFO):
-            processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
 
-        assert processor.sample_rate_hz == DEFAULT_SAMPLE_RATE_HZ
-        assert processor.target_frequency_hz == DEFAULT_TARGET_FREQUENCY_HZ
+        with caplog.at_level(logging.INFO):
+            processor = SignalProcessor(cfg_mgr)
+
+        assert processor.sample_rate_hz == 44100  # Default from mock
+        assert processor.target_frequency_hz == 600  # Default from mock
         assert processor.fft_window_size == DEFAULT_FFT_WINDOW_SIZE
-        # Note: Default threshold in SignalConfig is 0.3, but legacy DEFAULT was 0.1
-        assert processor.detection_threshold == 0.3  # SignalConfig default
-        assert processor.filter_bandwidth_hz == 50  # SignalConfig default
+        assert processor.detection_threshold == 0.3  # Default from mock
+        assert processor.filter_bandwidth_hz == 50  # Default from mock
         assert processor.noise_floor_db == DEFAULT_NOISE_FLOOR_DB
 
     def test_init_with_config(self) -> None:
         """Test SignalProcessor initialization with custom configuration."""
-        config = SignalConfig(
-            sample_rate=TEST_SAMPLE_RATE_HIGH,
-            frequency=TEST_FREQUENCY_ALTERNATE,
+        cfg_mgr = create_signal_config_manager(
+            sample_rate_hz=TEST_SAMPLE_RATE_HIGH,
+            frequency_hz=TEST_FREQUENCY_ALTERNATE,
             threshold=0.2,
-            bandwidth=100,
+            bandwidth_hz=100,
         )
 
-        processor = SignalProcessor(config=config)
+        processor = SignalProcessor(cfg_mgr)
 
         assert processor.sample_rate_hz == TEST_SAMPLE_RATE_HIGH
         assert processor.target_frequency_hz == TEST_FREQUENCY_ALTERNATE
@@ -102,8 +102,8 @@ class TestSignalProcessor:
 
     def test_get_params(self) -> None:
         """Test getting configuration parameters."""
-        config = SignalConfig(sample_rate=22050, frequency=750)
-        processor = SignalProcessor(config=config)
+        cfg_mgr = create_signal_config_manager(sample_rate_hz=22050, frequency_hz=750)
+        processor = SignalProcessor(cfg_mgr)
 
         params = processor.get_params()
 
@@ -114,7 +114,8 @@ class TestSignalProcessor:
 
     def test_compute_fft_normal(self) -> None:
         """Test FFT computation with normal signal."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         test_freq = 1000  # Hz
         test_signal = self.create_test_signal(frequency=test_freq, duration_sec=0.1)
 
@@ -133,14 +134,16 @@ class TestSignalProcessor:
 
     def test_compute_fft_empty_data(self) -> None:
         """Test FFT computation with empty audio data."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         with pytest.raises(RuntimeError, match="FFT computation failed"):
             processor.compute_fft(np.array([]))
 
     def test_compute_fft_short_data(self) -> None:
         """Test FFT computation with data shorter than window size."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         short_signal = self.create_test_signal(frequency=600, duration_sec=0.01)  # Very short
 
         frequencies, magnitudes = processor.compute_fft(short_signal)
@@ -151,7 +154,8 @@ class TestSignalProcessor:
 
     def test_compute_fft_long_data(self) -> None:
         """Test FFT computation with data longer than window size."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         long_signal = self.create_test_signal(frequency=600, duration_sec=1.0)  # Long signal
 
         frequencies, magnitudes = processor.compute_fft(long_signal)
@@ -162,7 +166,8 @@ class TestSignalProcessor:
 
     def test_detect_tone_present(self) -> None:
         """Test tone detection when target tone is present."""
-        processor = SignalProcessor(SignalConfig(threshold=0.1))
+        cfg_mgr = create_signal_config_manager(threshold=0.1)
+        processor = SignalProcessor(cfg_mgr)
         # Create signal at target frequency with high amplitude
         test_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1)
 
@@ -172,7 +177,8 @@ class TestSignalProcessor:
 
     def test_detect_tone_absent(self) -> None:
         """Test tone detection when target tone is absent."""
-        processor = SignalProcessor(SignalConfig(threshold=0.1))
+        cfg_mgr = create_signal_config_manager(threshold=0.1)
+        processor = SignalProcessor(cfg_mgr)
         # Create signal at different frequency (well outside detection bandwidth)
         test_signal = self.create_test_signal(
             frequency=TEST_FREQUENCY_OFF_TARGET,  # Much different frequency to ensure no detection
@@ -187,7 +193,8 @@ class TestSignalProcessor:
 
     def test_detect_tone_weak_signal(self) -> None:
         """Test tone detection with weak signal below threshold."""
-        processor = SignalProcessor(SignalConfig(threshold=0.5))  # High threshold
+        cfg_mgr = create_signal_config_manager(threshold=0.5)  # High threshold
+        processor = SignalProcessor(cfg_mgr)
         # Create weak signal at target frequency
         test_signal = self.create_test_signal(
             frequency=DEFAULT_TARGET_FREQUENCY_HZ,
@@ -202,7 +209,8 @@ class TestSignalProcessor:
 
     def test_detect_tone_empty_data(self, caplog: Any) -> None:
         """Test tone detection with empty audio data."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         with caplog.at_level(logging.WARNING):
             tone_detected = processor.detect_tone(np.array([]))
@@ -212,7 +220,8 @@ class TestSignalProcessor:
 
     def test_apply_bandpass_filter_normal(self) -> None:
         """Test band-pass filter application."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Create signal with target frequency + noise at other frequencies
         target_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0)
@@ -230,7 +239,8 @@ class TestSignalProcessor:
 
     def test_apply_bandpass_filter_empty_data(self) -> None:
         """Test band-pass filter with empty audio data."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         with pytest.raises(RuntimeError, match="Band-pass filtering failed"):
             processor.apply_bandpass_filter(np.array([]))
@@ -238,7 +248,8 @@ class TestSignalProcessor:
     @patch("morsecode.components.signal.signal_processor.signal.butter")
     def test_apply_bandpass_filter_error_handling(self, mock_butter: Any) -> None:
         """Test band-pass filter error handling."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         test_signal = self.create_test_signal(frequency=600)
 
         # Mock filter design to raise an exception
@@ -249,7 +260,8 @@ class TestSignalProcessor:
 
     def test_calculate_snr_clean_signal(self) -> None:
         """Test SNR calculation with clean signal."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         # Create clean signal at target frequency
         clean_signal = self.create_test_signal(frequency=DEFAULT_TARGET_FREQUENCY_HZ, amplitude=1.0, duration_sec=0.1)
 
@@ -260,7 +272,8 @@ class TestSignalProcessor:
 
     def test_calculate_snr_noisy_signal(self) -> None:
         """Test SNR calculation with noisy signal."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         # Create signal with significant noise
         noisy_signal = self.create_test_signal(
             frequency=DEFAULT_TARGET_FREQUENCY_HZ,
@@ -278,7 +291,8 @@ class TestSignalProcessor:
 
     def test_calculate_snr_empty_data(self) -> None:
         """Test SNR calculation with empty audio data."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # SNR calculation returns 0.0 on error instead of raising
         snr = processor.calculate_snr(np.array([]))
@@ -286,7 +300,8 @@ class TestSignalProcessor:
 
     def test_get_dominant_frequency_single_tone(self) -> None:
         """Test dominant frequency detection with single tone."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
         test_freq = 800  # Hz
         test_signal = self.create_test_signal(frequency=test_freq, duration_sec=0.1)
 
@@ -297,7 +312,8 @@ class TestSignalProcessor:
 
     def test_get_dominant_frequency_multiple_tones(self) -> None:
         """Test dominant frequency detection with multiple tones."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Create signal with two tones, one stronger
         strong_tone = self.create_test_signal(frequency=700, amplitude=2.0)
@@ -311,7 +327,8 @@ class TestSignalProcessor:
 
     def test_get_dominant_frequency_empty_data(self) -> None:
         """Test dominant frequency detection with empty data."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Dominant frequency returns 0.0 on error instead of raising
         freq = processor.get_dominant_frequency(np.array([]))
@@ -327,13 +344,13 @@ class TestSignalProcessor:
     )
     def test_different_configurations(self, sample_rate: int, target_freq: int, window_size: int) -> None:
         """Test SignalProcessor with different configuration parameters."""
-        config = SignalConfig(
-            sample_rate=sample_rate,
-            frequency=target_freq,
-            # Note: fft_window_size not in SignalConfig yet, will use default
+        cfg_mgr = create_signal_config_manager(
+            sample_rate_hz=sample_rate,
+            frequency_hz=target_freq,
+            # Note: fft_window_size not in config yet, will use default
         )
 
-        processor = SignalProcessor(config=config)
+        processor = SignalProcessor(cfg_mgr)
 
         # Test signal at target frequency
         test_signal = self.create_test_signal(frequency=target_freq, sample_rate=sample_rate, duration_sec=0.1)
@@ -356,7 +373,7 @@ class TestSignalProcessor:
     def test_logging_configuration(self, caplog: Any) -> None:
         """Test that logging is properly configured."""
         with caplog.at_level(logging.INFO):
-            SignalProcessor()  # Use default config
+            SignalProcessor(create_signal_config_manager())  # Use default config
 
         # Should log about initialization
         log_messages = [record.message for record in caplog.records]
@@ -370,4 +387,4 @@ class TestSignalProcessor:
             side_effect=Exception("Init failed"),
         ):
             with pytest.raises(RuntimeError, match="Failed to initialize signal processor"):
-                SignalProcessor()
+                SignalProcessor(create_signal_config_manager())

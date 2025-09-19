@@ -25,7 +25,7 @@ frequency = cfg.get_int(SignalCfgKey.FREQUENCY)
 threshold = cfg.get_double(SignalCfgKey.THRESHOLD)
 
 # Schema registration
-cfg_mgr.register_schema(SignalCfgSection.SIGNAL, SignalConfigSchema)
+cfg_mgr.register_enum_config(SignalCfgSection.SIGNAL, SignalConfigSchema)
 ```
 
 ### `debug_snippet_issue.py` ⚠️ **Utility Script**

@@ -33,10 +33,11 @@ class MockConfigManager:
             }
         }
 
-    def register_schema(self, section_name, schema):
-        """Register a config schema."""
+    def register_enum_config(self, section_name, schema):
+        """Register an enum-based configuration schema."""
         self.schemas[section_name.value if isinstance(section_name, Enum) else section_name] = schema
-        print(f"✅ Registered schema for '{section_name.value if isinstance(section_name, Enum) else section_name}'")
+        section_display = section_name.value if isinstance(section_name, Enum) else section_name
+        print(f"✅ Registered enum config for '{section_display}'")
 
     def get_section(self, section_name):
         """Get a config section."""
@@ -81,7 +82,7 @@ class SignalProcessor:
         self.logger = logging.getLogger(__name__)
 
         # STEP 1: Register schema (visible in constructor!)
-        config_mgr.register_schema(SignalCfgSection.SIGNAL, SignalConfigSchema)
+        config_mgr.register_enum_config(SignalCfgSection.SIGNAL, SignalConfigSchema)
 
         # STEP 2: Get config section
         cfg = config_mgr.get_section(SignalCfgSection.SIGNAL)
@@ -135,7 +136,7 @@ def demo_enum_config_pattern():
     print("✅ Auto-complete: SignalCfgKey.FREQUENCY, SignalCfgKey.THRESHOLD, etc.")
     print("✅ Type safety: MyPy catches SignalCfgKey.FREQUNCY typos")
     print("✅ Enum comparison: if mode == SignalMode.ADAPTIVE")
-    print("✅ Clean registration: config_mgr.register_schema(SignalCfgSection.SIGNAL, SignalConfigSchema)")
+    print("✅ Clean registration: config_mgr.register_enum_config(SignalCfgSection.SIGNAL, SignalConfigSchema)")
 
 
 if __name__ == "__main__":

@@ -11,82 +11,6 @@ Our testing strategy employs **multiple complementary approaches** to ensure com
 3. **Snippet-Based Testing** - Extract precise audio segments for targeted validation
 4. **Comprehensive Coverage** - Test across all difficulty levels and edge cases
 
-## 📁 Test Data Organization
-
-### **Directory Structure**
-
-```
-tests/
-├── data/                    # Real WAV/TXT pairs from radio recordings
-│   ├── 220112_10WPM.wav
-│   ├── 220112_10WPM.txt
-│   └── ...
-├── generated_data/          # Synthetic test WAV/TXT pairs
-│   ├── basic/              # Fundamental validation tests
-│   ├── intermediate/       # Standard validation tests
-│   ├── advanced/           # Edge case validation tests
-│   ├── stress/             # Extreme validation tests
-│   ├── reference/          # Calibration and timing tests
-│   └── metadata/           # Individual test metadata
-├── snippets/               # Extracted audio snippets from real data
-│   ├── characters/         # Individual character snippets
-│   ├── words/
-│   │   ├── common/         # Common words (THE, AND, etc.)
-│   │   └── technical/      # Technical terms
-│   └── phrases/            # Multi-word phrases
-└── htmlcov/               # Test coverage reports
-```
-
-### **Test Data Types**
-
-| Type | Source | Purpose | Examples |
-|------|--------|---------|----------|
-| **Real Data** | `tests/data/` | Validate with actual recordings | `240110_15WPM.wav` |
-| **Generated Data** | `tests/generated_data/` | Controlled synthetic tests | `Single_E_15WPM.wav` |
-| **Snippets** | `tests/snippets/` | Targeted component tests | `A_10WPM.wav` |
-
-## 🛠️ CLI Tools for Test Management
-
-### **1. Test Data Generator**
-Create synthetic test WAV/TXT pairs with controlled parameters:
-
-```bash
-# Generate all test types
-morsecode-test-data generate --output tests/generated_data
-
-# Generate specific test types
-morsecode-test-data generate --output tests/generated_data --types basic reference
-
-# Show test statistics
-morsecode-test-data stats --data tests/generated_data
-```
-
-**Generated Test Categories:**
-- **Basic**: Individual characters, simple words, basic phrases
-- **Intermediate**: Mixed content, different frequencies, punctuation
-- **Advanced**: High speeds, weak signals, confusing patterns
-- **Stress**: Very long text, rapid changes, extreme conditions
-- **Reference**: Timing standards (PARIS), frequency calibration
-
-### **2. Snippet Generator**
-Extract precise audio segments from real WAV/TXT pairs:
-
-```bash
-# Generate snippets from real audio
-morsecode-test-gen generate --source tests/data --output tests/snippets
-
-# Generate specific snippet types
-morsecode-test-gen generate --source tests/data --output tests/snippets --types characters
-
-# List available snippets
-morsecode-test-gen list-snippets --snippets tests/snippets
-```
-
-**Generated Snippet Types:**
-- **Characters**: Individual A-Z, 0-9, punctuation
-- **Words**: Common words, technical terms
-- **Phrases**: Short phrases, medium phrases
-
 ## 🧪 Test Suite Architecture
 
 ### **Test Categories by Purpose**
@@ -131,6 +55,48 @@ pytest tests/ -v
 # Include all real audio tests
 pytest tests/ --runslow -v
 ```
+
+## 🛠️ CLI Tools for Test Management
+
+### **1. Test Data Generator**
+Create synthetic test WAV/TXT pairs with controlled parameters:
+
+```bash
+# Generate all test types
+morsecode-test-data generate --output tests/generated_data
+
+# Generate specific test types
+morsecode-test-data generate --output tests/generated_data --types basic reference
+
+# Show test statistics
+morsecode-test-data stats --data tests/generated_data
+```
+
+**Generated Test Categories:**
+- **Basic**: Individual characters, simple words, basic phrases
+- **Intermediate**: Mixed content, different frequencies, punctuation
+- **Advanced**: High speeds, weak signals, confusing patterns
+- **Stress**: Very long text, rapid changes, extreme conditions
+- **Reference**: Timing standards (PARIS), frequency calibration
+
+### **2. Snippet Generator**
+Extract precise audio segments from real WAV/TXT pairs:
+
+```bash
+# Generate snippets from real audio
+morsecode-test-gen generate --source tests/data --output tests/snippets
+
+# Generate specific snippet types
+morsecode-test-gen generate --source tests/data --output tests/snippets --types characters
+
+# List available snippets
+morsecode-test-gen list-snippets --snippets tests/snippets
+```
+
+**Generated Snippet Types:**
+- **Characters**: Individual A-Z, 0-9, punctuation
+- **Words**: Common words, technical terms
+- **Phrases**: Short phrases, medium phrases
 
 ## 📊 Test Metrics and Success Criteria
 

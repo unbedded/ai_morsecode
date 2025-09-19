@@ -20,7 +20,7 @@ from morsecode.components.decoder.keys import CfgKey as DecoderCfgKey
 from morsecode.components.decoder.morse_decoder import MorseDecoder
 from morsecode.components.signal.signal_config_keys import SignalCfgKey
 from morsecode.components.signal.signal_processor import SignalProcessor
-from util.config.registry import AwesomeConfigManager
+from util.config import AwesomeConfigManager
 
 
 class TestMorseCodeIntegration:
@@ -41,7 +41,7 @@ class TestMorseCodeIntegration:
         mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
         mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
 
-        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.register_enum_config.return_value = None
         mock_cfg_mgr.get_section.return_value = mock_config_section
         return mock_cfg_mgr
 
@@ -62,7 +62,7 @@ class TestMorseCodeIntegration:
         mock_config_section.get_string.side_effect = lambda key: config_values.get(key, "")
         mock_config_section.get_bool.side_effect = lambda key: config_values.get(key, False)
 
-        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.register_enum_config.return_value = None
         mock_cfg_mgr.get_section.return_value = mock_config_section
         return mock_cfg_mgr
 
@@ -82,7 +82,7 @@ class TestMorseCodeIntegration:
         mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
         mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
 
-        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.register_enum_config.return_value = None
         mock_cfg_mgr.get_section.return_value = mock_config_section
         return mock_cfg_mgr
 
