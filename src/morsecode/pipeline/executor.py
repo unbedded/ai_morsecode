@@ -8,7 +8,8 @@ import logging
 from collections.abc import Iterator
 from typing import Any
 
-from ..config.models import MorseConfig
+from util.config.models import MorseConfig
+
 from ..interfaces.audio import AudioSource
 from ..interfaces.decoder import MorseDecoder
 from ..interfaces.signal import SignalProcessor
@@ -131,9 +132,7 @@ class PipelineExecutor:
             raise
 
         complete_result = "".join(decoded_fragments)
-        self.logger.info(
-            "Complete processing finished. Result length: %d characters", len(complete_result)
-        )
+        self.logger.info("Complete processing finished. Result length: %d characters", len(complete_result))
         return complete_result
 
     def reset(self) -> None:

@@ -39,7 +39,9 @@ dev = [
 ]
 
 [project.scripts]
-morsecode = "morsecode.cli:main"
+morsecode = "morsecode.cli.main:main"
+morsecode-test-gen = "morsecode.cli.test_generator:main"
+morsecode-test-data = "morsecode.cli.test_data_generator:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/morsecode"
@@ -83,7 +85,7 @@ omit = [
 
 [tool.ruff]
 target-version = "py313"
-line-length = 100
+line-length = 120
 fix = true
 
 [tool.ruff.lint]
@@ -114,8 +116,9 @@ convention = "google"
 [tool.mypy]
 python_version = "3.13"
 ignore_missing_imports = true
+mypy_path = "src"
 # Focus on production code quality - exclude tests entirely
-exclude = ["tests/", "test_*.py", ".*_test.py", "debug_*.py", "serialization_demo.py", "tests/test_interface_based_*.py"]
+exclude = ["tests/", "test_*.py", ".*_test.py", "debug_*.py", "serialization_demo.py", "tests/test_interface_based_*.py", "src/util/"]
 
 # Production code should be type-safe
 strict = false  # Start more lenient, can tighten later
@@ -134,7 +137,7 @@ no_implicit_optional = true
 disallow_any_generics = false
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ["py313"]
 include = '\.pyi?$'
 extend-exclude = '''
@@ -175,4 +178,4 @@ exclude_lines = [
 ]
 
 [tool.coverage.html]
-directory = "htmlcov"
+directory = "tests/htmlcov"

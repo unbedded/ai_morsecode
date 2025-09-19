@@ -65,6 +65,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 htmlcov/
+tests/htmlcov/
 
 # MyPy
 .mypy_cache/
@@ -73,3 +74,9 @@ dmypy.json
 
 # Ruff
 .ruff_cache/
+
+# Large test audio files (>10MB)
+tests/data/*20WPM.wav
+tests/data/240110_13WPM.wav
+tests/data/NightOfNights*.wav
+tests/data/kph-*.wav

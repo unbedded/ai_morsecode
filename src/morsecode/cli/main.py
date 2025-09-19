@@ -9,10 +9,70 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from util.config.config_manager import AwesomeConfigManager
+from util.config.models import AppConfig, AudioConfig, DecoderConfig, SignalConfig
+
 from .. import decoder_app
-from ..config.registry import ConfigRegistry
 
 logger = logging.getLogger(__name__)
+
+
+def show_config_info(config_manager: AwesomeConfigManager) -> None:
+    """Display configuration file locations and current settings.
+
+    Args:
+        config_manager: Initialized config manager instance
+    """
+    from pathlib import Path
+
+    print("🔧 Morse Code Decoder Configuration")
+    print("=" * 50)
+
+    # Show current config file
+    current_path = config_manager.config_file
+    print(f"📄 Current config file: {current_path}")
+    print(f"   Status: {'✨ Auto-created' if config_manager.was_created else '📁 Existing'}")
+
+    if config_manager.profile:
+        print(f"   Profile: {config_manager.profile}")
+
+    print()
+
+    # Show all possible locations
+    print("📍 Config file search order:")
+    search_paths = [
+        Path("morse.yaml"),
+        Path.home() / ".config" / "morsecode" / "config.yaml",
+        Path.home() / ".morse.yaml",
+    ]
+
+    for i, path in enumerate(search_paths, 1):
+        exists = "✅" if path.exists() else "❌"
+        current = "← CURRENT" if path == current_path else ""
+        print(f"   {i}. {path} {exists} {current}")
+
+    print()
+
+    # Show current settings
+    try:
+        print("⚙️  Current settings:")
+        for module_name in ["app", "audio", "signal", "decoder"]:
+            try:
+                module_config = config_manager.get_config(module_name)
+                print(f"   {module_name}:")
+                for key, value in module_config.items():
+                    print(f"     {key}: {value}")
+            except Exception as e:
+                print(f"   {module_name}: Error loading - {e}")
+    except Exception as e:
+        print(f"❌ Error reading configuration: {e}")
+
+    print()
+    print("💡 Tips:")
+    print(f"   • Edit config file: {current_path}")
+    print("   • Validate config: morsecode --validate-config")
+    print("   • Create new config: morsecode --create-config")
+    print("   • Use project config: Create 'morse.yaml' in current directory")
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -23,31 +83,36 @@ def create_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="morsecode",
-        description="Morse Code Decoder - Process audio files and extract "
-        "decoded text using YAML configuration",
+        description="Morse Code Decoder - Process audio files and extract decoded text using YAML configuration",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Configuration:
-  The decoder uses a YAML configuration file (morse.yaml) with four main sections:
+  The decoder automatically creates and uses a YAML configuration file with four main sections:
   - app: Application settings (debug, log_level, output_file)
   - audio: Audio processing (sample_rate, chunk_size_ms, wav_filename)
   - signal: Signal processing (frequency, threshold, bandwidth)
   - decoder: Morse decoding (wpm, tolerance, dot_duration_ms)
 
+Configuration Files (searched in order):
+  1. ./morse.yaml                               # Project-specific config
+  2. ~/.config/morsecode/config.yaml           # User config (auto-created)
+  3. ~/.morse.yaml                             # Fallback location
+
 Profiles:
   Use --profile to activate profile-specific overrides via postfix naming:
 
-  Example morse.yaml with profiles:
+  Example config with profiles:
     signal:
       frequency: 600           # Default
       frequency_debug: 400     # Used with --profile debug
       frequency_production: 800 # Used with --profile production
 
 Examples:
-  morsecode audio.wav                           # Use morse.yaml defaults
+  morsecode audio.wav                           # Auto-detects/creates config
   morsecode audio.wav --profile debug           # Use debug profile overrides
   morsecode --config custom.yaml audio.wav     # Use custom config file
   morsecode audio.wav --frequency 800           # Override single parameter
+  morsecode --show-config                       # Show config locations
   morsecode --create-config                     # Create sample morse.yaml
         """,
     )
@@ -83,13 +148,19 @@ Examples:
     parser.add_argument(
         "--create-config",
         action="store_true",
-        help="Create a sample morse.yaml configuration file and exit",
+        help="Create a sample configuration file (morse.yaml in current directory)",
     )
 
     parser.add_argument(
         "--validate-config",
         action="store_true",
         help="Validate configuration file and exit",
+    )
+
+    parser.add_argument(
+        "--show-config",
+        action="store_true",
+        help="Show configuration file locations and current settings",
     )
 
     # Common override options (most frequently used)
@@ -180,9 +251,7 @@ def validate_args(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def setup_logging(
-    config_manager: Any, debug_override: bool = False, log_level_override: str | None = None
-) -> None:
+def setup_logging(config_manager: Any, debug_override: bool = False, log_level_override: str | None = None) -> None:
     """Configure logging based on configuration.
 
     Args:
@@ -230,15 +299,16 @@ def main(argv: list[str] | None = None) -> int:
         parser = create_parser()
         args = parser.parse_args(argv)
 
-        # Initialize registry (auto-discovers modules and generates schemas)
-        registry = ConfigRegistry()
-
         # Handle utility commands first
         if args.create_config:
-            registry.create_sample_config("morse.yaml")
-            print("Sample configuration created: morse.yaml")
-            print("Edit this file to customize your settings, then run:")
-            print("  morsecode audio.wav")
+            # Use the config manager's create_sample_config method
+            config_manager = AwesomeConfigManager()
+            output_file = "morse.yaml"
+            config_manager.create_sample_config(output_file)
+            print(f"✅ Sample configuration created: {output_file}")
+            print("💡 Edit this file to customize your settings, then run:")
+            print("   morsecode audio.wav")
+            print(f"   morsecode --config {output_file} audio.wav")
             return 0
 
         # Validate basic arguments
@@ -246,9 +316,18 @@ def main(argv: list[str] | None = None) -> int:
 
         # Initialize configuration manager
         try:
-            config_manager = registry.get_config_manager(
-                config_file=args.config, profile=args.profile
-            )
+            config_manager = AwesomeConfigManager(config_file=args.config, profile=args.profile)
+
+            # Provide user feedback about config location
+            if not args.config:  # Only show message for auto-detected configs
+                config_path = config_manager.config_file
+                if config_manager.was_created:
+                    print(f"✨ Created new default configuration: {config_path}")
+                    print("💡 Tip: Edit this file to customize your settings")
+                elif config_path.name == "config.yaml" and ".config/morsecode" in str(config_path):
+                    print(f"📁 Using config: {config_path}")
+                elif config_path.name == "morse.yaml":
+                    print(f"📁 Using project config: {config_path}")
         except Exception as e:
             print(f"Error: Failed to load configuration - {e}", file=sys.stderr)
             print(
@@ -264,11 +343,15 @@ def main(argv: list[str] | None = None) -> int:
                 config_manager.get_config("audio")
                 config_manager.get_config("signal")
                 config_manager.get_config("decoder")
-                print("Configuration is valid")
+                print("✅ Configuration is valid")
                 return 0
             except Exception as e:
-                print(f"Configuration validation failed: {e}", file=sys.stderr)
+                print(f"❌ Configuration validation failed: {e}", file=sys.stderr)
                 return 1
+
+        if args.show_config:
+            show_config_info(config_manager)
+            return 0
 
         # Require WAV file for processing
         if not args.wav_file:
@@ -284,28 +367,26 @@ def main(argv: list[str] | None = None) -> int:
         if args.profile:
             logger.info("Using profile: %s", args.profile)
 
-        # Get legacy configs for existing modules with CLI overrides
-        hal_config = registry.get_legacy_config("audio", config_manager, wav_filename=args.wav_file)
-        signal_config = registry.get_legacy_config("signal", config_manager)
-        decoder_config = registry.get_legacy_config("decoder", config_manager)
+        # Create typed configs from config manager
+        audio_config = AudioConfig.from_config_manager(config_manager)
+        signal_config = SignalConfig.from_config_manager(config_manager)
+        decoder_config = DecoderConfig.from_config_manager(config_manager)
+        app_config = AppConfig.from_config_manager(config_manager)
 
-        # Apply CLI overrides to legacy configs
+        # Apply CLI overrides to typed configs
+        if args.wav_file:
+            audio_config.wav_filename = args.wav_file
         if args.frequency is not None:
-            signal_config["target_frequency_hz"] = args.frequency
+            signal_config.frequency = args.frequency
         if args.wpm is not None:
-            decoder_config["wpm_estimate"] = args.wpm
+            decoder_config.wpm = args.wpm
         if args.threshold is not None:
-            signal_config["detection_threshold"] = args.threshold
-
-        # Get app config for output
-        app_config = config_manager.get_config("app")
+            signal_config.threshold = args.threshold
         if args.output is not None:
-            app_config["output_file"] = args.output
+            app_config.output_file = args.output
 
-        # Run the decoder with legacy format
-        result: int = decoder_app.run_decoder_legacy(
-            hal_config, signal_config, decoder_config, app_config
-        )
+        # Run the decoder with typed configs
+        result: int = decoder_app.run_decoder_typed(audio_config, signal_config, decoder_config, app_config)
         return result
 
     except KeyboardInterrupt:

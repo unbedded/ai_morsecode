@@ -89,16 +89,12 @@ class TestEventTypes:
     def test_morse_pattern_event_properties(self):
         """Test MorsePatternEvent type classification."""
         # Test tone patterns
-        dot_event = MorsePatternEvent(
-            pattern_type="dot", duration_ms=80, wpm_estimate=15.0, confidence=0.9
-        )
+        dot_event = MorsePatternEvent(pattern_type="dot", duration_ms=80, wpm_estimate=15.0, confidence=0.9)
         assert dot_event.is_tone is True
         assert dot_event.is_silence is False
 
         # Test silence patterns
-        space_event = MorsePatternEvent(
-            pattern_type="letter_space", duration_ms=200, wpm_estimate=15.0, confidence=0.9
-        )
+        space_event = MorsePatternEvent(pattern_type="letter_space", duration_ms=200, wpm_estimate=15.0, confidence=0.9)
         assert space_event.is_tone is False
         assert space_event.is_silence is True
 
@@ -145,9 +141,7 @@ class TestEventTypes:
         ]
 
         for value, unit, expected in test_cases:
-            event = MetricsEvent(
-                metric_name="test_metric", value=value, unit=unit, component="test", tags={}
-            )
+            event = MetricsEvent(metric_name="test_metric", value=value, unit=unit, component="test", tags={})
             assert event.formatted_value == expected
 
     def test_audio_chunk_event_duration_calculation(self):
@@ -642,9 +636,7 @@ class TestEventIntegration:
         self.bus.publish(tone_event)
 
         # Simulate pattern recognition
-        pattern_event = MorsePatternEvent(
-            pattern_type="dot", duration_ms=80, wpm_estimate=15.0, confidence=0.9
-        )
+        pattern_event = MorsePatternEvent(pattern_type="dot", duration_ms=80, wpm_estimate=15.0, confidence=0.9)
         self.bus.publish(pattern_event)
 
         # Simulate text decoding
@@ -665,9 +657,7 @@ class TestEventIntegration:
         """Test error handling and recovery through events."""
         # Create and publish error event
         original_error = RuntimeError("Processing failed")
-        error_event = create_error_event(
-            original_error, component="signal_processor", recoverable=True
-        )
+        error_event = create_error_event(original_error, component="signal_processor", recoverable=True)
 
         self.bus.publish(error_event)
 

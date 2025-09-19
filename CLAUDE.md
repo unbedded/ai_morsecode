@@ -10,6 +10,16 @@
 - Use modern Python built-ins (`list`, `dict`, `tuple`) for type hints when possible.
 - Use **named arguments** for functions with multiple parameters.
 - Replace magic numbers with **constants**.
+- **Include units in variable names** for clarity and safety:
+  - **Time**: `duration_ms`, `timeout_sec`, `delay_us`, `interval_ns`
+  - **Frequency**: `frequency_hz`, `sample_rate_hz`, `bandwidth_hz`
+  - **Quantities**: `retry_count_n`, `buffer_size_bytes`, `max_items_n`
+  - **Percentages**: `accuracy_pct`, `threshold_pct` (0-100 range)
+  - **Normalized**: `tolerance_norm`, `confidence_norm`, `gain_norm` (0.0-1.0 range)
+  - **Ratios**: `success_ratio`, `error_ratio`, `scale_factor` (proportional values)
+  - **Distances**: `radius_m`, `offset_px`, `margin_em`
+  - **Rates**: `speed_mps`, `throughput_mbps`, `rate_per_sec`
+  - Prefer short standard abbreviations: `ms/us/ns`, `hz`, `mb/kb/gb`, `px`, `pct`
 
 ## Documentation
 - Provide **verbose docstrings** for public classes, methods, and functions.

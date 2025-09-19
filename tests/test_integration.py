@@ -9,17 +9,82 @@ Example usage:
 """
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
 from morsecode.components.audio.hal import HardwareAbstractionLayer
+from morsecode.components.audio.keys import CfgKey as AudioCfgKey
+from morsecode.components.decoder.keys import CfgKey as DecoderCfgKey
 from morsecode.components.decoder.morse_decoder import MorseDecoder
+from morsecode.components.signal.signal_config_keys import SignalCfgKey
 from morsecode.components.signal.signal_processor import SignalProcessor
+from util.config.registry import AwesomeConfigManager
 
 
 class TestMorseCodeIntegration:
     """Integration test suite for complete Morse code decoding pipeline."""
+
+    def create_mock_decoder_config_manager(self, overrides: dict = None) -> MagicMock:
+        """Create mock config manager for decoder component."""
+        config_values = {
+            DecoderCfgKey.WPM: 15,
+            DecoderCfgKey.DOT_DURATION: 80.0,
+            DecoderCfgKey.TOLERANCE: 0.3,
+        }
+        if overrides:
+            config_values.update(overrides)
+
+        mock_cfg_mgr = MagicMock(spec=AwesomeConfigManager)
+        mock_config_section = MagicMock()
+        mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
+        mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
+
+        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.get_section.return_value = mock_config_section
+        return mock_cfg_mgr
+
+    def create_mock_audio_config_manager(self, overrides: dict = None) -> MagicMock:
+        """Create mock config manager for audio component."""
+        config_values = {
+            AudioCfgKey.SAMPLE_RATE: 44100,
+            AudioCfgKey.WAV_FILENAME: None,
+            AudioCfgKey.AUTO_GAIN_CONTROL: True,
+            AudioCfgKey.CHUNK_SIZE: 50,
+        }
+        if overrides:
+            config_values.update(overrides)
+
+        mock_cfg_mgr = MagicMock(spec=AwesomeConfigManager)
+        mock_config_section = MagicMock()
+        mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
+        mock_config_section.get_string.side_effect = lambda key: config_values.get(key, "")
+        mock_config_section.get_bool.side_effect = lambda key: config_values.get(key, False)
+
+        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.get_section.return_value = mock_config_section
+        return mock_cfg_mgr
+
+    def create_mock_signal_config_manager(self, overrides: dict = None) -> MagicMock:
+        """Create mock config manager for signal component."""
+        config_values = {
+            SignalCfgKey.SAMPLE_RATE: 44100,
+            SignalCfgKey.FREQUENCY: 600,
+            SignalCfgKey.THRESHOLD: 0.3,
+            SignalCfgKey.BANDWIDTH: 50,
+        }
+        if overrides:
+            config_values.update(overrides)
+
+        mock_cfg_mgr = MagicMock(spec=AwesomeConfigManager)
+        mock_config_section = MagicMock()
+        mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
+        mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
+
+        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.get_section.return_value = mock_config_section
+        return mock_cfg_mgr
 
     def test_synthetic_morse_pipeline(self) -> None:
         """Test complete pipeline with synthetic morse code data."""
@@ -30,16 +95,15 @@ class TestMorseCodeIntegration:
         dot_duration_ms = 80  # For 15 WPM
 
         # Initialize components
-        signal_cfg = {
-            "sample_rate_hz": sample_rate,
-            "target_frequency_hz": target_freq,
-            "fft_window_size": 1024,
-            "detection_threshold": 0.3,
-        }
-        decoder_cfg = {"wpm_estimate": wpm, "dot_duration_ms": dot_duration_ms}
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+        )
+        processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
-        processor = SignalProcessor(cfg_dict=signal_cfg)
-        decoder = MorseDecoder(cfg_dict=decoder_cfg)
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager(
+            {DecoderCfgKey.WPM: wpm, DecoderCfgKey.DOT_DURATION: dot_duration_ms}
+        )
+        decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Create synthetic morse code for "SOS"
         # S = ... (3 dots)
@@ -66,9 +130,7 @@ class TestMorseCodeIntegration:
         decoder.finalize_decoding()
         decoded_text = decoder.get_decoded_text()
 
-        assert "SOS" in decoded_text or "S O S" in decoded_text, (
-            f"Expected SOS, got: {decoded_text}"
-        )
+        assert "SOS" in decoded_text or "S O S" in decoded_text, f"Expected SOS, got: {decoded_text}"
 
         # Check statistics
         stats = decoder.get_statistics()
@@ -82,13 +144,10 @@ class TestMorseCodeIntegration:
         target_freq = 600
 
         # Initialize signal processor
-        processor = SignalProcessor(
-            cfg_dict={
-                "sample_rate_hz": sample_rate,
-                "target_frequency_hz": target_freq,
-                "detection_threshold": 0.2,
-            }
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.2}
         )
+        processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
         # Create pure tone
         duration_ms = 100
@@ -111,15 +170,15 @@ class TestMorseCodeIntegration:
         target_freq = 600
 
         # Initialize components
-        processor = SignalProcessor(
-            cfg_dict={
-                "sample_rate_hz": sample_rate,
-                "target_frequency_hz": target_freq,
-                "detection_threshold": 0.3,
-            }
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
         )
+        processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80, "detection_tolerance": 0.2})
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager(
+            {DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.2}
+        )
+        decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Simulate letter 'A' (dot-dash) with proper timing
         # Dot: 80ms tone + 80ms silence
@@ -155,7 +214,8 @@ class TestMorseCodeIntegration:
 
     def test_wpm_estimation_accuracy(self) -> None:
         """Test WPM estimation accuracy with known timing."""
-        decoder = MorseDecoder()
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager()
+        decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Sample timings for 20 WPM (60ms dots)
         sample_dots = [58.0, 62.0, 59.0, 61.0, 60.0]  # ~60ms average
@@ -176,13 +236,10 @@ class TestMorseCodeIntegration:
         sample_rate = 44100
         target_freq = 600
 
-        processor = SignalProcessor(
-            cfg_dict={
-                "sample_rate_hz": sample_rate,
-                "target_frequency_hz": target_freq,
-                "detection_threshold": 0.3,
-            }
+        signal_cfg_mgr = self.create_mock_signal_config_manager(
+            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
         )
+        processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
         # First test that we can detect a clean signal
         duration_ms = 80
@@ -194,7 +251,8 @@ class TestMorseCodeIntegration:
         assert clean_detected, "Failed to detect clean signal"
 
         # Now test with moderate noise
-        decoder = MorseDecoder(cfg_dict={"dot_duration_ms": 80})
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager({DecoderCfgKey.DOT_DURATION: 80})
+        decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Create signal with some noise but still detectable
         signal_power = 0.6
@@ -222,12 +280,10 @@ class TestMorseCodeIntegration:
 
     def test_timing_variation_tolerance(self) -> None:
         """Test tolerance to timing variations in real conditions."""
-        decoder = MorseDecoder(
-            cfg_dict={
-                "dot_duration_ms": 80,
-                "detection_tolerance": 0.3,  # 30% tolerance
-            }
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager(
+            {DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.3}
         )
+        decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Test dots with variation (80ms ± 30%)
         test_cases = [
@@ -245,8 +301,7 @@ class TestMorseCodeIntegration:
 
             result = decoder.get_decoded_text()
             assert result == expected_char, (
-                f"Timing tolerance failed: {duration_ms}ms -> "
-                f"expected '{expected_char}', got '{result}'"
+                f"Timing tolerance failed: {duration_ms}ms -> expected '{expected_char}', got '{result}'"
             )
 
     def test_real_audio_file_structure(self) -> None:
@@ -266,7 +321,8 @@ class TestMorseCodeIntegration:
             pytest.skip(f"Test file not found: {test_file}")
 
         # Initialize HAL with test file path and try to load file
-        hal = HardwareAbstractionLayer(cfg_dict={"wav_filename": str(test_file)})
+        audio_cfg_mgr = self.create_mock_audio_config_manager({AudioCfgKey.WAV_FILENAME: str(test_file)})
+        hal = HardwareAbstractionLayer(audio_cfg_mgr)
 
         try:
             # HAL loads the file automatically in constructor
@@ -283,9 +339,7 @@ class TestMorseCodeIntegration:
         except Exception as e:
             pytest.skip(f"Could not process test file {test_file}: {e}")
 
-    def _create_synthetic_sos(
-        self, sample_rate: int, freq: float, dot_duration_ms: float
-    ) -> np.ndarray:
+    def _create_synthetic_sos(self, sample_rate: int, freq: float, dot_duration_ms: float) -> np.ndarray:
         """Create synthetic SOS morse code signal.
 
         Args:

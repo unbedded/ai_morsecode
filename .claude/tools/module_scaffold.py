@@ -519,9 +519,7 @@ class Test{class_name}Performance:
 
         # Validate module name
         if not module_name.isidentifier() or not module_name.islower():
-            error_msg = (
-                f"Invalid module name: {module_name}. Must be valid Python identifier in snake_case"
-            )
+            error_msg = f"Invalid module name: {module_name}. Must be valid Python identifier in snake_case"
             self.logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -599,9 +597,7 @@ Examples:
         help="Create test file (default: True)",
     )
 
-    parser.add_argument(
-        "--no-tests", action="store_false", dest="include_tests", help="Do not create test file"
-    )
+    parser.add_argument("--no-tests", action="store_false", dest="include_tests", help="Do not create test file")
 
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 

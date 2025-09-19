@@ -6,8 +6,9 @@ with customizable components, configuration, and execution strategies.
 
 import logging
 
-from ..config.manager import AwesomeConfigManager
-from ..config.models import MorseConfig
+from util.config.config_manager import AwesomeConfigManager
+from util.config.models import MorseConfig
+
 from ..interfaces.audio import AudioSource
 from ..interfaces.decoder import MorseDecoder
 from ..interfaces.signal import SignalProcessor
@@ -151,9 +152,7 @@ class PipelineBuilder:
         if not self._container.get_config_manager() and not any(
             [self._custom_audio, self._custom_signal, self._custom_decoder]
         ):
-            raise ValueError(
-                "Pipeline must be configured from config file or have custom components"
-            )
+            raise ValueError("Pipeline must be configured from config file or have custom components")
 
         # Resolve or use custom components
         audio_source = self._custom_audio or self._container.resolve(AudioSource)  # type: ignore[type-abstract]
