@@ -5,14 +5,19 @@ This directory contains documentation and examples for the **Universal Configura
 ## 📁 Directory Structure
 
 ```
-src/util/docs/
-├── README.md                           # This file - overview and usage
-├── examples/                          # Working code examples
-│   ├── README.md                      # Examples documentation
-│   ├── enum_config_demo.py           # ✅ Demonstrates enum-based config pattern
-│   └── debug_snippet_issue.py        # 🔧 Audio analysis utility
-├── component-config-interface.md     # Component integration patterns
-└── validator-plan.md                # Validation framework design
+src/util/
+├── docs/
+│   ├── README.md                      # This file - overview and usage
+│   ├── component-config-interface.md # Component integration patterns
+│   ├── validator-plan.md             # Validation framework design
+│   └── cfg_todo.md                   # Development roadmap
+├── examples/                         # Working code examples
+│   ├── README.md                     # Examples documentation
+│   ├── enum_config_demo.py          # ✅ Demonstrates enum-based config pattern
+│   └── debug_snippet_issue.py       # 🔧 Audio analysis utility
+├── config/                           # Configuration system
+├── logging/                          # Logging system
+└── tests/                           # Future test placeholder
 ```
 
 ## 🚀 Quick Start
@@ -20,7 +25,7 @@ src/util/docs/
 **See the enum-based configuration in action:**
 
 ```bash
-cd src/util/docs/examples
+cd src/util/examples
 python enum_config_demo.py
 ```
 
@@ -70,7 +75,7 @@ class ConfigSchema:
 ```python
 def __init__(self, cfg_mgr):
     # Component registers its schema
-    cfg_mgr.register_schema(CfgSection.SIGNAL, ConfigSchema)
+    cfg_mgr.register_enum_config(CfgSection.SIGNAL, ConfigSchema)
 
     # Get type-safe configuration section
     cfg = cfg_mgr.get_section(CfgSection.SIGNAL)

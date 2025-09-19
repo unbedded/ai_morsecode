@@ -17,6 +17,7 @@ from .components.audio.hal import HardwareAbstractionLayer
 from .components.audio.keys import CfgKey as AudioCfgKey
 from .components.decoder.keys import CfgKey as DecoderCfgKey
 from .components.decoder.morse_decoder import MorseDecoder
+from .components.signal.signal_config_keys import SignalCfgKey
 from .components.signal.signal_processor import SignalProcessor
 from .events.bus import get_global_event_bus
 from .events.types import AudioChunkEvent, MorsePatternEvent, TextDecodedEvent, ToneDetectedEvent
@@ -46,6 +47,33 @@ def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
     mock_section.get_string.side_effect = lambda key: get_value(key)
 
     mock_config_manager.get_section.return_value = mock_section
+    return mock_config_manager
+
+
+def create_mock_signal_config_manager(signal_config: SignalConfig) -> MagicMock:
+    """Create mock config manager from SignalConfig."""
+    config_data = {
+        SignalCfgKey.FREQUENCY: signal_config.frequency,
+        SignalCfgKey.THRESHOLD: signal_config.threshold,
+        SignalCfgKey.BANDWIDTH: signal_config.bandwidth,
+        SignalCfgKey.SAMPLE_RATE: signal_config.sample_rate,
+    }
+
+    mock_config_manager = MagicMock()
+    mock_section = MagicMock()
+
+    # Configure the mock section to return values based on enum keys
+    def get_value(key):
+        return config_data.get(key)
+
+    mock_section.get_int.side_effect = lambda key: get_value(key)
+    mock_section.get_double.side_effect = lambda key: get_value(key)
+    mock_section.get_bool.side_effect = lambda key: get_value(key)
+    mock_section.get_string.side_effect = lambda key: get_value(key)
+
+    mock_config_manager.get_section.return_value = mock_section
+    mock_config_manager.register_enum_config = MagicMock()
+    mock_config_manager.register_logging_config = MagicMock()
     return mock_config_manager
 
 
@@ -157,10 +185,11 @@ def run_decoder_typed(
 
         # Initialize components with mock config managers (converted from typed configs)
         audio_cfg_mgr = create_mock_audio_config_manager(audio_config)
+        signal_cfg_mgr = create_mock_signal_config_manager(signal_config)
         decoder_cfg_mgr = create_mock_decoder_config_manager(decoder_config)
 
         hal = HardwareAbstractionLayer(cfg_mgr=audio_cfg_mgr)
-        processor = SignalProcessor(config=signal_config)  # SignalProcessor supports both patterns
+        processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)  # Use new unified constructor
         decoder = MorseDecoder(cfg_mgr=decoder_cfg_mgr)
 
         logger.info("Components initialized successfully")
@@ -254,8 +283,25 @@ def run_decoder_legacy(
         decoder_section.get_double.side_effect = lambda key: decoder_config_data.get(key)
         decoder_mock.get_section.return_value = decoder_section
 
+        # Create signal config manager mock
+        signal_config_data = {
+            SignalCfgKey.FREQUENCY: signal_cfg.frequency,
+            SignalCfgKey.THRESHOLD: signal_cfg.threshold,
+            SignalCfgKey.BANDWIDTH: signal_cfg.bandwidth,
+            SignalCfgKey.SAMPLE_RATE: signal_cfg.sample_rate,
+        }
+        signal_mock = MagicMock()
+        signal_section = MagicMock()
+        signal_section.get_int.side_effect = lambda key: signal_config_data.get(key)
+        signal_section.get_double.side_effect = lambda key: signal_config_data.get(key)
+        signal_section.get_bool.side_effect = lambda key: signal_config_data.get(key)
+        signal_section.get_string.side_effect = lambda key: signal_config_data.get(key)
+        signal_mock.get_section.return_value = signal_section
+        signal_mock.register_enum_config = MagicMock()
+        signal_mock.register_logging_config = MagicMock()
+
         hal = HardwareAbstractionLayer(cfg_mgr=audio_mock)
-        processor = SignalProcessor(config=signal_cfg)  # SignalProcessor supports both patterns
+        processor = SignalProcessor(cfg_mgr=signal_mock)  # Use new unified constructor
         decoder = MorseDecoder(cfg_mgr=decoder_mock)
 
         logger.info("Components initialized successfully")

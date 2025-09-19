@@ -2,6 +2,21 @@
 
 This directory contains the comprehensive test suite for the Morse Code Decoder project.
 
+> 📋 **For testing strategy and philosophy**, see [`docs/testing.md`](../docs/testing.md)
+
+## Quick Start
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run with coverage report
+pytest --cov=src --cov-report=html tests/
+
+# Run specific test file
+pytest tests/test_cli.py -v
+```
+
 ## Directory Structure
 
 ```
@@ -44,79 +59,50 @@ tests/
 
 ### Integration & End-to-End Tests
 - **`test_integration.py`** - Full pipeline integration testing
-- **`test_protocol_integration.py`** - Protocol-level integration testing
 - **`test_decoder_app.py`** - Main application testing
-- **`test_snippets_integration.py`** - Character/word snippet validation (**DISABLED** - current implementation cannot handle short Morse messages)
-
-### Validation & Quality Tests
-- **`test_comprehensive_validation.py`** - Comprehensive system validation using generated data
-- **`test_sanity.py`** - Basic sanity checks and smoke tests
-
-### Configuration & Infrastructure Tests
-- **`test_config_manager.py`** - Configuration management testing
-- **`test_cli.py`** - Command-line interface testing
 - **`test_events.py`** - Event system testing
 
-### Utilities & Generators
-- **`generate_test_audio.py`** - Audio test data generation utility
+### Configuration & Infrastructure Tests
+- **`test_cli.py`** - Command-line interface testing
+- **`test_sanity.py`** - Basic sanity checks and smoke tests
 
 ## Running Tests
 
+### Common Commands
 ```bash
 # Run all tests
 pytest tests/
 
-# Run with coverage report
-pytest --cov=src/morsecode --cov-report=html tests/
-
 # Run specific test file
 pytest tests/test_cli.py -v
 
-# Run with coverage and generate HTML report
-pytest --cov=src/morsecode --cov-report=html tests/
+# Run with coverage report
+pytest --cov=src --cov-report=html tests/
+
+# Run core component tests only
+pytest tests/test_hal.py tests/test_signal_processor.py tests/test_morse_decoder.py -v
+
+# Run with detailed timing
+pytest tests/ --durations=10
 ```
 
-## Coverage Reports
+### Coverage Reports
+HTML coverage reports are generated in `tests/htmlcov/`. Open `tests/htmlcov/index.html` in your browser to view detailed coverage information.
 
-HTML coverage reports are generated in `tests/htmlcov/`. Open `tests/htmlcov/index.html` in your browser to view detailed coverage information including:
+**Current Coverage:** ~77% overall
+- CLI module: 98%
+- decoder_app module: 100%
+- HAL module: ~80%
+- Signal processor: ~75%
+- Morse decoder: ~70%
 
-- Line-by-line coverage visualization
-- Missing coverage identification
-- Branch coverage analysis
-- Interactive navigation between files
-
-## Test Types & Purpose
-
-### Unit Tests
-Test individual components in isolation:
-- **Hardware Abstraction Layer**: Audio device interface, sample rate handling
-- **Signal Processor**: Tone detection algorithms, frequency analysis, filtering
-- **Morse Decoder**: Pattern matching, timing analysis, character recognition
-
-### Integration Tests
-Test component interaction and data flow:
-- **Pipeline Integration**: HAL → Signal Processor → Morse Decoder workflow
-- **Protocol Integration**: Full decode cycle with real audio data
-- **Configuration Integration**: Config loading and component initialization
-
-### Validation Tests
-Comprehensive system validation:
-- **Generated Data Validation**: Synthetic audio with known expected outputs
-- **Snippet Testing**: Character and word recognition accuracy
-- **Comprehensive Validation**: System-wide performance metrics and failure analysis
-
-### Quality Assurance
-- **Sanity Tests**: Basic functionality verification
-- **Performance Tests**: Processing speed and resource usage
-- **Coverage Analysis**: Code coverage reporting and gap identification
-
-## Test Data Management
+## Test Data Types
 
 ### Real Audio Data (`data/`)
 Recorded Morse code audio at various speeds (10-30 WPM) for authentic testing scenarios.
 
 ### Generated Test Data (`generated_data/`)
-Synthetically generated audio with precise timing and known content for controlled testing:
+Synthetically generated audio with precise timing and known content:
 - **Basic**: Simple characters and short words
 - **Intermediate**: Common phrases and moderate complexity
 - **Advanced**: Complex patterns and edge cases
@@ -124,48 +110,7 @@ Synthetically generated audio with precise timing and known content for controll
 - **Stress**: Performance and reliability testing
 
 ### Snippet Data (`snippets/`) - **DISABLED**
-Short audio clips for targeted character and word recognition testing. Currently disabled as the implementation cannot effectively handle short Morse messages. Infrastructure preserved for future improvements.
-
-## Test Execution
-
-### Quick Tests
-```bash
-# Run core component tests only
-pytest tests/test_hal.py tests/test_signal_processor.py tests/test_morse_decoder.py -v
-
-# Run integration tests
-pytest tests/test_integration.py tests/test_protocol_integration.py -v
-```
-
-### Validation Suite
-```bash
-# Run comprehensive validation (includes generated data)
-pytest tests/test_comprehensive_validation.py -v -s
-
-# Run snippet validation (DISABLED - tests will be skipped)
-# pytest tests/test_snippets_integration.py -v -s
-```
-
-### Performance Analysis
-```bash
-# Run with detailed timing
-pytest tests/ --durations=10
-
-# Run with memory profiling (if pytest-memray installed)
-pytest tests/ --memray
-```
-
-## Test Coverage Status
-
-Current overall test coverage: **77%**
-
-Coverage by module:
-- CLI module: 98% coverage
-- decoder_app module: 100% coverage
-- config.manager module: 74% coverage
-- HAL module: ~80% coverage
-- Signal processor: ~75% coverage
-- Morse decoder: ~70% coverage
+Short audio clips for targeted testing. Infrastructure preserved for future improvements.
 
 ## Test Guidelines
 
@@ -176,15 +121,7 @@ Coverage by module:
 
 ### Best Practices
 - Use descriptive test method names that explain the scenario
-- Include comprehensive docstrings explaining test purpose and expected outcomes
-- Mock external dependencies (audio devices, file system) appropriately
+- Mock external dependencies appropriately
 - Test both success paths and error/edge cases
 - Use parameterized tests for testing multiple inputs efficiently
 - Maintain test isolation - tests should not depend on each other
-- Include performance assertions for critical paths
-
-### Data-Driven Testing
-- Use fixtures for common test data setup
-- Leverage generated test data for comprehensive coverage
-- Include both synthetic and real audio data in validation
-- Test across multiple sample rates, frequencies, and WPM speeds

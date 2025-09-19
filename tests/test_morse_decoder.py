@@ -14,7 +14,7 @@ import pytest
 
 from morsecode.components.decoder.keys import CfgKey
 from morsecode.components.decoder.morse_decoder import MorseDecoder
-from util.config.registry import AwesomeConfigManager
+from util.config import AwesomeConfigManager
 
 
 class TestMorseDecoder:
@@ -53,7 +53,7 @@ class TestMorseDecoder:
         mock_config_section.get_string.side_effect = lambda key: config_values.get(key, "")
 
         # Mock the register_schema and get_section methods
-        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.register_enum_config.return_value = None
         mock_cfg_mgr.get_section.return_value = mock_config_section
 
         return mock_cfg_mgr

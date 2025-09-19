@@ -18,6 +18,35 @@ from ..interfaces.signal import SignalProcessor
 logger = logging.getLogger(__name__)
 
 
+def create_mock_signal_config_manager(signal_config: SignalConfig) -> MagicMock:
+    """Create mock config manager from SignalConfig."""
+    from .signal.signal_config_keys import SignalCfgKey
+
+    config_data = {
+        SignalCfgKey.FREQUENCY: signal_config.frequency,
+        SignalCfgKey.THRESHOLD: signal_config.threshold,
+        SignalCfgKey.BANDWIDTH: signal_config.bandwidth,
+        SignalCfgKey.SAMPLE_RATE: signal_config.sample_rate,
+    }
+
+    mock_config_manager = MagicMock()
+    mock_section = MagicMock()
+
+    # Configure the mock section to return values based on enum keys
+    def get_value(key):
+        return config_data.get(key)
+
+    mock_section.get_int.side_effect = lambda key: get_value(key)
+    mock_section.get_double.side_effect = lambda key: get_value(key)
+    mock_section.get_bool.side_effect = lambda key: get_value(key)
+    mock_section.get_string.side_effect = lambda key: get_value(key)
+
+    mock_config_manager.get_section.return_value = mock_section
+    mock_config_manager.register_enum_config = MagicMock()
+    mock_config_manager.register_logging_config = MagicMock()
+    return mock_config_manager
+
+
 def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
     """Create mock config manager from AudioConfig."""
     from .audio.keys import CfgKey as AudioCfgKey
@@ -142,8 +171,9 @@ class ComponentFactory:
 
             self.logger.debug("Creating signal processor with typed config")
 
-            # Create processor instance with new typed config
-            processor_instance = LegacySignalProcessor(config=config)
+            # Create mock config manager and use new unified constructor
+            signal_cfg_mgr = create_mock_signal_config_manager(config)
+            processor_instance = LegacySignalProcessor(cfg_mgr=signal_cfg_mgr)
 
             # Wrap in adapter
             return SignalProcessorAdapter(processor_instance)

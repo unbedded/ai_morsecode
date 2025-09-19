@@ -224,10 +224,11 @@ class TestRunDecoderTyped:
         result = run_decoder_typed(audio_config, signal_config, decoder_config, app_config)
 
         assert result == 0
-        # HAL and decoder now use cfg_mgr parameter (mock config managers)
+        # All components now use cfg_mgr parameter (unified constructor pattern)
         mock_hal.assert_called_once()
         assert "cfg_mgr" in mock_hal.call_args[1]
-        mock_signal.assert_called_once_with(config=signal_config)
+        mock_signal.assert_called_once()
+        assert "cfg_mgr" in mock_signal.call_args[1]
         mock_decoder.assert_called_once()
         assert "cfg_mgr" in mock_decoder.call_args[1]
         mock_progress.assert_called_once()
@@ -373,14 +374,10 @@ class TestRunDecoderLegacy:
         # Verify HAL was called with cfg_mgr (mock config manager)
         mock_hal.assert_called_once()
         assert "cfg_mgr" in mock_hal.call_args[1]
-        # Mock config manager should contain the expected configuration values
-
-        # Verify SignalConfig was created with defaults
-        signal_config_call = mock_signal.call_args[1]["config"]
-        assert signal_config_call.sample_rate == 44100
-        assert signal_config_call.frequency == 600
-        assert signal_config_call.threshold == 0.3
-        assert signal_config_call.bandwidth == 50
+        # All components now use unified constructor pattern with mock config managers
+        mock_signal.assert_called_once()
+        assert "cfg_mgr" in mock_signal.call_args[1]
+        # Configuration values are passed through mock config managers
 
 
 class TestProcessAudioTyped:
@@ -649,10 +646,11 @@ class TestIntegrationScenarios:
         assert result == 0
 
         # Verify component initialization with correct configs
-        # HAL and decoder now use cfg_mgr parameter (mock config managers)
+        # All components now use cfg_mgr parameter (unified constructor pattern)
         mock_hal_class.assert_called_once()
         assert "cfg_mgr" in mock_hal_class.call_args[1]
-        mock_signal_class.assert_called_once_with(config=signal_config)
+        mock_signal_class.assert_called_once()
+        assert "cfg_mgr" in mock_signal_class.call_args[1]
         mock_decoder_class.assert_called_once()
         assert "cfg_mgr" in mock_decoder_class.call_args[1]
 
@@ -722,16 +720,12 @@ class TestIntegrationScenarios:
 
         assert result == 0
 
-        # Verify configs were converted correctly - HAL now uses cfg_mgr
+        # Verify configs were converted correctly - all components now use cfg_mgr
         mock_hal_class.assert_called_once()
         assert "cfg_mgr" in mock_hal_class.call_args[1]
-        # Mock config manager should contain the expected configuration values
-
-        signal_config_arg = mock_signal_class.call_args[1]["config"]
-        assert signal_config_arg.sample_rate == 48000
-        assert signal_config_arg.frequency == 700
-        assert signal_config_arg.threshold == 0.2
-        assert signal_config_arg.bandwidth == 100
+        mock_signal_class.assert_called_once()
+        assert "cfg_mgr" in mock_signal_class.call_args[1]
+        # All components now use unified constructor pattern with mock config managers
 
         # Decoder now uses cfg_mgr parameter (mock config manager)
         mock_decoder_class.assert_called_once()

@@ -1,17 +1,16 @@
-"""Registry-Based Configuration Manager with YAML + JSON Schema validation.
+"""YAML Configuration Manager with enum-based validation.
 
-This module provides a simple, powerful config system that:
-- Uses ConfigRegistry to auto-discover module requirements
+This module provides a clean, simple config system that:
+- Uses ConfigRegistry for config file generation
 - Uses single YAML file for all configuration
 - Auto-creates default config if none exists
 - Searches multiple default locations
-- Validates against JSON schemas from registry
+- Validates against enum-based CfgField definitions
 - Supports profile postfix overrides (e.g., setting_debug, setting_production)
 - Provides excellent error handling and logging integration
 """
 
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -27,401 +26,255 @@ class ConfigValidationError(Exception):
 
 
 class AwesomeConfigManager:
-    """Registry-based configuration manager with YAML files and JSON Schema validation."""
+    """YAML configuration manager with enum-based field validation."""
 
     def __init__(self, config_file: str | None = None, profile: str | None = None):
-        """Initialize the registry-based configuration manager.
+        """Initialize configuration manager with automatic config discovery.
 
         Args:
-            config_file: Path to YAML config file (searches default locations if None)
-            profile: Profile name for postfix overrides (e.g., 'debug', 'production')
+            config_file: Optional path to config file (auto-detects if not provided)
+            profile: Optional profile name for profile-specific overrides
         """
         self.logger = logging.getLogger(__name__)
-        self.config_file: Path
-        self.was_created: bool = False  # Track if config was auto-created
-
-        # Initialize ConfigRegistry for module discovery
-        from .registry import ConfigRegistry
-
-        self._registry = ConfigRegistry()
-
-        self.config_file = self._resolve_config_file(config_file)
         self.profile = profile
-        self._config_data: dict[str, Any] = {}
-        self._schemas: dict[str, dict[str, Any]] = {}
+        self.was_created = False
+        self._config_cache: dict[str, dict[str, Any]] = {}
+        self._field_configs: dict[str, Any] = {}
 
-        # Load configuration
+        # No registry needed - components self-register their schemas
+
+        # Find or create config file
+        self.config_file = self._find_or_create_config(config_file)
+        self.logger.debug("Using config file: %s", self.config_file)
+
+        # Load the YAML config
         self._load_config()
 
-    def _resolve_config_file(self, config_file: str | None = None) -> Path:
-        """Resolve configuration file path with fallback locations.
-
-        Args:
-            config_file: Explicit config file path, if provided
-
-        Returns:
-            Path to configuration file (creates default if none found)
-        """
+    def _find_or_create_config(self, config_file: str | None) -> Path:
+        """Find existing config or create new one in appropriate location."""
         if config_file:
             return Path(config_file)
 
         # Default search locations in priority order
         search_paths = [
-            Path("morse.yaml"),  # Current directory (project-specific)
-            Path.home() / ".config" / "morsecode" / "config.yaml",  # User config dir
-            Path.home() / ".morse.yaml",  # User home (fallback)
+            Path("config/config.yaml"),  # Current directory (project-specific)
+            Path.home() / ".config" / "app" / "config.yaml",  # User config dir
+            Path.home() / ".config.yaml",  # User home (fallback)
         ]
 
         # Check if any existing config exists
         for path in search_paths:
             if path.exists():
-                self.logger.debug("Found existing config at: %s", path)
                 return path
 
-        # No config found - create default in user config directory
-        default_path = search_paths[1]  # ~/.config/morsecode/config.yaml
-        self.logger.info("No configuration found, creating default at: %s", default_path)
-
-        # Create directory if it doesn't exist
-        default_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Create sample config
-        self._create_initial_config(default_path)
-        self.was_created = True
-
-        return default_path
+        # No config found - create new one in first location
+        config_path = search_paths[0]
+        self._create_initial_config(config_path)
+        return config_path
 
     def _create_initial_config(self, config_path: Path) -> None:
-        """Create an initial configuration file with registry-discovered defaults.
+        """Create initial configuration file using registry."""
+        # Ensure directory exists
+        config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        Args:
-            config_path: Path where to create the config file
-        """
-        # Use registry to create documented config file
-        self._registry.create_sample_config(str(config_path))
+        # Create minimal application config template
+        self._create_minimal_config(config_path)
 
         self.logger.info("Created initial configuration at: %s", config_path)
 
-    def create_sample_config(self, output_file: str = "morse.yaml") -> None:
-        """Create a comprehensive sample configuration with registry-discovered modules.
-
-        Args:
-            output_file: Path to output YAML file
-        """
-        # Delegate to registry for consistency
-        self._registry.create_sample_config(output_file)
-        self.logger.info("Sample configuration created: %s", output_file)
+    def _create_minimal_config(self, config_path: Path) -> None:
+        """Create minimal application config template."""
+        with open(config_path, "w", encoding="utf-8") as f:
+            f.write("# Application Configuration\n")
+            f.write("# Components will auto-register their schemas on first run\n")
+            f.write("\n")
+            f.write("application:\n")
+            f.write("  debug: false\n")
+            f.write('  log_level: "INFO"\n')
+            f.write("  output_file: null\n")
+            f.write("  \n")
+            f.write("  # Per-component log level overrides\n")
+            f.write("  logging: {}\n")
+            f.write("\n")
 
     def _load_config(self) -> None:
-        """Load configuration from YAML file with error handling."""
+        """Load configuration from YAML file."""
         try:
-            if self.config_file.exists():
-                with open(self.config_file, encoding="utf-8") as f:
-                    self._config_data = yaml.safe_load(f) or {}
-                self.logger.info("Configuration loaded from: %s", self.config_file)
-            else:
-                self.logger.info("Config file not found, using defaults: %s", self.config_file)
-                self._config_data = {}
-        except Exception as e:
-            self.logger.error("Failed to load config file %s: %s", self.config_file, e)
-            self._config_data = {}
+            with open(self.config_file, encoding="utf-8") as f:
+                self._raw_config = yaml.safe_load(f) or {}
+                self.logger.debug("Loaded config from: %s", self.config_file)
+        except (FileNotFoundError, yaml.YAMLError) as e:
+            self.logger.error("Failed to load config from %s: %s", self.config_file, e)
+            self._raw_config = {}
 
-    def _load_schema(self, module_name: str) -> dict[str, Any]:
-        """Load JSON schema for a module from ConfigRegistry.
+    def get_config(self, module_name: str) -> dict[str, Any]:
+        """Get configuration for a specific module with profile override support.
 
         Args:
-            module_name: Name of module (e.g., 'audio', 'signal', 'decoder', 'app')
+            module_name: Name of the module/section
 
         Returns:
-            JSON schema as dictionary from registry
+            Configuration dictionary for the module
         """
-        if module_name in self._schemas:
-            return self._schemas[module_name]
+        if module_name in self._config_cache:
+            return self._config_cache[module_name]
 
-        # Get schema from registry
-        if hasattr(self._registry, "_module_configs") and module_name in self._registry._module_configs:
-            schema = self._registry._module_configs[module_name]["schema"]
-            self._schemas[module_name] = schema
-            return schema
-        else:
-            # Handle app config (not in module registry)
-            if module_name == "app":
-                schema = {
-                    "$schema": "http://json-schema.org/draft-07/schema#",
-                    "title": "App Configuration",
-                    "type": "object",
-                    "properties": {
-                        "debug": {"type": "boolean"},
-                        "log_level": {"type": "string"},
-                        "output_file": {"type": ["string", "null"]},
-                    },
-                }
-                self._schemas[module_name] = schema
-                return schema
+        # Get base config for module
+        base_config: dict[str, Any] = self._raw_config.get(module_name, {}).copy()
 
-            self.logger.warning("No schema found for module: %s", module_name)
-            return {}
+        # Apply profile overrides if profile is specified
+        if self.profile:
+            self._apply_profile_overrides(module_name, base_config)
 
-    def _validate_against_schema(self, module_name: str, config: dict[str, Any]) -> None:
-        """Validate configuration against JSON schema.
+        # Cache and return
+        self._config_cache[module_name] = base_config
+        return base_config
+
+    def get_section(self, section_name: str) -> dict[str, Any]:
+        """Get configuration section (alias for get_config for backward compatibility).
 
         Args:
-            module_name: Module name for schema lookup
-            config: Configuration dictionary to validate
+            section_name: Name of the section
+
+        Returns:
+            Configuration dictionary for the section
+        """
+        return self.get_config(section_name)
+
+    def register_logging_config(self, module_name: str, default_level: str = "INFO") -> None:
+        """Register logging configuration for a module - does all the work automatically.
+
+        This creates the schema and registers it so ComponentLogger can find it.
+
+        Args:
+            module_name: Full module name (typically __name__)
+            default_level: Default log level for this module
+        """
+        from dataclasses import dataclass
+
+        from util.config.types import CfgField, CfgType
+
+        @dataclass
+        class LoggingSchema:
+            level = CfgField(
+                type=CfgType.STRING, default=default_level, description=f"Log level for {module_name} module"
+            )
+
+        # Register under the path ComponentLogger expects: application.logging.module.name
+        config_path = f"application.logging.{module_name}"
+        self.register_enum_config(config_path, LoggingSchema)
+
+    def create_sample_config(self, output_file: str) -> None:
+        """Create a sample configuration file with default values.
+
+        Args:
+            output_file: Path where the sample config file should be created
+        """
+        from pathlib import Path
+
+        # Ensure directory exists
+        output_path = Path(output_file)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create a basic sample configuration
+        sample_config = """# Morse Code Decoder Configuration
+# Generated sample configuration - edit as needed
+
+# Signal processing configuration
+signal:
+  frequency: 600          # Target CW frequency in Hz [200-2000]
+  threshold: 0.3          # Detection threshold [0.0-1.0]
+  bandwidth: 50           # Filter bandwidth in Hz [10-500]
+  sample_rate: 44100      # Audio sample rate in Hz [8000-96000]
+  mode: "AUTO"           # Processing mode ["AUTO", "MANUAL", "ADAPTIVE"]
+
+# Audio input configuration
+audio:
+  sample_rate: 44100      # Audio sample rate in Hz [8000-96000]
+  wav_filename: null      # WAV file path (null for microphone input)
+  auto_gain_control: false # Enable automatic gain control
+  chunk_size: 50          # Audio chunk size in ms [10-1000]
+
+# Morse decoder configuration
+decoder:
+  wpm: 20                 # Words per minute estimate [5-50]
+  dot_duration: 60.0      # Dot duration in ms [10.0-500.0]
+  tolerance: 0.3          # Timing tolerance [0.0-1.0]
+
+# Global application settings
+global:
+  debug: false            # Enable debug mode
+  log_level: "INFO"       # Logging level ["DEBUG", "INFO", "WARN", "ERROR"]
+  output_file: null       # Output file path (null for stdout)
+  profile: "default"      # Configuration profile name
+
+# Application logging (per-module log levels)
+application:
+  logging:
+    # Example: Set specific modules to DEBUG
+    # morsecode.components.signal.signal_processor: "DEBUG"
+    # morsecode.components.decoder.morse_decoder: "DEBUG"
+"""
+
+        # Write the sample config
+        with open(output_file, "w") as f:
+            f.write(sample_config)
+
+    def _apply_profile_overrides(self, module_name: str, config: dict[str, Any]) -> None:
+        """Apply profile-specific overrides to config.
+
+        Args:
+            module_name: Name of the module
+            config: Base configuration to modify
+        """
+        module_config = self._raw_config.get(module_name, {})
+
+        # Look for keys ending with profile suffix
+        profile_suffix = f"_{self.profile}"
+        for key, value in module_config.items():
+            if key.endswith(profile_suffix):
+                # Remove suffix to get base key name
+                base_key = key[: -len(profile_suffix)]
+                config[base_key] = value
+                self.logger.debug("Applied profile override: %s.%s = %s", module_name, base_key, value)
+
+    def register_enum_config(self, section_name: str, schema_obj: Any) -> None:
+        """Register an enum-based configuration schema.
+
+        Args:
+            section_name: Configuration section name
+            schema_obj: Schema dataclass with CfgField definitions
+        """
+        self.logger.debug("Enum config registered for section '%s'", section_name)
+        self._field_configs[section_name] = schema_obj
+
+    def validate_config(self) -> bool:
+        """Validate the loaded configuration against registered field schemas.
+
+        Returns:
+            True if validation passes
 
         Raises:
             ConfigValidationError: If validation fails
         """
-        schema = self._load_schema(module_name)
-        if not schema:
-            return  # Skip validation if schema not found
+        errors = []
 
-        # Simple validation - check types and ranges
-        properties = schema.get("properties", {})
-        for key, value in config.items():
-            if key not in properties:
-                continue
+        for section_name, schema_obj in self._field_configs.items():
+            section_config = self.get_config(section_name)
 
-            prop_schema = properties[key]
-            expected_type = prop_schema.get("type")
+            # Basic validation - check required fields exist
+            if hasattr(schema_obj, "__dataclass_fields__"):
+                for field_name, _field_info in schema_obj.__dataclass_fields__.items():
+                    if field_name not in section_config:
+                        # Check if field has default or is nullable
+                        field_obj = getattr(schema_obj, field_name, None)
+                        if field_obj is not None and hasattr(field_obj, "default") and field_obj.default is not None:
+                            continue  # Has default, OK
+                        if field_obj is not None and hasattr(field_obj, "nullable") and field_obj.nullable:
+                            continue  # Nullable, OK
+                        errors.append(f"Missing required field: {section_name}.{field_name}")
 
-            # Type validation
-            if expected_type:
-                if isinstance(expected_type, list):
-                    # Handle union types like ["string", "null"]
-                    valid_types: list[type | tuple[type, ...]] = []
-                    for t in expected_type:
-                        if t == "string":
-                            valid_types.append(str)
-                        elif t == "integer":
-                            valid_types.append(int)
-                        elif t == "number":
-                            valid_types.append((int, float))
-                        elif t == "boolean":
-                            valid_types.append(bool)
-                        elif t == "null":
-                            valid_types.append(type(None))
+        if errors:
+            raise ConfigValidationError(f"Config validation failed: {'; '.join(errors)}")
 
-                    if not any(isinstance(value, vt) for vt in valid_types):
-                        raise ConfigValidationError(
-                            f"{module_name}.{key}: Expected {expected_type}, got {type(value).__name__}"
-                        )
-                else:
-                    # Single type
-                    if expected_type == "string" and not isinstance(value, str):
-                        raise ConfigValidationError(f"{module_name}.{key}: Expected string, got {type(value).__name__}")
-                    elif expected_type == "integer" and not isinstance(value, int):
-                        raise ConfigValidationError(
-                            f"{module_name}.{key}: Expected integer, got {type(value).__name__}"
-                        )
-                    elif expected_type == "number" and not isinstance(value, int | float):
-                        raise ConfigValidationError(f"{module_name}.{key}: Expected number, got {type(value).__name__}")
-                    elif expected_type == "boolean" and not isinstance(value, bool):
-                        raise ConfigValidationError(
-                            f"{module_name}.{key}: Expected boolean, got {type(value).__name__}"
-                        )
-
-            # Range validation
-            if isinstance(value, int | float):
-                minimum = prop_schema.get("minimum")
-                maximum = prop_schema.get("maximum")
-                if minimum is not None and value < minimum:
-                    raise ConfigValidationError(f"{module_name}.{key}: Value {value} below minimum {minimum}")
-                if maximum is not None and value > maximum:
-                    raise ConfigValidationError(f"{module_name}.{key}: Value {value} above maximum {maximum}")
-
-            # Pattern validation (regex)
-            if isinstance(value, str):
-                pattern = prop_schema.get("pattern")
-                if pattern and not re.match(pattern, value):
-                    raise ConfigValidationError(
-                        f"{module_name}.{key}: Value '{value}' doesn't match pattern '{pattern}'"
-                    )
-
-    def _get_defaults(self, module_name: str) -> dict[str, Any]:
-        """Extract default values from schema.
-
-        Args:
-            module_name: Module name for schema lookup
-
-        Returns:
-            Dictionary of default values
-        """
-        schema = self._load_schema(module_name)
-        defaults = {}
-
-        properties = schema.get("properties", {})
-        for key, prop_schema in properties.items():
-            if "default" in prop_schema:
-                defaults[key] = prop_schema["default"]
-
-        return defaults
-
-    def _apply_profile_overrides(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Apply profile-specific overrides using postfix pattern.
-
-        Args:
-            config: Base configuration dictionary
-
-        Returns:
-            Configuration with profile overrides applied
-        """
-        if not self.profile:
-            return config
-
-        result = config.copy()
-        postfix = f"_{self.profile}"
-
-        # Look for keys with profile postfix
-        for key, value in config.items():
-            if key.endswith(postfix):
-                # Remove postfix to get base key name
-                base_key = key[: -len(postfix)]
-                result[base_key] = value
-                self.logger.debug("Applied profile override: %s = %s", base_key, value)
-                # Remove the postfix key from result
-                if key in result:
-                    del result[key]
-
-        return result
-
-    def get_config(self, module_name: str) -> dict[str, Any]:
-        """Get validated configuration for a module.
-
-        Args:
-            module_name: Name of module (e.g., 'audio', 'signal', 'decoder', 'app')
-
-        Returns:
-            Complete configuration dictionary with defaults + user overrides + profile overrides
-
-        Raises:
-            ConfigValidationError: If configuration is invalid
-        """
-        try:
-            # Start with defaults from schema
-            config = self._get_defaults(module_name)
-
-            # Apply user configuration from YAML file
-            user_config = self._config_data.get(module_name, {})
-            config.update(user_config)
-
-            # Apply profile overrides (Phase 2)
-            config = self._apply_profile_overrides(config)
-
-            # Validate the final configuration
-            self._validate_against_schema(module_name, config)
-
-            self.logger.debug("Configuration for %s: %s", module_name, config)
-            return config
-
-        except ConfigValidationError:
-            raise
-        except Exception as e:
-            self.logger.error("Unexpected error getting config for %s: %s", module_name, e)
-            # Return defaults as fallback
-            return self._get_defaults(module_name)
-
-    def register_schema(self, section_name, schema_obj) -> None:
-        """Register a schema for enum-based configuration.
-
-        Args:
-            section_name: Section name (enum or string)
-            schema_obj: Schema dataclass with CfgField definitions
-        """
-        # Convert enum to string if needed
-        section_str = section_name.value if hasattr(section_name, "value") else str(section_name)
-
-        # For now, just log the registration - full implementation would convert
-        # the schema_obj to JSON schema and store it
-        self.logger.debug("Schema registered for section '%s': %s", section_str, schema_obj)
-
-        # Store the schema object for future use
-        if not hasattr(self, "_enum_schemas"):
-            self._enum_schemas = {}
-        self._enum_schemas[section_str] = schema_obj
-
-    def get_section(self, section_name):
-        """Get a config section with enum-friendly access.
-
-        Args:
-            section_name: Section name (enum or string)
-
-        Returns:
-            ConfigSection object with get_int, get_double, get_enum methods
-        """
-        # Convert enum to string if needed
-        section_str = section_name.value if hasattr(section_name, "value") else str(section_name)
-
-        # Get config data using existing method
-        config_data = self.get_config(section_str)
-
-        # Return wrapped section for enum-friendly access
-        return ConfigSection(config_data, section_str, self.logger)
-
-
-class ConfigSection:
-    """Wrapper for config section data with type-safe access methods."""
-
-    def __init__(self, config_data: dict, section_name: str, logger):
-        """Initialize config section wrapper with data and logger."""
-        self.config_data = config_data
-        self.section_name = section_name
-        self.logger = logger
-
-    def get_int(self, key) -> int:
-        """Get integer value using enum key."""
-        key_str = key.value if hasattr(key, "value") else str(key)
-        value = self.config_data.get(key_str, 0)
-        try:
-            return int(value)
-        except (ValueError, TypeError) as e:
-            self.logger.error("Failed to convert %s.%s to int: %s", self.section_name, key_str, e)
-            return 0
-
-    def get_double(self, key) -> float:
-        """Get double/float value using enum key."""
-        key_str = key.value if hasattr(key, "value") else str(key)
-        value = self.config_data.get(key_str, 0.0)
-        try:
-            return float(value)
-        except (ValueError, TypeError) as e:
-            self.logger.error("Failed to convert %s.%s to float: %s", self.section_name, key_str, e)
-            return 0.0
-
-    def get_string(self, key) -> str:
-        """Get string value using enum key."""
-        key_str = key.value if hasattr(key, "value") else str(key)
-        value = self.config_data.get(key_str, "")
-        return str(value)
-
-    def get_bool(self, key) -> bool:
-        """Get boolean value using enum key."""
-        key_str = key.value if hasattr(key, "value") else str(key)
-        value = self.config_data.get(key_str, False)
-        if isinstance(value, bool):
-            return value
-        # Handle string representations
-        if isinstance(value, str):
-            return value.lower() in ("true", "yes", "on", "1")
-        return bool(value)
-
-    def get_enum(self, key, enum_class):
-        """Get enum value using enum key."""
-        key_str = key.value if hasattr(key, "value") else str(key)
-        value_str = self.config_data.get(key_str, "")
-
-        # Convert string to enum
-        for enum_val in enum_class:
-            if enum_val.value == value_str:
-                return enum_val
-
-        # Default to first enum value if not found
-        default_val = list(enum_class)[0]
-        self.logger.warning(
-            "Unknown enum value '%s' for %s.%s, using default: %s",
-            value_str,
-            self.section_name,
-            key_str,
-            default_val.value,
-        )
-        return default_val
+        return True

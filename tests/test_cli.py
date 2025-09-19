@@ -268,10 +268,10 @@ class TestMainFunction:
             result = main(["--create-config"])
 
         assert result == 0
-        mock_create.assert_called_once_with("morse.yaml")
+        mock_create.assert_called_once_with("config/morse.yaml")
 
         captured = capsys.readouterr()
-        assert "Sample configuration created: morse.yaml" in captured.out
+        assert "Sample configuration created: config/morse.yaml" in captured.out
 
     def test_main_validate_config_success(self, capsys: Any) -> None:
         """Test main function with successful config validation."""

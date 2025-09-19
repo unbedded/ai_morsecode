@@ -17,7 +17,17 @@ class CfgType(Enum):
 
 @dataclass
 class CfgField:
-    """Configuration field definition with validation rules and unit metadata."""
+    """Configuration field definition with validation rules and unit metadata.
+
+    None vs null usage:
+    - Python code: Use None (default=None, choices=None, etc.)
+    - YAML config: Use null (output_file: null)
+
+    When nullable=True:
+    - Python: default=None
+    - YAML: field: null
+    - Help: "(null to disable)"
+    """
 
     type: CfgType
     default: Any
@@ -27,6 +37,7 @@ class CfgField:
     regex: str | None = None
     description: str = ""
     unit: str | None = None  # Unit metadata (e.g., "Hz", "ms", "norm")
+    nullable: bool = False  # Allow YAML null values (set True when default=None)
 
 
 def enum_field(enum_class, default, prefix=""):

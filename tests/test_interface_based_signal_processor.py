@@ -12,7 +12,7 @@ from morsecode.components.signal.signal_processor import SignalProcessor
 from morsecode.events.bus import EventBus
 from morsecode.events.types import ErrorEvent, ToneDetectedEvent
 from morsecode.interfaces.signal import SignalProcessor as SignalProcessorProtocol
-from util.config.models import SignalConfig
+from tests.mock_config_manager import create_signal_config_manager
 
 
 class MockAudioSource:
@@ -108,7 +108,8 @@ class TestInterfaceBasedSignalProcessor:
 
     def test_protocol_compliance(self) -> None:
         """Test that SignalProcessor implements core methods correctly."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Verify core methods exist (actual implementation)
         assert hasattr(processor, "detect_tone")
@@ -137,7 +138,8 @@ class TestInterfaceBasedSignalProcessor:
         # Setup mock audio source
         mock_source = MockAudioSource(sample_rate=44100, chunks=[tone_chunk, noise_chunk, tone_chunk])
 
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Process chunks using protocol interface
         detections = []
@@ -161,7 +163,8 @@ class TestInterfaceBasedSignalProcessor:
         event_bus.subscribe(ToneDetectedEvent, event_capture)
 
         # Create processor and setup event publishing
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Mock the internal event publishing using actual processor methods
         test_audio = self.create_synthetic_audio(600.0)
@@ -235,7 +238,8 @@ class TestInterfaceBasedSignalProcessor:
 
         event_bus.subscribe(ErrorEvent, error_capture)
 
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Test error condition (empty array) - SignalProcessor handles this gracefully
         result = processor.detect_tone(np.array([]))
@@ -274,7 +278,8 @@ class TestInterfaceBasedSignalProcessor:
     ) -> None:
         """Test using parameterization with interface-based testing."""
         # Configure processor with fixed target frequency (600 Hz) for all tests
-        processor = SignalProcessor(SignalConfig(sample_rate=sample_rate, frequency=600))
+        cfg_mgr = create_signal_config_manager(sample_rate_hz=sample_rate, frequency_hz=600)
+        processor = SignalProcessor(cfg_mgr)
 
         test_audio = self.create_synthetic_audio(frequency=frequency, sample_rate=sample_rate)
 
@@ -284,7 +289,8 @@ class TestInterfaceBasedSignalProcessor:
 
     def test_performance_with_mock_data(self) -> None:
         """Test performance characteristics using mock data instead of file I/O."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Generate larger test dataset in memory (much faster than file I/O)
         large_chunks = [self.create_synthetic_audio(600.0, duration_sec=0.1) for _ in range(100)]
@@ -317,7 +323,8 @@ class TestSignalProcessorProtocolCompliance:
 
     def test_real_implementation_satisfies_core_functionality(self) -> None:
         """Test that SignalProcessor provides core functionality."""
-        processor = SignalProcessor()
+        cfg_mgr = create_signal_config_manager()
+        processor = SignalProcessor(cfg_mgr)
 
         # Test core methods that are actually implemented
         test_audio = np.array([0.1, 0.2, 0.3, 0.4, 0.5], dtype=np.float32)

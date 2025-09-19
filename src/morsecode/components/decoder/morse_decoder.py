@@ -21,7 +21,6 @@ Example usage:
     ```
 """
 
-import logging
 from typing import Any
 
 import numpy as np
@@ -122,19 +121,28 @@ class MorseDecoder:
         Args:
             cfg_mgr: Config manager for enum-based configuration.
         """
-        # Initialize logging as the first step in constructor
-        self.logger = logging.getLogger(__name__)
+        # STEP 1: Initialize ComponentLogger FIRST (required by CLAUDE.md)
+        from util.logging import ComponentLogger
 
-        # STEP 1: Register schema (visible in constructor!)
-        cfg_mgr.register_schema(CfgSection.DECODER, ConfigSchema)
+        self.logger = ComponentLogger(__name__, cfg_mgr)
+        self.logger.info("MorseDecoder initializing...")
 
-        # STEP 2: Get config section
+        # STEP 2: Register component configuration schema
+        cfg_mgr.register_enum_config(CfgSection.DECODER, ConfigSchema)
         cfg = cfg_mgr.get_section(CfgSection.DECODER)
 
-        # STEP 3: Type-safe config access with auto-complete!
+        # STEP 3: Register logging config for this component (enables config-driven log levels)
+        cfg_mgr.register_logging_config(__name__, default_level="INFO")
+
+        # STEP 4: Access configuration with type safety
         self.wpm_estimate: int = cfg.get_int(CfgKey.WPM)
         self.dot_duration_ms: float = cfg.get_double(CfgKey.DOT_DURATION)
         self.detection_tolerance: float = cfg.get_double(CfgKey.TOLERANCE)
+
+        # STEP 5: Global config for cross-cutting concerns (recommended)
+        global_cfg = cfg_mgr.get_section("global")
+        self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
+        self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
 
         # Calculate derived timing parameters using defaults
         dash_ratio = DEFAULT_DASH_RATIO
@@ -146,12 +154,16 @@ class MorseDecoder:
         self.character_spacing_ms: float = self.dot_duration_ms * character_spacing_ratio
         self.word_spacing_ms: float = self.dot_duration_ms * word_spacing_ratio
 
+        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
         self.logger.info(
-            "Decoder initialized: %d WPM, dot=%.1fms, tolerance=%.2f",
+            "MorseDecoder initialized: %d WPM, dot=%.1fms, tolerance=%.2f",
             self.wpm_estimate,
             self.dot_duration_ms,
             self.detection_tolerance,
         )
+
+        # STEP 7: Debug logging controlled by config (not code!)
+        self.logger.debug("Internal state: ready for decoding")
 
         # Initialize decoding state
         self._current_pattern: list[str] = []

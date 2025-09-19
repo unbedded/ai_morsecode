@@ -1,28 +1,78 @@
-# Configuration System - AI-First Documentation
-.
+# UTIL Configuration System - AI Development Guide
 
-.
---------------------------
-# 🤖 **LLM POLICY - COPY TO CLAUDE.md from here down to "END LLM POLICY"** ⬇️
+This is the **canonical reference** for using the `util/config` system in any Python project.
 
-### **Enum-Based Configuration Pattern (MANDATORY)**
+## 📖 Human Developer Documentation
 
-**File Structure for ANY Component:**
+Universal Configuration System providing type-safe, enum-based configuration with automatic validation, unit safety, and component self-registration. Prevents Mars Climate Orbiter disasters through unit naming and provides 100% compile-time type safety.
 
-1. **`component/keys.py`** - Lightweight enums (imported everywhere):
+## 🚀 Quick Demo
+
+```bash
+cd src/util/examples
+python enum_config_demo.py
+```
+
+---
+
+# 🤖 **LLM POLICY - AI-FIRST SECTION - COPY TO CLAUDE.md from here down to "END LLM POLICY"** ⬇️
+
+## Configuration System Usage - CLAUDE.md Policy
+
+### 🚨 CRITICAL RULES (MANDATORY)
+
+1. **Use AwesomeConfigManager** with enum-based schemas - NO magic strings
+2. **Unit naming**: `frequency_hz` (not `frequency`) - prevents unit conversion disasters
+3. **Visible registration**: Must call `cfg_mgr.register_enum_config()` in constructor
+4. **Type safety**: Use `get_int()`, `get_double()`, etc. - explicit types required
+5. **Component + Global pattern**: Each component owns namespace + shared global config
+
+### Key Features
+
+- **Type Safety**: Enum keys prevent typos, `get_int()` ensures correct types
+- **Unit Safety**: Variable naming includes units (`frequency_hz`, `timeout_ms`)
+- **Auto-Complete**: IDE discovers all config options via enum completion
+- **Self-Documenting**: Schema generates YAML with types, ranges, units
+- **Component Architecture**: Self-registering components with namespace isolation
+- **Global Config**: Cross-cutting concerns like debug, logging, timeouts
+
+### Standard Usage Pattern
+
 ```python
+from util.config import AwesomeConfigManager
+from your_project.config_keys import CfgSection, CfgKey
+from your_project.config_schema import YourComponentSchema
+
+class YourComponent:
+    def __init__(self, cfg_mgr: AwesomeConfigManager):
+        # MANDATORY: Register component schema
+        cfg_mgr.register_enum_config(CfgSection.YOUR_SECTION, YourComponentSchema)
+        cfg = cfg_mgr.get_section(CfgSection.YOUR_SECTION)
+
+        # Type-safe access with unit naming
+        self.frequency_hz = cfg.get_int(CfgKey.FREQUENCY)      # IDE auto-complete!
+        self.threshold_norm = cfg.get_double(CfgKey.THRESHOLD) # Type-safe!
+
+        # Global config for cross-cutting concerns
+        global_cfg = cfg_mgr.get_section("global")
+        self.debug = global_cfg.get_bool("debug")              # Debug override
+        self.timeout_ms = global_cfg.get_int("timeout_ms")     # Global timeout
+```
+
+### Enum Definition Pattern
+
+```python
+# component/keys.py - Lightweight enums (imported everywhere)
 from enum import Enum
 
 class CfgKey(Enum):
-    FREQUENCY = "frequency"
+    FREQUENCY = "frequency"     # Use descriptive names
     THRESHOLD = "threshold"
 
 class CfgSection(Enum):
-    SIGNAL = "signal"
-```
+    SIGNAL = "signal"          # Component namespace
 
-2. **`component/schema.py`** - Heavy validation (component creation only):
-```python
+# component/schema.py - Heavy validation (component creation only)
 from dataclasses import dataclass
 from util.config.types import CfgType, CfgField
 
@@ -31,327 +81,315 @@ class ConfigSchema:
     frequency = CfgField(
         type=CfgType.INT,
         default=600,
-        min=200,         # MANDATORY: min/max for INT/DOUBLE
+        min=200,                # MANDATORY for INT/DOUBLE
         max=2000,
-        unit="Hz",       # MANDATORY: unit for all numeric
+        unit="Hz",              # MANDATORY for numeric fields
         description="Target frequency"
     )
 ```
 
-3. **`component/__init__.py`** - Export everything:
+### 🚨 NO MAGIC STRINGS - USE ENUMS
+
 ```python
-from .keys import CfgKey, CfgSection
-from .schema import ConfigSchema
-__all__ = ["CfgKey", "CfgSection", "ConfigSchema"]
+# ✅ CORRECT: Type-safe with auto-complete
+frequency = cfg.get_int(CfgKey.FREQUENCY)
+
+# ❌ WRONG: Magic strings, no compile-time safety
+frequency = config["frequency"]  # Typos not caught!
 ```
 
-## 🚨 **CRITICAL RULES (MANDATORY FOR ALL CONFIG CODE)**
+### Unit Naming Rules
 
-1. **Component-based + global architecture**: Each component owns its config namespace, plus shared global config for cross-cutting concerns
-2. **Unit naming**: `frequency_hz` (not `frequency`) - prevents Mars Climate Orbiter disasters
-3. **Namespace imports**: `from components import signal` (C++ compatible)
-4. **Type safety**: `get_int()` not `get()` - explicit types required
-5. **Visible registration**: Must be in constructor - cannot be forgotten
-6. **Min/max validation**: Required for all INT/DOUBLE fields
-7. **Unit metadata**: Required for all numeric fields
-
-**Application Usage Pattern:**
 ```python
-# Complete application example
-from util.config.manager import ConfigManager
-from morsecode.components import signal, global
+# ✅ SAFE: Units prevent disasters
+self.frequency_hz = 600          # Clearly Hz
+self.timeout_ms = 5000           # Clearly milliseconds
+self.threshold_norm = 0.3        # Clearly 0-1 range
 
-# Create config manager
-cfg_mgr = ConfigManager("morse.yaml")
+# ❌ DANGEROUS: Ambiguous units (Mars Climate Orbiter disaster)
+self.frequency = 600             # Hz? kHz? MHz? 💥
+self.timeout = 5000              # ms? sec? 💥
+```
+
+# 🤖 **END LLM POLICY** ⬆️
+
+---
+
+## Usage Patterns
+
+### 1. Component Constructor Pattern
+
+```python
+from util.config import AwesomeConfigManager
+from morsecode.components.signal import CfgSection, CfgKey, ConfigSchema
 
 class SignalProcessor:
-    def __init__(self, cfg_mgr):
-        # RULE 4: MANDATORY visible registration
-        cfg_mgr.register_schema(signal.CfgSection.SIGNAL, signal.ConfigSchema)
+    def __init__(self, cfg_mgr: AwesomeConfigManager):
+        # STEP 1: Register schema (visible dependency)
+        cfg_mgr.register_enum_config(CfgSection.SIGNAL, ConfigSchema)
 
-        # RULE 3: Type-safe access with explicit methods
-        cfg = cfg_mgr.get_section(signal.CfgSection.SIGNAL)
+        # STEP 2: Get type-safe configuration section
+        cfg = cfg_mgr.get_section(CfgSection.SIGNAL)
 
-        # RULE 1: Unit-named variables (frequency_hz not frequency)
-        self.frequency_hz = cfg.get_int(signal.CfgKey.FREQUENCY)      # Auto-complete!
-        self.threshold_norm = cfg.get_double(signal.CfgKey.THRESHOLD)  # Type-safe!
-        self.mode = cfg.get_enum(signal.CfgKey.MODE, signal.SignalMode) # Enum-safe!
+        # STEP 3: Access with compile-time safety and unit naming
+        self.frequency_hz = cfg.get_int(CfgKey.FREQUENCY)      # Auto-complete works!
+        self.threshold_norm = cfg.get_double(CfgKey.THRESHOLD)  # Type-safe returns
+        self.mode = cfg.get_enum(CfgKey.MODE, SignalMode)      # Enum validation
 
-        # RULE 1: Global config for cross-cutting concerns
-        global_cfg = cfg_mgr.get_section(global.CfgSection.GLOBAL)
-        self.g_debug = global_cfg.get_bool(global.CfgKey.DEBUG)           # Debug override
-        self.g_log_level = global_cfg.get_string(global.CfgKey.LOG_LEVEL) # Log level override
-        self.g_profile = global_cfg.get_string(global.CfgKey.PROFILE)     # Environment profile
-        self.g_timeout_ms = global_cfg.get_int(global.CfgKey.TIMEOUT)     # Global timeout
-
-# Usage
-processor = SignalProcessor(cfg_mgr)
+        # STEP 4: Global config for cross-cutting concerns
+        global_cfg = cfg_mgr.get_section("global")
+        self.debug = global_cfg.get_bool("debug")              # Debug override
+        self.log_level = global_cfg.get_string("log_level")    # Log level override
+        self.timeout_ms = global_cfg.get_int("timeout_ms")     # Global timeout
 ```
 
----
+### 2. Multi-Component Application Pattern
 
-## 🏗️ **Architecture Overview**
-
-**Two-File Pattern (C++ Compatible):**
-- **`keys.py`** - Lightweight enums, imported everywhere (like C++ `.h`)
-- **`schema.py`** - Heavy validation, component creation only (like C++ `.cpp`)
-
-**Type System:**
 ```python
-# Core types in util.config.types
-class CfgType(Enum):
-    INT = "int"        # Requires min/max
-    DOUBLE = "double"  # Requires min/max
-    STRING = "string"  # Optional regex
-    BOOL = "bool"      # No validation needed
-    ENUM = "enum"      # Auto-validates from choices
+# Application main with multiple components
+from util.config import AwesomeConfigManager
 
-@dataclass
-class CfgField:
-    type: CfgType
-    default: Any
-    min: Optional[Any] = None      # MANDATORY for INT/DOUBLE
-    max: Optional[Any] = None      # MANDATORY for INT/DOUBLE
-    unit: Optional[str] = None     # MANDATORY for numeric
-    description: str = ""
+def main():
+    # Single config manager for entire application
+    cfg_mgr = AwesomeConfigManager("myapp.yaml")
+
+    # Components self-register their schemas
+    signal_processor = SignalProcessor(cfg_mgr)     # Registers signal config
+    audio_handler = AudioHandler(cfg_mgr)           # Registers audio config
+    network_client = NetworkClient(cfg_mgr)         # Registers network config
+
+    # Generated YAML includes all component configs:
+    # signal:
+    #   frequency_hz: 600        # Target frequency | INT (Hz) [200-2000]
+    # audio:
+    #   sample_rate_hz: 44100    # Sample rate | INT (Hz) [8000-96000]
+    # network:
+    #   timeout_ms: 5000         # Connection timeout | INT (ms) [1000-30000]
+    # global:
+    #   debug: false             # Debug mode | BOOL
+    #   log_level: "INFO"        # Log verbosity | STR {"DEBUG","INFO","WARN","ERROR"}
 ```
 
-**Access Pattern:**
+## Best Practices
+
+### A. Schema Definition Best Practices
+
 ```python
-# Type-safe access methods
-cfg.get_int(CfgKey.FREQUENCY)           # Returns int, validates range
-cfg.get_double(CfgKey.THRESHOLD)        # Returns float, validates range
-cfg.get_string(CfgKey.FILENAME)         # Returns str, validates regex
-cfg.get_bool(CfgKey.DEBUG)              # Returns bool
-cfg.get_enum(CfgKey.MODE, EnumClass)    # Returns enum, validates choices
-```
-
----
-
-## 🚀 **Quick Start Example**
-
-**Complete working example:**
-```python
-# 1. Create component config files
-# audio/keys.py
-class CfgKey(Enum):
-    SAMPLE_RATE = "sample_rate"
-    CHUNK_SIZE = "chunk_size"
-
-class CfgSection(Enum):
-    AUDIO = "audio"
-
-# audio/schema.py
-from dataclasses import dataclass
-from util.config.types import CfgType, CfgField
-
 @dataclass
 class ConfigSchema:
-    sample_rate = CfgField(
+    # Always include min/max for numeric types
+    frequency = CfgField(
         type=CfgType.INT,
-        default=44100,
-        min=8000,
-        max=96000,
-        unit="Hz",
-        description="Audio sample rate"
+        default=600,
+        min=200,              # Prevents invalid values
+        max=2000,
+        unit="Hz",            # Documents physical units
+        description="CW tone frequency for detection"
     )
 
-# 2. Use in component
-from morsecode.components import audio
+    # Use regex validation for strings
+    filename = CfgField(
+        type=CfgType.STRING,
+        default="input.wav",
+        regex=r".*\.(wav|mp3|flac)$",  # Validate file extensions
+        description="Audio input file path"
+    )
 
-class AudioProcessor:
-    def __init__(self, cfg_mgr):
-        cfg_mgr.register_schema(audio.CfgSection.AUDIO, audio.ConfigSchema)
-        cfg = cfg_mgr.get_section(audio.CfgSection.AUDIO)
-        self.sample_rate_hz = cfg.get_int(audio.CfgKey.SAMPLE_RATE)
+    # Enum validation for choices
+    mode = CfgField(
+        type=CfgType.ENUM,
+        default=ProcessingMode.AUTO,
+        enum_class=ProcessingMode,    # Validates against enum choices
+        description="Signal processing mode"
+    )
 ```
 
-**Generated YAML with help:**
-```yaml
-audio:
-  sample_rate: 44100    # Audio sample rate | INT (Hz) [8000-96000]
-  chunk_size: 1024      # Chunk size | INT (samples) [256-4096]
-```
-
----
-
-## 🛡️ **Unit Safety Rules - Complete System**
-
-### **SI Unit Multiplier Prefixes**
-
-| Prefix | Symbol | Factor | Example Variable |
-|--------|--------|--------|------------------|
-| **giga** | `_g` | 10⁹ | `frequency_ghz`, `memory_gbytes` |
-| **mega** | `_M` | 10⁶ | `frequency_mhz`, `pressure_megapascals` |
-| **kilo** | `_k` | 10³ | `frequency_khz`, `weight_kg` |
-| **base** | `_unit` | 10⁰ | `frequency_hz`, `distance_m` |
-| **milli** | `_m` | 10⁻³ | `time_ms`, `voltage_mv` |
-| **micro** | `_u` | 10⁻⁶ | `time_us`, `current_ua` |
-| **nano** | `_n` | 10⁻⁹ | `time_ns`, `capacitance_nf` |
-| **pico** | `_p` | 10⁻¹² | `time_ps`, `capacitance_pf` |
-
-**CRITICAL: Use capital M for mega, lowercase m for milli to prevent disasters!**
-
-### **Standard Physical Quantities**
-
-| Quantity | Base Unit | Common Scales | Examples |
-|----------|-----------|---------------|----------|
-| **Frequency** | `_hz` | `_khz`, `_mhz`, `_ghz` | `cpu_ghz`, `audio_hz`, `radio_mhz` |
-| **Time** | `_sec` | `_ms`, `_us`, `_ns` | `timeout_ms`, `delay_us`, `pulse_ns` |
-| **Pressure** | `_pascals` | `_kilopascals`, `_megapascals` | `tire_kilopascals`, `steel_megapascals` |
-| **Voltage** | `_volts` | `_mv`, `_kv` | `signal_mv`, `power_kv` |
-| **Current** | `_amps` | `_ma`, `_ua` | `led_ma`, `sensor_ua` |
-| **Power** | `_watts` | `_mw`, `_kw`, `_mw` | `laser_mw`, `motor_kw` |
-| **Energy** | `_joules` | `_kj`, `_mj` | `battery_kj`, `explosion_mj` |
-| **Distance** | `_m` | `_mm`, `_km` | `thickness_mm`, `range_km` |
-| **Mass** | `_kg` | `_g`, `_mg` | `payload_kg`, `dose_mg` |
-
-### **Complex/Custom Units**
-
-For compound or domain-specific units, use descriptive full names:
+### B. Unit Safety Best Practices
 
 ```python
-# ✅ GOOD: Descriptive compound units
-calories_per_furlong = 42           # Bizarre but clear
-pixels_per_inch = 300              # Print resolution
-miles_per_gallon = 35              # Fuel efficiency
-errors_per_million = 100           # Quality metric
-packets_per_second = 1000          # Network rate
-revolutions_per_minute = 3600      # Motor speed
+# Standard unit suffixes for common quantities
+self.frequency_hz = cfg.get_int(CfgKey.FREQUENCY)        # Frequency in Hz
+self.sample_rate_hz = cfg.get_int(CfgKey.SAMPLE_RATE)    # Sample rate in Hz
+self.timeout_ms = cfg.get_int(CfgKey.TIMEOUT)            # Time in milliseconds
+self.timeout_sec = cfg.get_double(CfgKey.TIMEOUT_SEC)    # Time in seconds
+self.threshold_norm = cfg.get_double(CfgKey.THRESHOLD)   # Normalized 0-1 range
+self.accuracy_pct = cfg.get_double(CfgKey.ACCURACY)      # Percentage 0-100
+self.buffer_size_bytes = cfg.get_int(CfgKey.BUFFER_SIZE) # Size in bytes
+self.distance_m = cfg.get_double(CfgKey.DISTANCE)        # Distance in meters
 
-# ❌ BAD: Abbreviated compound units
-cal_per_fur = 42                   # What units?
-ppi = 300                         # Ambiguous
-mpg = 35                          # Context-dependent
+# Use descriptive names for compound units
+self.pixels_per_inch = cfg.get_int(CfgKey.RESOLUTION)    # Not "ppi"
+self.miles_per_gallon = cfg.get_double(CfgKey.EFFICIENCY) # Not "mpg"
 ```
 
-### **Unit Safety Policy for LLM**
+### C. Global Configuration Best Practices
 
-**When creating ANY numeric variable:**
-
-1. **Always include units** in variable names - no exceptions
-2. **Use SI prefixes** consistently (g/M/k/m/u/n/p)
-3. **Capital M for mega**, lowercase m for milli
-4. **Full words for compound units** (pixels_per_inch, not ppi)
-5. **Base units when possible** (convert to Hz, not mix kHz/MHz)
-6. **Document units** in CfgField metadata
-
-### **Essential Global Config Examples**
-
-**Common cross-cutting concerns for ALL projects:**
 ```python
-# global/keys.py
-class CfgKey(Enum):
-    # Debugging & Development
+# Common global config keys for any application
+class GlobalCfgKey(Enum):
+    # Development & Debugging
     DEBUG = "debug"                    # Enable debug mode
     LOG_LEVEL = "log_level"           # Override log verbosity
     PROFILE = "profile"               # Environment (dev/staging/prod)
 
     # Performance & Reliability
-    TIMEOUT = "timeout"               # Global operation timeout
+    TIMEOUT_MS = "timeout_ms"         # Global operation timeout
     MAX_RETRIES = "max_retries"       # Retry attempts
     THREAD_POOL_SIZE = "thread_pool_size"  # Concurrency limit
 
     # Monitoring & Observability
     METRICS_ENABLED = "metrics_enabled"     # Enable metrics collection
-    TRACE_ENABLED = "trace_enabled"         # Enable distributed tracing
-    HEALTH_CHECK_INTERVAL = "health_check_interval"  # Monitor frequency
-
-    # Security & Compliance
-    ENCRYPTION_ENABLED = "encryption_enabled"  # Force encryption
-    API_RATE_LIMIT = "api_rate_limit"          # Requests per second
-    DATA_RETENTION_DAYS = "data_retention_days" # Compliance cleanup
-
-# Generated YAML:
-global:
-  debug: false                    # Enable debug mode | BOOL
-  log_level: "INFO"              # Override log verbosity | STR | {"DEBUG","INFO","WARN","ERROR"}
-  profile: "production"          # Environment | STR | {"dev","staging","production"}
-  timeout_ms: 30000              # Global operation timeout | INT (ms) [1000-300000]
-  max_retries: 3                 # Retry attempts | INT [0-10]
-  metrics_enabled: true          # Enable metrics collection | BOOL
+    HEALTH_CHECK_INTERVAL_MS = "health_check_interval_ms"  # Monitor frequency
 ```
 
-**Examples:**
+### D. Error Handling Best Practices
+
 ```python
-# ✅ SAFE: Units prevent disasters
-self.frequency_hz = 600          # Clearly Hz, not kHz
-self.threshold_norm = 0.3        # Clearly 0-1, not percentage
-self.timeout_ms = 5000           # Clearly milliseconds
+def __init__(self, cfg_mgr: AwesomeConfigManager):
+    try:
+        # Register and access configuration
+        cfg_mgr.register_enum_config(CfgSection.SIGNAL, ConfigSchema)
+        cfg = cfg_mgr.get_section(CfgSection.SIGNAL)
 
-# ❌ DANGEROUS: Ambiguous units (Mars Climate Orbiter style)
-self.frequency = 600             # Hz? kHz? MHz? 💥
-self.threshold = 0.3             # 0-1? 0-100? 💥
-self.timeout = 5000              # ms? sec? 💥
+        self.frequency_hz = cfg.get_int(CfgKey.FREQUENCY)
+
+    except ConfigValidationError as e:
+        # Configuration errors have clear messages with expected ranges
+        self.logger.error("Configuration validation failed: %s", str(e))
+        raise RuntimeError(f"Invalid configuration: {e}") from e
+
+    except Exception as e:
+        self.logger.exception("Unexpected error during configuration: %s", str(e))
+        raise
 ```
 
---------------------------
-# 🤖 **LLM POLICY END - COPY TO CLAUDE.md from here down to "END LLM POLICY"** ⬇️
+## Advanced Features
 
-.
+### Auto-Generated YAML Documentation
 
- . 
+The system automatically generates comprehensive YAML with validation help:
 
- .
+```yaml
+# Auto-generated from schema definitions - ZERO manual work!
+signal:
+  frequency_hz: 600         # Target CW frequency | INT (Hz) [200-2000]
+  threshold_norm: 0.3       # Detection threshold | FLOAT (norm) [0.0-1.0]
+  mode: "AUTO"             # Processing mode | ENUM {"AUTO","MANUAL","ADAPTIVE"}
 
+audio:
+  sample_rate_hz: 44100     # Audio sample rate | INT (Hz) [8000-96000]
+  chunk_size_ms: 50         # Chunk size | INT (ms) [10-1000]
 
-# 📋 **Implementation Documentation**
-
-## 🔧 **Build Tools (Future)**
-
-**cfg_lint tool (planned):**
-```bash
-make cfg-lint          # Validate keys/schema sync
-cfg-lint --check-units # Enforce unit naming
-cfg-lint --check-sync  # Keys match schema
+global:
+  debug: false              # Debug mode | BOOL
+  log_level: "INFO"         # Log verbosity | STR {"DEBUG","INFO","WARN","ERROR"}
+  timeout_ms: 30000         # Global timeout | INT (ms) [1000-300000]
 ```
 
-**C++ Translation (planned):**
-```cpp
-// Auto-generated from Python enums
-namespace AudioConfig {
-    enum class CfgKey { SAMPLE_RATE, CHUNK_SIZE };
+### Profile-Based Configuration
+
+```python
+# Support environment-specific overrides
+cfg_mgr = AwesomeConfigManager("myapp.yaml", profile="production")
+
+# YAML supports profile suffixes:
+# signal:
+#   frequency_hz: 600           # Default frequency
+#   frequency_hz_production: 800 # Production override
+#   frequency_hz_debug: 400     # Debug override
+```
+
+## Anti-Patterns (Don't Do This)
+
+### ❌ Magic String Configuration
+
+```python
+# WRONG: No type safety, no auto-complete
+config = {"frequency": 600, "threshold": 0.3}
+frequency = config["frequncy"]  # Typo not caught!
+```
+
+### ❌ Unitless Variable Names
+
+```python
+# WRONG: Ambiguous units
+self.frequency = 600     # Hz? kHz? MHz?
+self.timeout = 5000      # ms? sec?
+```
+
+### ❌ Generic Configuration Access
+
+```python
+# WRONG: No compile-time type safety
+value = cfg.get("frequency")  # Returns Any, no validation
+```
+
+### ❌ Hidden Configuration Dependencies
+
+```python
+# WRONG: Configuration needs not visible
+def __init__(self):
+    # Component secretly depends on config but doesn't declare it
+    self.frequency = get_global_config("frequency")  # Hidden dependency!
+```
+
+## Migration from Legacy Systems
+
+### Before (Legacy String-based)
+
+```python
+# Old approach: Magic strings, no validation
+config = {
+    "frequency": 600,
+    "threshold": 0.3,
+    "mode": "AUTO"
 }
 
-cfg.get_int(AudioConfig::CfgKey::SAMPLE_RATE);
+frequency = config["frequency"]  # No type safety
+threshold = config["threshhold"] # Typo not caught
 ```
 
+### After (Enum-based)
+
+```python
+# New approach: Type-safe, validated
+cfg_mgr.register_enum_config(CfgSection.SIGNAL, ConfigSchema)
+cfg = cfg_mgr.get_section(CfgSection.SIGNAL)
+
+frequency_hz = cfg.get_int(CfgKey.FREQUENCY)      # Type-safe, auto-complete
+threshold_norm = cfg.get_double(CfgKey.THRESHOLD) # IDE catches typos
+mode = cfg.get_enum(CfgKey.MODE, ProcessingMode)  # Enum validation
+```
+
+## File Structure
+
+```
+src/util/config/
+├── __init__.py              # Public API exports
+├── config_manager.py        # Main AwesomeConfigManager class
+├── types.py                # CfgType, CfgField definitions
+└── README.md               # This file (AI guidance)
+
+your_project/components/signal/
+├── __init__.py             # Export keys and schema
+├── keys.py                 # Lightweight enums (CfgKey, CfgSection)
+└── schema.py               # Heavy validation (ConfigSchema)
+```
+
+## Future Enhancement Opportunities
+
+- **Build-time validation** - Verify key/schema synchronization in CI
+- **C++ code generation** - Auto-generate C++ enums from Python definitions
+- **Configuration linting** - `cfg_lint` tool for naming convention enforcement
+- **Runtime reconfiguration** - Hot-reload configuration without restart
+- **Configuration diffing** - Compare configurations across environments
+- **Schema versioning** - Handle configuration migrations across versions
+
 ---
 
-## 📝 **CFG Implementation Checklist**
+## 🏆 Design Philosophy & Engineering Achievements
 
-**For each component:**
-- [ ] Create `component/keys.py` with CfgKey + CfgSection enums
-- [ ] Create `component/schema.py` with ConfigSchema dataclass
-- [ ] Add min/max to all INT/DOUBLE fields
-- [ ] Add unit metadata to all numeric fields
-- [ ] Update component `__init__` to use enum pattern
-- [ ] Test both old and new config work during transition
-- [ ] Remove old config support after migration complete
-
-**Validation:**
-- [ ] All tests pass
-- [ ] Auto-complete works in IDE
-- [ ] Type safety catches errors
-- [ ] Unit naming prevents confusion
-- [ ] Help generation includes units and ranges
-
----
-
-## 🎯 **Success Metrics**
-
-- **Zero magic numbers** in component code
-- **100% auto-complete** for config access
-- **Build-time validation** catches sync errors
-- **Unit safety** prevents conversion disasters
-- **C++ compatible** patterns throughout
-- **Reusable library** for other projects
-
----
-
-## 🏆 **Design Philosophy & Engineering Achievements**
-
-### **Core Value Propositions**
+### Core Value Propositions
 
 • **Component Assembly Without Global Management** - Components self-register their configuration requirements, enabling project assembly from independent parts without central coordination. Traditional systems require global configuration management where someone must know every component's needs. Our self-registration pattern lets developers add new components to projects by simply instantiating them - the component declares its own config schema in the constructor. This architectural breakthrough enables true component-based development where teams can develop audio processing, signal analysis, and network components independently, then combine them into applications without configuration integration nightmares.
 
@@ -382,39 +420,7 @@ Manual documentation becomes obsolete - types, units, ranges, regex validation, 
 
 • **Cross-Language Architectural Compatibility** - Identical enum patterns translate directly between Python and C++ with zero conceptual overhead. The namespace pattern `signal.CfgKey.FREQUENCY` maps exactly to C++ `Signal::CfgKey::FREQUENCY`, enabling seamless technology transitions. Teams can prototype in Python then port to C++ without redesigning configuration architecture. This reduces project risk and enables polyglot development where different components use optimal languages while maintaining consistent configuration patterns.
 
-• **Impossible-to-Forget Registration Pattern** - Configuration schema registration occurs in component constructors, making dependencies explicit and unavoidable. Traditional systems allow components to silently fail when configuration is missing. Our visible registration pattern ensures `cfg_mgr.register_schema(signal.CfgSection.SIGNAL, signal.ConfigSchema)` appears in every constructor that needs configuration. Components literally cannot instantiate without declaring their configuration needs, making system dependencies transparent for debugging and maintenance.
-
-• **IDE Auto-Complete Integration** - Typing `signal.CfgKey.` in any modern IDE reveals all available configuration options instantly, eliminating documentation lookup cycles. Developers spend significant time searching documentation for correct configuration keys. Our enum-driven approach makes configuration self-documenting through tooling. Code completion reduces onboarding time for new team members and prevents the frustration of memorizing dozens of string-based configuration keys across multiple components.
-
-• **Centralized Interface Validation for System Robustness** - All validation logic concentrates at configuration interfaces, creating a bulletproof foundation where errors cannot propagate into the system. Traditional architectures scatter validation throughout components, creating Swiss cheese security where missed checks cause runtime failures. Our approach puts ALL validation at the configuration boundary: type checking (INT vs STRING), range validation ([200-2000]), enum constraints ({"AUTO","MANUAL"}), regex patterns, and unit consistency. Once configuration passes validation, the entire system operates on guaranteed-valid data. This centralized validation architecture prevents an entire class of runtime errors and creates predictable system behavior.
-
-• **Data-Driven Design Foundation** - Behavior changes through configuration rather than code changes, enabling runtime adaptation without recompilation or redeployment. Data-driven systems separate logic (what to do) from parameters (how to do it), creating flexible architectures that adapt to changing requirements. Our configuration system enables data-driven audio processing where the same codebase handles 440Hz music, 600Hz CW, or 2.4GHz RF signals through configuration alone. Teams can A/B test parameters, optimize performance, and deploy environment-specific behavior without touching source code. This architectural pattern scales from simple parameter tuning to complex algorithmic behavior modification.
-
-• **Zero Magic Numbers Architecture** - Configuration values are externalized with validation, eliminating scattered constants throughout codebase. This architectural decision transforms maintenance nightmares into manageable configuration changes. When frequency needs adjustment, developers modify one YAML value instead of hunting through dozens of source files. The validation ensures values stay within engineering tolerances, preventing silent failures that could take hours to debug. This pattern scales from simple audio processing to complex RF systems without architectural changes.
-
-### **Deliberate Engineering Constraints**
-
-• **Complexity Avoidance Through Flat Architecture** - No nested configuration hierarchies or inheritance patterns that create debugging nightmares in large systems. Many configuration frameworks attempt to solve every possible use case with complex inheritance trees and dynamic schema composition. We deliberately chose flat, predictable structure where each component owns its configuration namespace. This architectural restraint prevents the configuration explosion that makes enterprise systems unmaintainable after multiple team transitions.
-
-• **Startup-Time Schema Locking** - Configuration schemas freeze at application startup, preventing the runtime configuration drift that causes non-reproducible bugs. Dynamic schema changes seem attractive for flexibility but create debugging scenarios where application behavior changes unpredictably. Our design treats configuration as immutable after validation, ensuring consistent behavior across development, testing, and production environments. This constraint eliminates race conditions and makes system behavior predictable.
-
-• **Explicit Type Enforcement Over Generics** - Requiring explicit `get_int()`/`get_double()` calls forces developers to consider data types rather than hiding behind generic `get()` methods. Generic configuration access seems convenient but pushes type validation to runtime and creates ambiguous interfaces. Our explicit approach makes type intentions clear in code and catches type-related errors during static analysis. This verbose approach trades convenience for reliability and maintainability.
-
-• **Visible Dependencies Over Magic Discovery** - Every configuration dependency appears explicitly in component constructors, rejecting magical auto-discovery patterns that hide system complexity. Auto-discovery frameworks seem elegant but make system dependencies invisible to developers and static analysis tools. Our explicit registration pattern makes every configuration relationship visible in code, enabling better architectural understanding and dependency tracking. This transparency is essential for large systems where configuration changes can have unexpected ripple effects.
-
-### **Architectural Innovation**
-
-• **Two-File Separation Pattern** - Lightweight `keys.py` files contain only enum definitions for frequent imports, while heavy `schema.py` files contain validation logic used only during component instantiation. This separation mirrors C++ header/implementation patterns and optimizes import performance. Most code only needs access to configuration keys for reading values, not the full validation machinery. This architectural decision reduces compilation time and memory usage while maintaining clean separation of concerns.
-
-• **Component-Based Configuration Architecture** - Each component owns its configuration namespace (`signal.CfgKey.FREQUENCY`) while sharing global cross-cutting concerns (`global.CfgKey.LOG_LEVEL`). This hybrid approach prevents namespace collisions while enabling system-wide settings like debug modes, logging levels, and environment profiles. Components remain loosely coupled through their own config spaces but can coordinate through shared global configuration. This architecture scales from single-component prototypes to enterprise systems with hundreds of components, providing both isolation and coordination mechanisms.
-
-• **Namespace-First Design Philosophy** - `signal.CfgKey.FREQUENCY` pattern provides unambiguous configuration access that scales from single components to enterprise systems. Namespace collision is a major source of configuration bugs in large systems where multiple components define similar keys. Our namespace-first approach prevents collisions and makes configuration ownership explicit. The pattern works identically whether accessing one component or coordinating dozens, providing architectural consistency across system scales.
-
-• **Unit Metadata Integration** - Physical units are stored as schema metadata, displayed in generated help text, and enforced through variable naming conventions. Traditional configuration systems treat units as afterthoughts, leading to conversion errors and ambiguous specifications. Our integrated approach makes units first-class citizens of the configuration system. Help generation automatically includes unit information, reducing documentation burden while improving usability.
-
-• **Enum-Driven Code Generation** - Auto-complete, type safety, help text generation, and validation all derive from single enum definitions, eliminating synchronization challenges. Many systems require separate definitions for keys, validation rules, documentation, and type checking. Our enum-driven approach uses enums as the single source of truth for generating all related artifacts. This eliminates the synchronization problems that plague multi-file configuration systems and reduces maintenance overhead.
-
-### **Developer Experience Engineering**
+### Developer Experience Engineering
 
 • **50% Faster Configuration Setup** - Auto-complete and type safety reduce configuration development time by eliminating lookup cycles and runtime debugging. Measured against traditional string-based configuration systems, our enum approach cuts configuration development time in half. Developers spend less time in documentation, make fewer typos, and catch errors earlier in the development cycle. This velocity improvement compounds across large teams and long-term projects.
 
@@ -424,7 +430,7 @@ Manual documentation becomes obsolete - types, units, ranges, regex validation, 
 
 • **Automated Documentation Generation** - Configuration help text, validation rules, and examples generate automatically from schema definitions, eliminating documentation drift. Manual documentation becomes stale quickly in active projects, leading to incorrect configuration and developer frustration. Our automated approach generates comprehensive YAML comments with types, ranges, units, and examples directly from schema definitions. Documentation stays current automatically, reducing support burden and improving developer experience.
 
-### **System Reliability Engineering**
+### System Reliability Engineering
 
 • **Build-Time Validation Integration** - Configuration key/schema synchronization errors are caught by continuous integration systems rather than discovered during runtime failures. Desynchronization between configuration keys and validation schemas is a common source of production issues in traditional systems. Our build-time validation prevents these issues from reaching production by verifying synchronization as part of the compilation process. Failed builds due to configuration errors are preferable to runtime failures in production environments.
 
@@ -432,24 +438,12 @@ Manual documentation becomes obsolete - types, units, ranges, regex validation, 
 
 • **Single Source of Truth Architecture** - Each configuration value is defined once and propagated everywhere it's needed, eliminating the synchronization issues that plague distributed configuration systems. Traditional approaches often duplicate configuration values across multiple files, leading to inconsistencies and maintenance problems. Our architecture ensures every configuration value has exactly one definition that drives code generation, validation, help text, and examples. This eliminates synchronization bugs and reduces maintenance overhead.
 
-### **Future-Proofing and Extensibility**
+### Architectural Innovation
 
-• **AI-First Documentation Structure** - README and code patterns are optimized for large language model consumption and automated code generation. As AI-assisted development becomes prevalent, documentation structure matters for automated code generation quality. Our documentation follows patterns that LLMs can easily parse and replicate, enabling consistent code generation across projects. This approach future-proofs the system for AI-assisted development workflows.
+• **Namespace-First Design Philosophy** - `signal.CfgKey.FREQUENCY` pattern provides unambiguous configuration access that scales from single components to enterprise systems. Namespace collision is a major source of configuration bugs in large systems where multiple components define similar keys. Our namespace-first approach prevents collisions and makes configuration ownership explicit. The pattern works identically whether accessing one component or coordinating dozens, providing architectural consistency across system scales.
 
-• **Linting Tool Integration Architecture** - `cfg_lint` build tools validate configuration consistency as part of standard development workflows. Static analysis tools are essential for maintaining large codebases, but most configuration systems lack dedicated linting support. Our architecture enables build-time validation of configuration consistency, key/schema synchronization, and naming convention compliance. This integration prevents configuration errors from accumulating in codebases.
+• **Unit Metadata Integration** - Physical units are stored as schema metadata, displayed in generated help text, and enforced through variable naming conventions. Traditional configuration systems treat units as afterthoughts, leading to conversion errors and ambiguous specifications. Our integrated approach makes units first-class citizens of the configuration system. Help generation automatically includes unit information, reducing documentation burden while improving usability.
 
-• **Multi-Project Reusability Design** - Configuration system architecture enables packaging as standalone library for use across multiple projects and organizations. Many configuration solutions are tightly coupled to specific projects, preventing reuse and forcing teams to rebuild similar functionality. Our modular design enables packaging as a standalone library with minimal dependencies. This reusability reduces development time for new projects and enables standardization across organizations.
-
-### **Critical Testing Strategy Requirements**
-
-• **Fundamental Component Testing Imperative** - Configuration systems are foundational infrastructure where bugs multiply across every component that uses them. A single validation error in the configuration system can manifest as mysterious failures in audio processing, signal analysis, network communication, or any other component. Unlike application bugs that affect single features, configuration bugs affect system-wide behavior and are notoriously difficult to debug because symptoms appear far from root causes. Comprehensive unit testing is not optional - it's essential for system reliability.
-
-• **Error Boundary Validation Testing** - Every validation rule must be tested at boundaries where correct inputs pass and incorrect inputs fail with precise error messages. Test suites must verify that INT fields reject strings, range validation catches values outside [min-max], enum validation rejects invalid choices, regex patterns work correctly, and unit consistency checks prevent unit confusion. Edge cases like null values, empty strings, boundary values (exactly min/max), and malformed data must all be covered. Each error condition must produce clear, actionable error messages that guide developers to correct configuration.
-
-• **Schema Synchronization Testing** - Build-time tests must verify that configuration keys match schema definitions, preventing the runtime failures that occur when keys and validation schemas become desynchronized. Automated tests should detect missing keys, extra keys, type mismatches, and validation rule inconsistencies. These tests prevent the configuration drift that makes systems unreliable and must run as part of continuous integration to catch synchronization errors before they reach production.
-
-• **Cross-Component Integration Testing** - Component isolation requires testing that components can coexist without configuration namespace collisions or interference. Integration tests must verify that multiple components can register schemas simultaneously, access their own configuration sections without affecting others, and coordinate through global configuration correctly. These tests ensure the component-based architecture actually works in practice rather than just in theory.
-
----
+• **Enum-Driven Code Generation** - Auto-complete, type safety, help text generation, and validation all derive from single enum definitions, eliminating synchronization challenges. Many systems require separate definitions for keys, validation rules, documentation, and type checking. Our enum-driven approach uses enums as the single source of truth for generating all related artifacts. This eliminates the synchronization problems that plague multi-file configuration systems and reduces maintenance overhead.
 
 *This configuration system demonstrates **engineering excellence through simplicity** - doing one thing (type-safe configuration) exceptionally well rather than solving every possible configuration problem.*

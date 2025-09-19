@@ -19,7 +19,7 @@ from morsecode.components.audio.hal import (
     HardwareAbstractionLayer,
 )
 from morsecode.components.audio.keys import CfgKey
-from util.config.registry import AwesomeConfigManager
+from util.config import AwesomeConfigManager
 
 
 class TestHardwareAbstractionLayer:
@@ -59,7 +59,7 @@ class TestHardwareAbstractionLayer:
         mock_config_section.get_string.side_effect = lambda key: config_values.get(key, "")
 
         # Mock the register_schema and get_section methods
-        mock_cfg_mgr.register_schema.return_value = None
+        mock_cfg_mgr.register_enum_config.return_value = None
         mock_cfg_mgr.get_section.return_value = mock_config_section
 
         return mock_cfg_mgr
@@ -292,9 +292,11 @@ class TestHardwareAbstractionLayer:
                 mock_cfg_mgr = self.create_mock_config_manager()
         hal = HardwareAbstractionLayer(mock_cfg_mgr)  # Use default config
 
-        # Verify HAL was created successfully (basic logging validation)
+        # Verify HAL was created successfully with new MorseLogger
         assert hal is not None
-        assert isinstance(hal.logger, logging.Logger)
+        assert hasattr(hal.logger, "info")  # MorseLogger has logging methods
+        assert hasattr(hal.logger, "debug")
+        assert hasattr(hal.logger, "error")
 
     @patch("morsecode.components.audio.hal.wavfile.read")
     def test_load_audio_file_error_handling(self, mock_read: Any, tmp_path: Path) -> None:

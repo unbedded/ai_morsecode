@@ -1,0 +1,43 @@
+# Application Configuration
+# Generated: 2025-09-19 07:31:08
+# 
+# This file was auto-generated with comprehensive documentation.
+# Edit values as needed - comments show valid ranges, units, and options.
+# 
+# Unit naming conventions:
+#   *_ms, *_sec, *_us = time units
+#   *_hz = frequency units
+#   *_norm = normalized values [0.0-1.0]
+#   *_pct = percentage values [0-100]
+# 
+# Null values:
+#   Use 'null' (not None) to disable optional features
+#   Example: output_file: null   # Disables file output
+# 
+
+application:
+  debug: false       # Enable debug mode and verbose logging | BOOL | default: False
+  log_level: "INFO"      # Global log level | ENUM | {DEBUG, INFO, WARNING, ERROR, CRITICAL} | default: INFO
+  output_file: null        # Output file path for decoded text | STR|NULL | (null to disable)
+
+  # Per-component log level overrides for debugging
+  logging:
+    # Uncomment to debug specific components:
+    # morsecode.components.audio.hal: "DEBUG"           # Audio HAL debug
+    # morsecode.components.signal.signal_processor: "DEBUG"   # Signal processing debug
+    # morsecode.components.decoder.morse_decoder: "DEBUG"     # Decoder debug
+
+# Profile Examples:
+# Use --profile debug to activate debug-specific overrides:
+#   application:
+#     log_level_debug: "DEBUG"     # Override for debug profile
+#     debug_debug: true            # Enable debug mode in debug profile
+#     logging_debug:
+#       morsecode.components: "DEBUG"  # All components debug in debug profile
+#
+# Use --profile production:
+#   application:
+#     log_level_production: "WARNING"  # Production: warnings and errors only
+#     logging_production:
+#       morsecode.components.signal: "ERROR"  # Signal: errors only in production
+
