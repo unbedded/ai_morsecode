@@ -7,11 +7,11 @@ Welcome to the Morse Code Decoder documentation.
 ### [`design/`](./design/)
 Architectural design documents and system design decisions.
 - [Configuration Architecture](./design/configuration-architecture.md) ✅
+- **[ASCII Graphics Roadmap](./design/graphics_todo_roadmap.md)** ✅ - Real-time visualization implementation plan
 
 ### Planning & Roadmaps
 - **[Morse Code Decoder Roadmap](./morse_todo_roadmap.md)** ✅ - Complete project roadmap and todo
-- [Architecture Refactoring TODO](./design/todo_arch_refact.md) ✅ - Completed architecture improvements
-- [Project Plan](./design/project-plan.md) ✅ - Historical project phases
+- [Project Plan](./design/project-plan.md) ✅ - Historical project phases (archived)
 - [Claude Commands Improvement Plan](./design/CLAUDE_COMMANDS_IMPROVEMENT_PLAN.md) 📝
 
 ## 🔧 Development
