@@ -9,6 +9,7 @@ import logging
 from typing import Any
 from unittest.mock import MagicMock
 
+from util.config import AwesomeConfigManager
 from util.config.models import AudioConfig, DecoderConfig, SignalConfig
 
 from ..interfaces.audio import AudioSource
@@ -23,10 +24,10 @@ def create_mock_signal_config_manager(signal_config: SignalConfig) -> MagicMock:
     from .signal.signal_config_keys import SignalCfgKey
 
     config_data = {
-        SignalCfgKey.FREQUENCY: signal_config.frequency,
-        SignalCfgKey.THRESHOLD: signal_config.threshold,
-        SignalCfgKey.BANDWIDTH: signal_config.bandwidth,
-        SignalCfgKey.SAMPLE_RATE: signal_config.sample_rate,
+        SignalCfgKey.FREQUENCY_HZ: signal_config.frequency_hz,
+        SignalCfgKey.SIGNAL_THRESHOLD_NORM: signal_config.signal_threshold_norm,
+        SignalCfgKey.BANDWIDTH_HZ: signal_config.bandwidth_hz,
+        SignalCfgKey.SAMPLE_RATE_HZ: signal_config.sample_rate_hz,
     }
 
     mock_config_manager = MagicMock()
@@ -55,7 +56,7 @@ def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
         AudioCfgKey.SAMPLE_RATE: audio_config.sample_rate,
         AudioCfgKey.WAV_FILENAME: audio_config.wav_filename,
         AudioCfgKey.AUTO_GAIN_CONTROL: audio_config.auto_gain_control,
-        AudioCfgKey.CHUNK_SIZE: audio_config.chunk_size_ms,
+        AudioCfgKey.CHUNK_SIZE_MS: audio_config.chunk_size_ms,
     }
 
     mock_config_manager = MagicMock()
@@ -79,8 +80,8 @@ def create_mock_decoder_config_manager(decoder_config: DecoderConfig) -> MagicMo
 
     config_data = {
         DecoderCfgKey.WPM: decoder_config.wpm,
-        DecoderCfgKey.DOT_DURATION: decoder_config.dot_duration_ms,
-        DecoderCfgKey.TOLERANCE: decoder_config.tolerance,
+        DecoderCfgKey.DOT_DURATION_MS: decoder_config.dot_duration_ms,
+        DecoderCfgKey.TIMING_TOLERANCE_NORM: decoder_config.timing_tolerance_norm,
     }
 
     mock_config_manager = MagicMock()
@@ -210,6 +211,29 @@ class ComponentFactory:
         except Exception as e:
             self.logger.error("Failed to create Morse decoder: %s", e)
             raise ValueError(f"Cannot create Morse decoder: {e}") from e
+
+    def create_graphics_display(self, cfg_mgr: AwesomeConfigManager) -> Any:
+        """Create a graphics display component.
+
+        Args:
+            cfg_mgr: Configuration manager instance
+
+        Returns:
+            GraphicsDisplay instance configured with the given parameters.
+
+        Raises:
+            ValueError: If required configuration is missing or invalid.
+        """
+        try:
+            # Import here to avoid circular imports
+            from .graphics.graphics_display import GraphicsDisplay
+
+            self.logger.debug("Creating graphics display component")
+            return GraphicsDisplay(cfg_mgr)
+
+        except Exception as e:
+            self.logger.error("Failed to create graphics display: %s", e)
+            raise ValueError(f"Cannot create graphics display: {e}") from e
 
 
 # Adapter classes to bridge legacy implementations with new protocols

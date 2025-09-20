@@ -9,7 +9,7 @@ class CfgKey(Enum):
     SAMPLE_RATE = "sample_rate"
     WAV_FILENAME = "wav_filename"
     AUTO_GAIN_CONTROL = "auto_gain_control"
-    CHUNK_SIZE = "chunk_size"
+    CHUNK_SIZE_MS = "chunk_size_ms"
 
 
 class CfgSection(Enum):

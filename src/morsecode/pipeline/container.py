@@ -127,16 +127,16 @@ class Container:
                 instance = cast(T, self._factory.create_audio_source(audio_config))
             elif component_type == SignalProcessor:
                 signal_config = SignalConfig(
-                    sample_rate=config.get("sample_rate", 44100),
-                    frequency=config.get("frequency", 600),
-                    threshold=config.get("threshold", 0.3),
-                    bandwidth=config.get("bandwidth", 50),
+                    sample_rate_hz=config.get("sample_rate", 44100),
+                    frequency_hz=config.get("frequency", 600),
+                    signal_threshold_norm=config.get("threshold", 0.3),
+                    bandwidth_hz=config.get("bandwidth", 50),
                 )
                 instance = cast(T, self._factory.create_signal_processor(signal_config))
             elif component_type == MorseDecoder:
                 decoder_config = DecoderConfig(
                     wpm=config.get("wpm", 15),
-                    tolerance=config.get("tolerance", 0.3),
+                    timing_tolerance_norm=config.get("tolerance", 0.3),
                     dot_duration_ms=config.get("dot_duration_ms"),
                     min_silence_ms=config.get("min_silence_ms", 200.0),
                 )

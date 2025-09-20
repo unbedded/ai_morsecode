@@ -39,7 +39,7 @@ class TestHardwareAbstractionLayer:
             CfgKey.SAMPLE_RATE: 44100,
             CfgKey.WAV_FILENAME: None,
             CfgKey.AUTO_GAIN_CONTROL: True,
-            CfgKey.CHUNK_SIZE: 50,
+            CfgKey.CHUNK_SIZE_MS: 50,
         }
 
         # Apply any overrides

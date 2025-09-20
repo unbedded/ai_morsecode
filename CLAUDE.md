@@ -102,31 +102,72 @@ frequency = cfg.get_int(CfgKey.FREQUENCY)
 frequency = config["frequency"]  # Typos not caught!
 ```
 
-## Unified Constructor Pattern
+## Configurable Component Pattern (RECOMMENDED)
 
-**Standard pattern for any component using UTIL config + logging:**
+**NEW: Use ConfigurableBase for components requiring runtime reconfiguration:**
 
 ```python
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Type
 from util.config import AwesomeConfigManager
 from util.logging import ComponentLogger
-from your_project.config_keys import CfgSection, CfgKey
-from your_project.config_schema import YourComponentSchema
 
-class YourComponent:
-    def __init__(self, cfg_mgr: AwesomeConfigManager):
+class IConfigurable(ABC):
+    """Interface for components supporting runtime configuration."""
+    CONFIG_SCHEMA: Type[Any]
+    CONFIG_SECTION: str
+    CONFIG_KEYS: Type[Any]
+
+    @abstractmethod
+    def reconfigure(self, overrides: Dict[str, Any]) -> None:
+        pass
+
+class ConfigurableBase(IConfigurable):
+    """Base class eliminating config boilerplate."""
+
+    def __init__(self, cfg_mgr: AwesomeConfigManager, overrides: Dict[str, Any] | None = None):
         # STEP 1: Initialize logger FIRST (required by CLAUDE.md)
         self.logger = ComponentLogger(__name__, cfg_mgr)
-        self.logger.info("YourComponent initializing...")
+        self.logger.info("%s initializing...", self.__class__.__name__)
 
-        # STEP 2: Register component configuration schema
-        cfg_mgr.register_enum_config(CfgSection.YOUR_SECTION, YourComponentSchema)
-        cfg = cfg_mgr.get_section(CfgSection.YOUR_SECTION)
+        self._cfg_mgr = cfg_mgr
+        self._cfg_section = None
+        self._configure(cfg_mgr, overrides)
 
-        # STEP 3: Register logging config for this component (enables config-driven log levels)
+    def reconfigure(self, overrides: Dict[str, Any]) -> None:
+        """Runtime reconfiguration without recreating component."""
+        self._cfg_section.apply_overrides(overrides)
+        self._load_config_values()
+        self._on_reconfiguration()
+
+    def _configure(self, cfg_mgr: AwesomeConfigManager, overrides: Dict[str, Any] | None = None):
+        cfg_mgr.register_enum_config(self.CONFIG_SECTION, self.CONFIG_SCHEMA)
         cfg_mgr.register_logging_config(__name__, default_level="INFO")
+        self._cfg_section = cfg_mgr.get_section(self.CONFIG_SECTION)
 
-        # STEP 4: Access configuration with type safety
-        self.frequency_hz = cfg.get_int(CfgKey.FREQUENCY)
+        if overrides:
+            self._cfg_section.apply_overrides(overrides)
+
+        self._load_config_values()
+
+    @abstractmethod
+    def _load_config_values(self) -> None:
+        """Load config values - only method components must implement."""
+        pass
+
+    def _on_reconfiguration(self) -> None:
+        """Optional hook for reconfiguration side effects."""
+        pass
+
+# Component implementation - minimal boilerplate!
+class YourComponent(ConfigurableBase):
+    CONFIG_SCHEMA = YourComponentSchema
+    CONFIG_SECTION = "your_section"
+    CONFIG_KEYS = YourCfgKey
+
+    def _load_config_values(self) -> None:
+        """Only method we implement - all boilerplate handled by base class."""
+        self.frequency_hz = self._cfg_section.get_int(self.CONFIG_KEYS.FREQUENCY)
         self.threshold = cfg.get_double(CfgKey.THRESHOLD)
 
         # STEP 5: Global config for cross-cutting concerns (recommended)

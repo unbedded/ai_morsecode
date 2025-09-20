@@ -217,7 +217,7 @@ class TestRunDecoderTyped:
 
         # Create test configurations
         audio_config = AudioConfig(wav_filename="test.wav")
-        signal_config = SignalConfig(frequency=600)
+        signal_config = SignalConfig(frequency_hz=600)
         decoder_config = DecoderConfig(wpm=15)
         app_config = AppConfig()
 
@@ -637,8 +637,8 @@ class TestIntegrationScenarios:
 
         # Create configurations
         audio_config = AudioConfig(wav_filename="morse.wav", sample_rate=22050)
-        signal_config = SignalConfig(frequency=800, threshold=0.4)
-        decoder_config = DecoderConfig(wpm=20, tolerance=0.2)
+        signal_config = SignalConfig(frequency_hz=800, signal_threshold_norm=0.4)
+        decoder_config = DecoderConfig(wpm=20, timing_tolerance_norm=0.2)
         app_config = AppConfig(output_file="result.txt", debug=True)
 
         result = run_decoder_typed(audio_config, signal_config, decoder_config, app_config)

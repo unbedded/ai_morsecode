@@ -36,7 +36,68 @@ python enum_config_demo.py
 - **Application Agnostic**: Works for any Python project
 - **CLAUDE.md Compliant**: Enforces all logging best practices
 
-### Standard Usage Pattern
+### NEW: Configurable Component Pattern (RECOMMENDED)
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Type
+from util.config import AwesomeConfigManager
+from util.logging import ComponentLogger
+
+class ConfigurableBase(ABC):
+    """Base class with built-in logging and config handling."""
+
+    def __init__(self, cfg_mgr: AwesomeConfigManager, overrides: Dict[str, Any] | None = None):
+        # STEP 1: Initialize logger FIRST (CLAUDE.md requirement)
+        self.logger = ComponentLogger(__name__, cfg_mgr)
+        self.logger.info("%s initializing...", self.__class__.__name__)
+
+        # STEP 2: Register logging config for config-driven log levels
+        cfg_mgr.register_logging_config(__name__, default_level="INFO")
+
+        # STEP 3: Setup configuration with overrides support
+        self._cfg_mgr = cfg_mgr
+        self._cfg_section = None
+        self._configure(cfg_mgr, overrides)
+
+    def _configure(self, cfg_mgr: AwesomeConfigManager, overrides: Dict[str, Any] | None = None):
+        cfg_mgr.register_enum_config(self.CONFIG_SECTION, self.CONFIG_SCHEMA)
+        self._cfg_section = cfg_mgr.get_section(self.CONFIG_SECTION)
+
+        if overrides:
+            self._cfg_section.apply_overrides(overrides)
+            # STEP 4: Log configuration overrides (CRITICAL for debugging!)
+            self.logger.info("Configuration overrides applied: %s", overrides)
+
+        self._load_config_values()
+
+    @abstractmethod
+    def _load_config_values(self) -> None:
+        """Load config values - components implement only this method."""
+        pass
+
+    def reconfigure(self, overrides: Dict[str, Any]) -> None:
+        """Runtime reconfiguration with proper logging."""
+        self.logger.info("Reconfiguring %s: %s", self.__class__.__name__, overrides)
+        self._cfg_section.apply_overrides(overrides)
+        self._load_config_values()
+        self.logger.info("Reconfiguration complete")
+
+# Component implementation - logging built-in!
+class YourComponent(ConfigurableBase):
+    CONFIG_SCHEMA = YourComponentSchema
+    CONFIG_SECTION = "your_section"
+    CONFIG_KEYS = YourCfgKey
+
+    def _load_config_values(self) -> None:
+        """Only method we implement - logging already handled by base class."""
+        self.frequency_hz = self._cfg_section.get_int(self.CONFIG_KEYS.FREQUENCY)
+
+        # STEP 5: Use lazy % formatting (CRITICAL for performance!)
+        self.logger.debug("Loaded config: frequency=%d Hz", self.frequency_hz)
+```
+
+### Legacy Pattern (Still Supported)
 
 ```python
 from util.config import AwesomeConfigManager

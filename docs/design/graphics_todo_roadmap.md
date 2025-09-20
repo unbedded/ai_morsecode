@@ -421,6 +421,11 @@ graphics = [
 - **Memory Management**: Bounded buffers for historical data
 - **Event Filtering**: Subscribe only to needed event types
 
+### **Build System**
+- **Test Data**: Makefile must create `tests/generated_data/` directory if not exists (excluded from git)
+- **Large Files**: `tests/data/wav/` and `tests/data/wav_low_snr/` excluded from git (4GB+ sizes)
+- **CI/CD**: Ensure build scripts handle missing test data directories gracefully
+
 ### **Compatibility**
 - **Terminal Support**: Works in all standard terminals
 - **Color Fallback**: Graceful degradation for monochrome terminals

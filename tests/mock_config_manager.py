@@ -107,11 +107,12 @@ def create_signal_config_manager(
     """Create a mock config manager with signal processor configuration."""
     configs = {
         "signal": {
-            "frequency": frequency_hz,
-            "threshold": threshold,
-            "bandwidth": bandwidth_hz,
-            "sample_rate": sample_rate_hz,
+            "frequency_hz": frequency_hz,
+            "signal_threshold_norm": threshold,
+            "bandwidth_hz": bandwidth_hz,
+            "sample_rate_hz": sample_rate_hz,
             "mode": mode,
+            "adaptive_frequency": True,
         },
         "global": {
             "debug": False,
@@ -133,7 +134,7 @@ def create_audio_config_manager(
             "sample_rate": sample_rate_hz,
             "wav_filename": wav_filename,
             "auto_gain_control": auto_gain_control,
-            "chunk_size": chunk_size_ms,
+            "chunk_size_ms": chunk_size_ms,
         },
         "global": {
             "debug": False,
@@ -150,8 +151,9 @@ def create_decoder_config_manager(
     configs = {
         "decoder": {
             "wpm": wpm,
-            "dot_duration": dot_duration_ms,
-            "tolerance": tolerance,
+            "dot_duration_ms": dot_duration_ms,
+            "timing_tolerance_norm": tolerance,
+            "min_silence_ms": 200.0,
         },
         "global": {
             "debug": False,

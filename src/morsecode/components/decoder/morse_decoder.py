@@ -136,8 +136,15 @@ class MorseDecoder:
 
         # STEP 4: Access configuration with type safety
         self.wpm_estimate: int = cfg.get_int(CfgKey.WPM)
-        self.dot_duration_ms: float = cfg.get_double(CfgKey.DOT_DURATION)
-        self.detection_tolerance: float = cfg.get_double(CfgKey.TOLERANCE)
+        self.dot_duration_ms: float = cfg.get_double(CfgKey.DOT_DURATION_MS)
+        self.detection_tolerance: float = cfg.get_double(CfgKey.TIMING_TOLERANCE_NORM)
+
+        # Calculate dot_duration_ms from WPM if not provided (standard PARIS formula)
+        if self.dot_duration_ms is None or self.dot_duration_ms <= 0:
+            self.dot_duration_ms = 1200.0 / self.wpm_estimate
+            self.logger.debug(
+                "Calculated dot_duration_ms from WPM: %.1fms from %d WPM", self.dot_duration_ms, self.wpm_estimate
+            )
 
         # STEP 5: Global config for cross-cutting concerns (recommended)
         global_cfg = cfg_mgr.get_section("global")
@@ -221,11 +228,14 @@ class MorseDecoder:
             chunk_duration_ms: Duration of the audio chunk in milliseconds.
         """
         try:
+            # Note: Removed debug logging for cleaner output
+
             if tone_detected:
                 # Check for accumulated silence before this tone
                 if self._tone_start_time is None and self._last_tone_end_time is not None:
                     silence_duration = self._current_time - self._last_tone_end_time
                     if silence_duration > 0:
+                        self.logger.debug("Processing silence gap: %.1fms", silence_duration)
                         self._process_silence_gap(silence_duration)
 
                 if self._tone_start_time is None:
@@ -236,6 +246,7 @@ class MorseDecoder:
                 if self._tone_start_time is not None:
                     # End of tone - process the element
                     tone_duration = self._current_time - self._tone_start_time
+                    self.logger.debug("Processing tone element: %.1fms", tone_duration)
                     self._process_tone_element(tone_duration)
 
                     self._last_tone_end_time = self._current_time

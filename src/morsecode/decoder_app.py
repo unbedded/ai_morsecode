@@ -13,6 +13,8 @@ from unittest.mock import MagicMock
 
 from util.config.models import AppConfig, AudioConfig, DecoderConfig, SignalConfig
 
+# Initialize graphics component (auto-subscribes to events)
+from .components import graphics  # noqa: F401
 from .components.audio.hal import HardwareAbstractionLayer
 from .components.audio.keys import CfgKey as AudioCfgKey
 from .components.decoder.keys import CfgKey as DecoderCfgKey
@@ -31,7 +33,7 @@ def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
         AudioCfgKey.SAMPLE_RATE: audio_config.sample_rate,
         AudioCfgKey.WAV_FILENAME: audio_config.wav_filename,
         AudioCfgKey.AUTO_GAIN_CONTROL: audio_config.auto_gain_control,
-        AudioCfgKey.CHUNK_SIZE: audio_config.chunk_size_ms,
+        AudioCfgKey.CHUNK_SIZE_MS: audio_config.chunk_size_ms,
     }
 
     mock_config_manager = MagicMock()
@@ -53,10 +55,10 @@ def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
 def create_mock_signal_config_manager(signal_config: SignalConfig) -> MagicMock:
     """Create mock config manager from SignalConfig."""
     config_data = {
-        SignalCfgKey.FREQUENCY: signal_config.frequency,
-        SignalCfgKey.THRESHOLD: signal_config.threshold,
-        SignalCfgKey.BANDWIDTH: signal_config.bandwidth,
-        SignalCfgKey.SAMPLE_RATE: signal_config.sample_rate,
+        SignalCfgKey.FREQUENCY_HZ: signal_config.frequency_hz,
+        SignalCfgKey.SIGNAL_THRESHOLD_NORM: signal_config.signal_threshold_norm,
+        SignalCfgKey.BANDWIDTH_HZ: signal_config.bandwidth_hz,
+        SignalCfgKey.SAMPLE_RATE_HZ: signal_config.sample_rate_hz,
     }
 
     mock_config_manager = MagicMock()
@@ -81,8 +83,8 @@ def create_mock_decoder_config_manager(decoder_config: DecoderConfig) -> MagicMo
     """Create mock config manager from DecoderConfig."""
     config_data = {
         DecoderCfgKey.WPM: decoder_config.wpm,
-        DecoderCfgKey.DOT_DURATION: decoder_config.dot_duration_ms,
-        DecoderCfgKey.TOLERANCE: decoder_config.tolerance,
+        DecoderCfgKey.DOT_DURATION_MS: decoder_config.dot_duration_ms,
+        DecoderCfgKey.TIMING_TOLERANCE_NORM: decoder_config.timing_tolerance_norm,
     }
 
     mock_config_manager = MagicMock()
@@ -194,7 +196,7 @@ def run_decoder_typed(
 
         logger.info("Components initialized successfully")
         logger.info("Audio file: %s", audio_config.wav_filename)
-        logger.info("Target frequency: %d Hz", signal_config.frequency)
+        logger.info("Target frequency: %d Hz", signal_config.frequency_hz)
         logger.info("Estimated WPM: %d", decoder_config.wpm)
 
         # Set up progress reporting via events
@@ -240,14 +242,14 @@ def run_decoder_legacy(
             chunk_size_ms=hal_config.get("chunk_size_ms", 50),
         )
         signal_cfg = SignalConfig(
-            sample_rate=signal_config.get("sample_rate_hz", 44100),
-            frequency=signal_config.get("target_frequency_hz", 600),  # Registry default
-            threshold=signal_config.get("detection_threshold", 0.3),
-            bandwidth=signal_config.get("filter_bandwidth_hz", 50),
+            sample_rate_hz=signal_config.get("sample_rate_hz", 44100),
+            frequency_hz=signal_config.get("target_frequency_hz", 600),  # Registry default
+            signal_threshold_norm=signal_config.get("detection_threshold", 0.3),
+            bandwidth_hz=signal_config.get("filter_bandwidth_hz", 50),
         )
         decoder_cfg = DecoderConfig(
             wpm=decoder_config.get("wpm_estimate", 15),
-            tolerance=decoder_config.get("detection_tolerance", 0.3),
+            timing_tolerance_norm=decoder_config.get("detection_tolerance", 0.3),
             dot_duration_ms=decoder_config.get("dot_duration_ms"),
             min_silence_ms=decoder_config.get("min_silence_duration_ms", 200.0),
         )
@@ -262,7 +264,7 @@ def run_decoder_legacy(
             AudioCfgKey.SAMPLE_RATE: audio_cfg.sample_rate,
             AudioCfgKey.WAV_FILENAME: audio_cfg.wav_filename,
             AudioCfgKey.AUTO_GAIN_CONTROL: audio_cfg.auto_gain_control,
-            AudioCfgKey.CHUNK_SIZE: audio_cfg.chunk_size_ms,
+            AudioCfgKey.CHUNK_SIZE_MS: audio_cfg.chunk_size_ms,
         }
         audio_mock = MagicMock()
         audio_section = MagicMock()
@@ -274,8 +276,8 @@ def run_decoder_legacy(
         # Create mock decoder config manager
         decoder_config_data = {
             DecoderCfgKey.WPM: decoder_cfg.wpm,
-            DecoderCfgKey.DOT_DURATION: decoder_cfg.dot_duration_ms,
-            DecoderCfgKey.TOLERANCE: decoder_cfg.tolerance,
+            DecoderCfgKey.DOT_DURATION_MS: decoder_cfg.dot_duration_ms,
+            DecoderCfgKey.TIMING_TOLERANCE_NORM: decoder_cfg.timing_tolerance_norm,
         }
         decoder_mock = MagicMock()
         decoder_section = MagicMock()
@@ -285,10 +287,10 @@ def run_decoder_legacy(
 
         # Create signal config manager mock
         signal_config_data = {
-            SignalCfgKey.FREQUENCY: signal_cfg.frequency,
-            SignalCfgKey.THRESHOLD: signal_cfg.threshold,
-            SignalCfgKey.BANDWIDTH: signal_cfg.bandwidth,
-            SignalCfgKey.SAMPLE_RATE: signal_cfg.sample_rate,
+            SignalCfgKey.FREQUENCY_HZ: signal_cfg.frequency_hz,
+            SignalCfgKey.SIGNAL_THRESHOLD_NORM: signal_cfg.signal_threshold_norm,
+            SignalCfgKey.BANDWIDTH_HZ: signal_cfg.bandwidth_hz,
+            SignalCfgKey.SAMPLE_RATE_HZ: signal_cfg.sample_rate_hz,
         }
         signal_mock = MagicMock()
         signal_section = MagicMock()
@@ -348,7 +350,7 @@ def _process_audio_typed(hal: Any, processor: Any, decoder: Any, app_config: App
             chunk = hal.get_next_chunk(update_interval_ms=update_interval_ms)
 
             # Process signal for tone detection (publishes ToneDetectedEvent)
-            tone_detected = processor.detect_tone(chunk)
+            tone_detected = processor.detect_tone(chunk, adaptive_frequency=processor.adaptive_frequency)
 
             # Feed to Morse decoder (publishes MorsePatternEvent and TextDecodedEvent)
             decoder.process_tone_detection(tone_detected, float(update_interval_ms))
@@ -405,7 +407,7 @@ def _process_audio(hal: Any, processor: Any, decoder: Any, app_config: dict[str,
             chunk = hal.get_next_chunk(update_interval_ms=update_interval_ms)
 
             # Process signal for tone detection (publishes ToneDetectedEvent)
-            tone_detected = processor.detect_tone(chunk)
+            tone_detected = processor.detect_tone(chunk, adaptive_frequency=processor.adaptive_frequency)
 
             # Feed to Morse decoder (publishes MorsePatternEvent and TextDecodedEvent)
             decoder.process_tone_detection(tone_detected, float(update_interval_ms))

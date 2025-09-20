@@ -80,3 +80,8 @@ tests/data/*20WPM.wav
 tests/data/240110_13WPM.wav
 tests/data/NightOfNights*.wav
 tests/data/kph-*.wav
+
+# Large test data directories (excluded from git)
+tests/data/wav/
+tests/data/wav_low_snr/
+tests/generated_data/

@@ -312,33 +312,51 @@ class TestDataGenerator:
         self.logger.info("Generating basic test cases...")
 
         test_cases = [
-            # Individual characters
+            # Realistic character sequences (5+ chars minimum)
             TestCase(
-                "Single_E",
-                "E",
+                "Pattern_EEEEE",
+                "EEEEE",
                 15,
                 600,
                 "basic",
-                "characters",
-                "Single dot",
-                ["character", "basic"],
+                "patterns",
+                "Five dots pattern",
+                ["pattern", "basic", "dots"],
             ),
             TestCase(
-                "Single_T",
-                "T",
+                "Pattern_TTTTT",
+                "TTTTT",
                 15,
                 600,
                 "basic",
-                "characters",
-                "Single dash",
-                ["character", "basic"],
+                "patterns",
+                "Five dashes pattern",
+                ["pattern", "basic", "dashes"],
             ),
-            TestCase("Single_A", "A", 15, 600, "basic", "characters", "Dot-dash", ["character", "basic"]),
-            TestCase("Single_N", "N", 15, 600, "basic", "characters", "Dash-dot", ["character", "basic"]),
-            # Simple words
-            TestCase("Word_THE", "THE", 15, 600, "basic", "words", "Common word", ["word", "common"]),
-            TestCase("Word_AND", "AND", 15, 600, "basic", "words", "Common word", ["word", "common"]),
-            TestCase("Word_TO", "TO", 15, 600, "basic", "words", "Two letter word", ["word", "short"]),
+            TestCase(
+                "Pattern_EIEIO",
+                "EIEIO",
+                15,
+                600,
+                "basic",
+                "patterns",
+                "Mixed dot-dash pattern",
+                ["pattern", "basic", "mixed"],
+            ),
+            TestCase(
+                "Pattern_PARIS",
+                "PARIS",
+                15,
+                600,
+                "basic",
+                "patterns",
+                "Standard timing reference",
+                ["pattern", "basic", "timing"],
+            ),
+            # Realistic words (5+ characters)
+            TestCase("Word_HELLO", "HELLO", 15, 600, "basic", "words", "Common 5-letter word", ["word", "common"]),
+            TestCase("Word_WORLD", "WORLD", 15, 600, "basic", "words", "Common 5-letter word", ["word", "common"]),
+            TestCase("Word_MORSE", "MORSE", 15, 600, "basic", "words", "Morse code word", ["word", "technical"]),
             # Numbers
             TestCase(
                 "Numbers_12345",
@@ -360,16 +378,26 @@ class TestDataGenerator:
                 "Sequential numbers",
                 ["numbers", "sequence"],
             ),
-            # Basic phrases
+            # Basic phrases with spacing
             TestCase(
                 "Phrase_CQ_CQ",
-                "CQ CQ DE TEST",
+                "CQ CQ",
                 15,
                 600,
                 "basic",
                 "phrases",
-                "CQ call",
-                ["phrase", "ham"],
+                "CQ call - 5 chars with space",
+                ["phrase", "ham", "spacing"],
+            ),
+            TestCase(
+                "Phrase_TEST_OK",
+                "TEST OK",
+                15,
+                600,
+                "basic",
+                "phrases",
+                "Test phrase - 7 chars with space",
+                ["phrase", "test", "spacing"],
             ),
         ]
 

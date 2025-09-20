@@ -36,7 +36,73 @@ python enum_config_demo.py
 - **Component Architecture**: Self-registering components with namespace isolation
 - **Global Config**: Cross-cutting concerns like debug, logging, timeouts
 
-### Standard Usage Pattern
+### NEW: Configurable Component Pattern (RECOMMENDED)
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Type
+from util.config import AwesomeConfigManager
+
+class IConfigurable(ABC):
+    """Interface for components supporting runtime configuration."""
+    CONFIG_SCHEMA: Type[Any]
+    CONFIG_SECTION: str
+    CONFIG_KEYS: Type[Any]
+
+    @abstractmethod
+    def reconfigure(self, overrides: Dict[str, Any]) -> None:
+        pass
+
+class ConfigurableBase(IConfigurable):
+    """Base class eliminating all config boilerplate."""
+
+    def __init__(self, cfg_mgr: AwesomeConfigManager, overrides: Dict[str, Any] | None = None):
+        self._cfg_mgr = cfg_mgr
+        self._cfg_section = None
+        self._configure(cfg_mgr, overrides)
+
+    def reconfigure(self, overrides: Dict[str, Any]) -> None:
+        """Runtime reconfiguration without recreating component."""
+        self._cfg_section.apply_overrides(overrides)
+        self._load_config_values()
+        self._on_reconfiguration()
+
+    @abstractmethod
+    def _load_config_values(self) -> None:
+        """Only method components must implement."""
+        pass
+
+    def _on_reconfiguration(self) -> None:
+        """Optional hook for reconfiguration side effects."""
+        pass
+
+# Component implementation - super clean!
+class YourComponent(ConfigurableBase):
+    CONFIG_SCHEMA = YourComponentSchema
+    CONFIG_SECTION = "your_section"
+    CONFIG_KEYS = YourCfgKey
+
+    def _load_config_values(self) -> None:
+        """Only method we implement - all boilerplate handled by base class."""
+        self.frequency_hz = self._cfg_section.get_int(self.CONFIG_KEYS.FREQUENCY)
+        self.threshold_norm = self._cfg_section.get_double(self.CONFIG_KEYS.THRESHOLD)
+
+# Usage - production (same as before)
+cfg_mgr = AwesomeConfigManager("config.yaml")
+component = YourComponent(cfg_mgr)
+
+# Usage - testing (trivial!)
+test_overrides = {
+    YourCfgKey.FREQUENCY.value: 800,
+    YourCfgKey.THRESHOLD.value: 0.3
+}
+component = YourComponent(cfg_mgr, overrides=test_overrides)
+
+# Runtime reconfiguration
+component.reconfigure({YourCfgKey.FREQUENCY.value: 900})
+```
+
+### Legacy Pattern (Still Supported)
 
 ```python
 from util.config import AwesomeConfigManager

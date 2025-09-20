@@ -4,9 +4,11 @@
 This project implements a complete Morse code decoder system that can process audio files and extract decoded text. The system is built in Python with a modular architecture supporting real-time audio processing and comprehensive testing.
 
 ## Project Status
-- **Current Branch**: `port-proto`
-- **Base Branch**: `main`
-- **Phase**: Core Morse code decoding system completed (Phases 1-4)
+- **Current Branch**: `feature/graphics-ascii` (util refactor fixes)
+- **Base Branch**: `develop`
+- **Phase**: UTIL Package Integration & Configurable Architecture (Phases 5-6)
+- **Last Merge**: `feature/util_refactor` → `develop` (completed)
+- **Ready to Merge**: Util refactor test fixes and enum key alignment
 
 ## Architecture Components
 
@@ -70,19 +72,26 @@ tests/data/
 - [x] Create test cases for various WPM speeds (10-30 WPM)
 - [x] Validate accuracy against known text outputs
 
-### Phase 5: Configuration & CLI 📋 PENDING
-- [ ] Implement Pydantic-based configuration system
-- [ ] Add command-line interface
-- [ ] Create configuration file support
-- [ ] Add batch processing capabilities
-- [ ] Implement output format options
+### Phase 5: UTIL Package Integration ✅ COMPLETED
+- [x] Implement AwesomeConfigManager with enum-based schemas
+- [x] Add ComponentLogger with security and performance features
+- [x] Create typed configuration models (AudioConfig, SignalConfig, DecoderConfig)
+- [x] Add command-line interface with argument validation
+- [x] Create YAML configuration file support
+- [x] Implement batch processing capabilities
+- [x] Add output format options and logging setup
 
-### Phase 6: Optimization & Documentation 📋 PENDING
-- [ ] Performance optimization and profiling
-- [ ] Memory usage optimization for large files
-- [ ] Comprehensive API documentation
-- [ ] User guide and examples
-- [ ] Performance benchmarks and metrics
+### Phase 6: Configurable Component Architecture 🔄 IN PROGRESS
+- [x] **COMPLETED**: Fix util refactor test failures and enum key mismatches
+- [x] **COMPLETED**: Update CLI argument names and model field alignment
+- [x] **COMPLETED**: Fix mock config managers and test validation
+- [ ] **PENDING**: Implement base ConfigurableComponent class with inheritance
+- [ ] **PENDING**: Update signal processor to use configurable architecture
+- [ ] **PENDING**: Update decoder component to use configurable architecture
+- [ ] **PENDING**: Update audio HAL to use configurable architecture
+- [ ] **PENDING**: Consolidate CLAUDE.md files (merge CLAUDE_util → ./CLAUDE.md)
+- [ ] **PENDING**: Remove legacy configuration patterns
+- [ ] **PENDING**: Ensure all CI checks pass consistently
 
 ## Testing Strategy
 

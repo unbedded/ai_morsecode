@@ -11,8 +11,9 @@ class CfgKey(Enum):
     """Configuration keys for decoder component."""
 
     WPM = "wpm"
-    DOT_DURATION = "dot_duration"
-    TOLERANCE = "tolerance"
+    DOT_DURATION_MS = "dot_duration_ms"
+    TIMING_TOLERANCE_NORM = "timing_tolerance_norm"
+    MIN_SILENCE_MS = "min_silence_ms"
 
 
 class CfgSection(Enum):

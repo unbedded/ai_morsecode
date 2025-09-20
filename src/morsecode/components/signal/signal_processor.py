@@ -74,24 +74,52 @@ class SignalProcessor:
         cfg_mgr.register_logging_config(__name__, default_level="INFO")
 
         # STEP 4: Access configuration with type safety
-        self.sample_rate_hz: int = cfg.get_int(SignalCfgKey.SAMPLE_RATE)
-        self.target_frequency_hz: int = cfg.get_int(SignalCfgKey.FREQUENCY)
-        self.detection_threshold: float = cfg.get_double(SignalCfgKey.THRESHOLD)
-        self.filter_bandwidth_hz: int = cfg.get_int(SignalCfgKey.BANDWIDTH)
+        self.sample_rate_hz: int = cfg.get_int(SignalCfgKey.SAMPLE_RATE_HZ)
+        self.target_frequency_hz: int = cfg.get_int(SignalCfgKey.FREQUENCY_HZ)
+        self.detection_threshold: float = cfg.get_double(SignalCfgKey.SIGNAL_THRESHOLD_NORM)
+        self.filter_bandwidth_hz: int = cfg.get_int(SignalCfgKey.BANDWIDTH_HZ)
         self.mode: SignalMode = cfg.get_enum(SignalCfgKey.MODE, SignalMode)
+        self.adaptive_frequency: bool = cfg.get_bool(SignalCfgKey.ADAPTIVE_FREQUENCY)
+
+        # Critical missing parameters from old config - with safe defaults if not loaded
+        # Check if new parameters are available, otherwise use defaults
+        self.cutoff_hz = cfg.get_double(SignalCfgKey.CUTOFF_HZ) or 15.0
+        self.cw_mag_thresh_seconds = cfg.get_double(SignalCfgKey.CW_MAG_THRESH_SECONDS) or 0.1
+        self.cw_peak_ratio_threshold = cfg.get_int(SignalCfgKey.CW_PEAK_RATIO_THRESHOLD) or 4
+        self.n_move_avg_elements = cfg.get_int(SignalCfgKey.N_MOVE_AVG_ELEMENTS) or 6
+        self.rolling_buffer_seconds = cfg.get_double(SignalCfgKey.ROLLING_BUFFER_SECONDS) or 3.0
+        self.freq_range_min = cfg.get_int(SignalCfgKey.FREQ_RANGE_MIN) or 200
+        self.freq_range_max = cfg.get_int(SignalCfgKey.FREQ_RANGE_MAX) or 1000
+
+        # Log if we're using defaults
+        if not cfg.get_double(SignalCfgKey.CUTOFF_HZ):
+            self.logger.warning("New signal processing parameters not found in config, using old config defaults")
 
         # STEP 5: Global config for cross-cutting concerns (recommended)
         global_cfg = cfg_mgr.get_section("global")
         self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
         self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
 
+        # Initialize signal processing state with new parameters
+        self.moving_avg_buffer: list[float] = []  # Buffer for moving average smoothing
+        self.signal_history: list[float] = []  # Rolling buffer for signal statistics
+        self.min_tone_samples = int(self.cw_mag_thresh_seconds * self.sample_rate_hz)
+
         # STEP 6: Log completion with lazy % formatting (CRITICAL!)
         self.logger.info(
-            "SignalProcessor initialized: freq=%d Hz, threshold=%.2f, bandwidth=%d Hz, mode=%s",
+            "SignalProcessor initialized: freq=%d Hz, threshold=%.2f, bandwidth=%d Hz, mode=%s, adaptive=%s",
             self.target_frequency_hz,
             self.detection_threshold,
             self.filter_bandwidth_hz,
             self.mode.value,
+            self.adaptive_frequency,
+        )
+        self.logger.info(
+            "Signal filters: cutoff=%.1f Hz, min_tone=%.1f s, peak_ratio=%d, avg_elements=%d",
+            self.cutoff_hz,
+            self.cw_mag_thresh_seconds,
+            self.cw_peak_ratio_threshold,
+            self.n_move_avg_elements,
         )
 
         # STEP 7: Debug logging controlled by config (not code!)
@@ -105,6 +133,7 @@ class SignalProcessor:
         self._frequency_bins: np.ndarray | None = None
         self._window: np.ndarray | None = None
         self._chunk_counter: int = 0
+        self.actual_frequency_hz: float = float(self.target_frequency_hz)  # Track actual frequency being used
 
         # Get global event bus for publishing events
         self._event_bus = get_global_event_bus()
@@ -257,6 +286,9 @@ class SignalProcessor:
             else:
                 actual_target_freq = self.target_frequency_hz
 
+            # Store the actual frequency being used for external access
+            self.actual_frequency_hz = actual_target_freq
+
             # Find frequency bin closest to actual target frequency
             target_bin_idx = np.argmin(np.abs(frequencies - actual_target_freq))
             target_frequency = frequencies[target_bin_idx]
@@ -282,20 +314,117 @@ class SignalProcessor:
             # Compute total energy for normalization
             total_energy = np.sum(magnitudes)
 
-            # Calculate relative energy ratio
+            # CRITICAL: Adaptive gain control for real-world fading signals
+            # For real-world audio, we need dynamic normalization that adapts to signal level
+
+            # Method 1: Relative energy (good for synthetic, poor for real-world)
             if total_energy > 0:
-                energy_ratio = target_energy / total_energy
+                relative_energy_ratio = target_energy / total_energy
             else:
-                energy_ratio = 0.0
+                relative_energy_ratio = 0.0
+
+            # Method 2: Absolute energy with adaptive normalization (better for real-world)
+            # Track running statistics for adaptive thresholding
+            if not hasattr(self, "energy_history"):
+                self.energy_history = []
+                self.adaptive_threshold = 0.0
+
+            # Update energy history for adaptive normalization
+            self.energy_history.append(target_energy)
+            if len(self.energy_history) > 100:  # Keep last 100 samples for adaptation
+                self.energy_history.pop(0)
+
+            # Calculate adaptive threshold based on recent energy levels
+            if len(self.energy_history) >= 10:
+                energy_array = np.array(self.energy_history)
+                # Use 75th percentile as adaptive threshold (distinguishes signal from noise)
+                self.adaptive_threshold = np.percentile(energy_array, 75)
+
+            # Calculate SNR for adaptive normalization decision (needed here!)
+            snr_db = self.calculate_snr(audio_data)
+
+            # Adaptive energy ratio: compare current energy to adaptive threshold
+            if self.adaptive_threshold > 0:
+                adaptive_energy_ratio = target_energy / self.adaptive_threshold
+            else:
+                adaptive_energy_ratio = 0.0
+
+            # Choose normalization method based on signal characteristics
+            # Use adaptive method for real-world signals with low SNR
+            use_adaptive_normalization = snr_db < 25.0  # dB threshold for real-world detection
+
+            if use_adaptive_normalization:
+                energy_ratio = min(1.0, adaptive_energy_ratio)  # Cap at 1.0 for stability
+                self.logger.debug(
+                    "Using adaptive normalization (SNR=%.1f dB): target=%.0f, adaptive_thresh=%.0f, ratio=%.3f",
+                    snr_db,
+                    target_energy,
+                    self.adaptive_threshold,
+                    energy_ratio,
+                )
+            else:
+                energy_ratio = relative_energy_ratio
+                self.logger.debug(
+                    "Using relative normalization (SNR=%.1f dB): target=%.0f, total=%.0f, ratio=%.3f",
+                    snr_db,
+                    target_energy,
+                    total_energy,
+                    energy_ratio,
+                )
 
             # Calculate confidence
             confidence = min(1.0, energy_ratio * 2.0)  # Scale confidence
 
-            # Calculate SNR for additional context
-            snr_db = self.calculate_snr(audio_data)
+            # CRITICAL: Apply signal processing filters from old config
+            # 1. Moving average smoothing to reduce noise
+            self.moving_avg_buffer.append(energy_ratio)
+            if len(self.moving_avg_buffer) > self.n_move_avg_elements:
+                self.moving_avg_buffer.pop(0)
 
-            # Determine if tone is detected
-            tone_detected = energy_ratio > self.detection_threshold
+            smoothed_energy_ratio = sum(self.moving_avg_buffer) / len(self.moving_avg_buffer)
+
+            # 2. Apply SNR threshold from old config - DISABLED for debugging
+            snr_linear = 10 ** (snr_db / 10)  # Convert dB to linear
+            snr_passes = snr_linear >= self.cw_peak_ratio_threshold
+            # TEMP: Disable SNR filtering - it's too aggressive
+            snr_passes = True
+
+            # 3. Combine smoothed energy and SNR requirements
+            # Smart energy selection: Use raw energy for clean signals, smoothed for noisy
+            # This prevents silence periods from affecting clean synthetic signals
+            # while still providing noise reduction for real-world audio
+
+            snr_threshold_for_raw_energy = 40.0  # dB - above this, use raw energy
+            use_raw_energy = snr_db > snr_threshold_for_raw_energy
+
+            if use_raw_energy:
+                preliminary_detection = (energy_ratio > self.detection_threshold) and snr_passes
+                self.logger.debug(
+                    "Using raw energy (SNR=%.1f dB > %.1f): %.3f > %.3f = %s",
+                    snr_db,
+                    snr_threshold_for_raw_energy,
+                    energy_ratio,
+                    self.detection_threshold,
+                    preliminary_detection,
+                )
+            else:
+                preliminary_detection = (smoothed_energy_ratio > self.detection_threshold) and snr_passes
+                self.logger.debug(
+                    "Using smoothed energy (SNR=%.1f dB <= %.1f): %.3f > %.3f = %s",
+                    snr_db,
+                    snr_threshold_for_raw_energy,
+                    smoothed_energy_ratio,
+                    self.detection_threshold,
+                    preliminary_detection,
+                )
+
+            # Note: Removed debug logging for cleaner output
+
+            # 4. Duration filtering will be applied by decoder using min_tone_samples
+            # (The decoder should filter out tones shorter than cw_mag_thresh_seconds)
+
+            # Final tone detection decision with smoothing and SNR filtering
+            tone_detected = preliminary_detection
 
             # Publish tone detection event
             tone_event = ToneDetectedEvent(

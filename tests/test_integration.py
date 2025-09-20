@@ -30,8 +30,8 @@ class TestMorseCodeIntegration:
         """Create mock config manager for decoder component."""
         config_values = {
             DecoderCfgKey.WPM: 15,
-            DecoderCfgKey.DOT_DURATION: 80.0,
-            DecoderCfgKey.TOLERANCE: 0.3,
+            DecoderCfgKey.DOT_DURATION_MS: 80.0,
+            DecoderCfgKey.TIMING_TOLERANCE_NORM: 0.3,
         }
         if overrides:
             config_values.update(overrides)
@@ -69,10 +69,10 @@ class TestMorseCodeIntegration:
     def create_mock_signal_config_manager(self, overrides: dict = None) -> MagicMock:
         """Create mock config manager for signal component."""
         config_values = {
-            SignalCfgKey.SAMPLE_RATE: 44100,
-            SignalCfgKey.FREQUENCY: 600,
-            SignalCfgKey.THRESHOLD: 0.3,
-            SignalCfgKey.BANDWIDTH: 50,
+            SignalCfgKey.SAMPLE_RATE_HZ: 44100,
+            SignalCfgKey.FREQUENCY_HZ: 600,
+            SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.3,
+            SignalCfgKey.BANDWIDTH_HZ: 50,
         }
         if overrides:
             config_values.update(overrides)
@@ -96,12 +96,16 @@ class TestMorseCodeIntegration:
 
         # Initialize components
         signal_cfg_mgr = self.create_mock_signal_config_manager(
-            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+            {
+                SignalCfgKey.SAMPLE_RATE_HZ: sample_rate,
+                SignalCfgKey.FREQUENCY_HZ: target_freq,
+                SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.3,
+            }
         )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
         decoder_cfg_mgr = self.create_mock_decoder_config_manager(
-            {DecoderCfgKey.WPM: wpm, DecoderCfgKey.DOT_DURATION: dot_duration_ms}
+            {DecoderCfgKey.WPM: wpm, DecoderCfgKey.DOT_DURATION_MS: dot_duration_ms}
         )
         decoder = MorseDecoder(decoder_cfg_mgr)
 
@@ -145,7 +149,11 @@ class TestMorseCodeIntegration:
 
         # Initialize signal processor
         signal_cfg_mgr = self.create_mock_signal_config_manager(
-            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.2}
+            {
+                SignalCfgKey.SAMPLE_RATE_HZ: sample_rate,
+                SignalCfgKey.FREQUENCY_HZ: target_freq,
+                SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.2,
+            }
         )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
@@ -171,12 +179,16 @@ class TestMorseCodeIntegration:
 
         # Initialize components
         signal_cfg_mgr = self.create_mock_signal_config_manager(
-            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+            {
+                SignalCfgKey.SAMPLE_RATE_HZ: sample_rate,
+                SignalCfgKey.FREQUENCY_HZ: target_freq,
+                SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.3,
+            }
         )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
         decoder_cfg_mgr = self.create_mock_decoder_config_manager(
-            {DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.2}
+            {DecoderCfgKey.DOT_DURATION_MS: 80, DecoderCfgKey.TIMING_TOLERANCE_NORM: 0.2}
         )
         decoder = MorseDecoder(decoder_cfg_mgr)
 
@@ -237,7 +249,11 @@ class TestMorseCodeIntegration:
         target_freq = 600
 
         signal_cfg_mgr = self.create_mock_signal_config_manager(
-            {SignalCfgKey.SAMPLE_RATE: sample_rate, SignalCfgKey.FREQUENCY: target_freq, SignalCfgKey.THRESHOLD: 0.3}
+            {
+                SignalCfgKey.SAMPLE_RATE_HZ: sample_rate,
+                SignalCfgKey.FREQUENCY_HZ: target_freq,
+                SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.3,
+            }
         )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
 
@@ -251,7 +267,7 @@ class TestMorseCodeIntegration:
         assert clean_detected, "Failed to detect clean signal"
 
         # Now test with moderate noise
-        decoder_cfg_mgr = self.create_mock_decoder_config_manager({DecoderCfgKey.DOT_DURATION: 80})
+        decoder_cfg_mgr = self.create_mock_decoder_config_manager({DecoderCfgKey.DOT_DURATION_MS: 80})
         decoder = MorseDecoder(decoder_cfg_mgr)
 
         # Create signal with some noise but still detectable
@@ -281,7 +297,7 @@ class TestMorseCodeIntegration:
     def test_timing_variation_tolerance(self) -> None:
         """Test tolerance to timing variations in real conditions."""
         decoder_cfg_mgr = self.create_mock_decoder_config_manager(
-            {DecoderCfgKey.DOT_DURATION: 80, DecoderCfgKey.TOLERANCE: 0.3}
+            {DecoderCfgKey.DOT_DURATION_MS: 80, DecoderCfgKey.TIMING_TOLERANCE_NORM: 0.3}
         )
         decoder = MorseDecoder(decoder_cfg_mgr)
 

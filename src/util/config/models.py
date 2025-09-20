@@ -48,10 +48,11 @@ class AudioConfig:
 class SignalConfig:
     """Signal processing configuration."""
 
-    frequency: int = 600  # Registry provides defaults, this is fallback only
-    threshold: float = 0.3
-    bandwidth: int = 50
-    sample_rate: int = 44100
+    frequency_hz: int = 600  # Registry provides defaults, this is fallback only
+    signal_threshold_norm: float = 0.25  # Optimized for real-world signals
+    bandwidth_hz: int = 50
+    sample_rate_hz: int = 44100
+    adaptive_frequency: bool = True
 
     @classmethod
     def from_config_manager(cls, config_manager: AwesomeConfigManager) -> "SignalConfig":
@@ -64,8 +65,8 @@ class SignalConfig:
 class DecoderConfig:
     """Morse decoder configuration."""
 
-    wpm: int = 15
-    tolerance: float = 0.3
+    wpm: int = 20  # PARIS standard
+    timing_tolerance_norm: float = 0.7  # Optimized for real-world timing variations
     dot_duration_ms: float | None = None
     min_silence_ms: float = 200.0
 

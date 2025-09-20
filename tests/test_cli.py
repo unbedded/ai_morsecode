@@ -56,7 +56,7 @@ class TestArgumentParser:
                 "800",
                 "--wpm",
                 "20",
-                "--threshold",
+                "--signal-threshold",
                 "0.4",
                 "--debug",
                 "--output",
@@ -71,7 +71,7 @@ class TestArgumentParser:
         assert args.profile == "debug"
         assert args.frequency == 800
         assert args.wpm == 20
-        assert args.threshold == 0.4
+        assert args.signal_threshold == 0.4
         assert args.debug is True
         assert args.output == "output.txt"
         assert args.log_level == "INFO"
@@ -151,13 +151,13 @@ class TestArgumentValidation:
     def test_validate_invalid_threshold(self, capsys: Any) -> None:
         """Test validation with invalid threshold."""
         parser = create_parser()
-        args = parser.parse_args(["--threshold", "2.0", "test.wav"])
+        args = parser.parse_args(["--signal-threshold", "2.0", "test.wav"])
 
         with pytest.raises(SystemExit):
             validate_args(args)
 
         captured = capsys.readouterr()
-        assert "Threshold must be 0.0-1.0" in captured.err
+        assert "Signal threshold must be 0.0-1.0" in captured.err
 
     def test_validate_invalid_wpm(self, capsys: Any) -> None:
         """Test validation with invalid WPM."""
@@ -395,7 +395,7 @@ class TestMainFunction:
                     "800",
                     "--wpm",
                     "25",
-                    "--threshold",
+                    "--signal-threshold",
                     "0.4",
                     "--output",
                     "result.txt",
@@ -408,9 +408,9 @@ class TestMainFunction:
         args, kwargs = mock_run_decoder.call_args
         audio_config, signal_config, decoder_config, app_config = args
 
-        assert signal_config.frequency == 800
+        assert signal_config.frequency_hz == 800
         assert decoder_config.wpm == 25
-        assert signal_config.threshold == 0.4
+        assert signal_config.signal_threshold_norm == 0.4
         assert app_config.output_file == "result.txt"
 
     def test_main_argument_validation_failure(self, capsys: Any) -> None:
@@ -489,7 +489,7 @@ decoder:
         audio_config, signal_config, decoder_config, app_config = args
 
         # Should have CLI override
-        assert signal_config.frequency == 700
+        assert signal_config.frequency_hz == 700
         # Should have original config values for non-overridden items
         assert decoder_config.wpm == 15
         assert app_config.output_file == "decoded.txt"
@@ -498,7 +498,7 @@ decoder:
         """Test comprehensive error reporting."""
         # Test multiple validation errors - this will exit early due to validation
         try:
-            result = main(["nonexistent.wav", "--frequency", "5000", "--wpm", "200", "--threshold", "5.0"])
+            result = main(["nonexistent.wav", "--frequency", "5000", "--wpm", "200", "--signal-threshold", "5.0"])
             assert result == 1
         except SystemExit:
             pass  # Expected due to validation failure
@@ -510,7 +510,7 @@ decoder:
         assert "WAV file does not exist" in captured.err
         assert "Frequency must be 200-2000 Hz" in captured.err
         assert "WPM must be 5-60" in captured.err
-        assert "Threshold must be 0.0-1.0" in captured.err
+        assert "Signal threshold must be 0.0-1.0" in captured.err
 
 
 class TestEdgeCases:

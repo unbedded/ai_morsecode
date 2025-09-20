@@ -69,7 +69,7 @@ class HardwareAbstractionLayer:
         self.audio_rate_hz: int = cfg.get_int(CfgKey.SAMPLE_RATE)
         self.wav_filename: str | None = cfg.get_string(CfgKey.WAV_FILENAME)
         self.auto_gain_control: bool = cfg.get_bool(CfgKey.AUTO_GAIN_CONTROL)
-        self.chunk_size_ms: int = cfg.get_int(CfgKey.CHUNK_SIZE)
+        self.chunk_size_ms: int = cfg.get_int(CfgKey.CHUNK_SIZE_MS)
 
         # STEP 5: Global config for cross-cutting concerns (recommended)
         global_cfg = cfg_mgr.get_section("global")

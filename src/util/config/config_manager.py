@@ -176,44 +176,39 @@ class AwesomeConfigManager:
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Create a basic sample configuration
-        sample_config = """# Morse Code Decoder Configuration
-# Generated sample configuration - edit as needed
+        # TODO: Replace with schema-driven config generation
+        # This hardcoded template was identified as technical debt during debugging sessions.
+        # The new static registration architecture will generate config from component schemas.
 
-# Signal processing configuration
-signal:
-  frequency: 600          # Target CW frequency in Hz [200-2000]
-  threshold: 0.3          # Detection threshold [0.0-1.0]
-  bandwidth: 50           # Filter bandwidth in Hz [10-500]
-  sample_rate: 44100      # Audio sample rate in Hz [8000-96000]
-  mode: "AUTO"           # Processing mode ["AUTO", "MANUAL", "ADAPTIVE"]
+        # For now, create a minimal config that will be replaced by schema-driven generation
+        from datetime import datetime
 
-# Audio input configuration
-audio:
-  sample_rate: 44100      # Audio sample rate in Hz [8000-96000]
-  wav_filename: null      # WAV file path (null for microphone input)
-  auto_gain_control: false # Enable automatic gain control
-  chunk_size: 50          # Audio chunk size in ms [10-1000]
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# Morse decoder configuration
-decoder:
-  wpm: 20                 # Words per minute estimate [5-50]
-  dot_duration: 60.0      # Dot duration in ms [10.0-500.0]
-  tolerance: 0.3          # Timing tolerance [0.0-1.0]
+        sample_config = f"""# Morse Code Decoder Configuration
+# Generated: {timestamp}
+# TODO: This will be replaced with schema-driven generation
+#
+# This file uses clear parameter names with unit suffixes for safety.
+# All defaults are optimized for real-world morse code audio.
+#
+# Unit naming conventions:
+#   *_hz = frequency units
+#   *_norm = normalized values [0.0-1.0]
+#   *_ms, *_sec = time units
+#
 
-# Global application settings
-global:
-  debug: false            # Enable debug mode
-  log_level: "INFO"       # Logging level ["DEBUG", "INFO", "WARN", "ERROR"]
-  output_file: null       # Output file path (null for stdout)
-  profile: "default"      # Configuration profile name
-
-# Application logging (per-module log levels)
 application:
-  logging:
-    # Example: Set specific modules to DEBUG
-    # morsecode.components.signal.signal_processor: "DEBUG"
-    # morsecode.components.decoder.morse_decoder: "DEBUG"
+  debug: false              # Enable debug mode and verbose logging
+  log_level: "INFO"         # Global log level
+  output_file: null         # Output file path for decoded text
+
+  # Per-component log level overrides for debugging
+  logging: {{}}
+
+# NOTE: Component-specific configurations will be generated from schemas
+# when the new static registration architecture is implemented.
+# For now, delete this file and let the system auto-create it from defaults.
 """
 
         # Write the sample config

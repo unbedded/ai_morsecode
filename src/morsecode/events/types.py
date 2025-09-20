@@ -255,6 +255,7 @@ class MorsePatternEvent(BaseEvent):
     duration_ms: float = 0.0
     wpm_estimate: float = 15.0
     confidence: float = 0.0
+    frequency_hz: float = 600.0  # Actual frequency used for detection
 
     @property
     def is_tone(self) -> bool:
@@ -272,15 +273,17 @@ class MorsePatternEvent(BaseEvent):
         pattern_types = {"dot": 1, "dash": 2, "letter_space": 3, "word_space": 4}
         pattern_id = pattern_types.get(self.pattern_type, 0)
 
-        return struct.pack("!Hfff", pattern_id, self.duration_ms, self.wpm_estimate, self.confidence)
+        return struct.pack(
+            "!Hffff", pattern_id, self.duration_ms, self.wpm_estimate, self.confidence, self.frequency_hz
+        )
 
     @classmethod
     def _deserialize_payload(cls, timestamp: int, payload: bytes) -> "MorsePatternEvent":
         """Deserialize Morse pattern data."""
-        if len(payload) < 14:  # 2+4*3 bytes
+        if len(payload) < 18:  # 2+4*4 bytes
             raise ValueError("MorsePatternEvent payload too short")
 
-        pattern_id, duration_ms, wpm_estimate, confidence = struct.unpack("!Hfff", payload[:14])
+        pattern_id, duration_ms, wpm_estimate, confidence, frequency_hz = struct.unpack("!Hffff", payload[:18])
 
         # Decode pattern type
         pattern_types = {1: "dot", 2: "dash", 3: "letter_space", 4: "word_space"}
@@ -292,6 +295,7 @@ class MorsePatternEvent(BaseEvent):
             duration_ms=duration_ms,
             wpm_estimate=wpm_estimate,
             confidence=confidence,
+            frequency_hz=frequency_hz,
         )
 
 

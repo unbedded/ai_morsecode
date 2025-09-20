@@ -14,6 +14,9 @@ from util.config.models import AppConfig, AudioConfig, DecoderConfig, SignalConf
 
 from .. import decoder_app
 
+# Initialize graphics component FIRST (auto-subscribes to events)
+from ..components import graphics  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 
@@ -108,10 +111,12 @@ Profiles:
       frequency_production: 800 # Used with --profile production
 
 Examples:
-  morsecode audio.wav                           # Auto-detects/creates config
-  morsecode audio.wav --profile debug           # Use debug profile overrides
+  morsecode audio.wav --wpm 20                 # Standard usage (adjust WPM to match audio)
+  morsecode audio.wav --wpm 13                 # For slower operators
+  morsecode pattern.wav --profile debug        # For synthetic test patterns (stricter timing)
+  morsecode audio.wav --frequency 600 --profile fixed  # Use exact frequency (no adaptive)
   morsecode --config custom.yaml audio.wav     # Use custom config file
-  morsecode audio.wav --frequency 800           # Override single parameter
+  morsecode audio.wav --signal-threshold 0.3   # Override signal detection threshold
   morsecode --show-config                       # Show config locations
   morsecode --create-config                     # Create sample config/morse.yaml
         """,
@@ -180,10 +185,16 @@ Examples:
         type=int,
     )
     override_group.add_argument(
-        "--threshold",
+        "--signal-threshold",
+        metavar="FLOAT",
+        help="Override signal detection threshold (0.0-1.0)",
+        type=float,
+    )
+    override_group.add_argument(
+        "--timing-tolerance",
         "-t",
         metavar="FLOAT",
-        help="Override tone detection threshold (0.0-1.0)",
+        help="Override decoder timing tolerance for dot/dash discrimination (0.0-1.0)",
         type=float,
     )
     override_group.add_argument(
@@ -232,8 +243,11 @@ def validate_args(args: argparse.Namespace) -> None:
     if args.frequency is not None and not (200 <= args.frequency <= 2000):
         errors.append(f"Frequency must be 200-2000 Hz, got: {args.frequency}")
 
-    if args.threshold is not None and not (0.0 <= args.threshold <= 1.0):
-        errors.append(f"Threshold must be 0.0-1.0, got: {args.threshold}")
+    if args.signal_threshold is not None and not (0.0 <= args.signal_threshold <= 1.0):
+        errors.append(f"Signal threshold must be 0.0-1.0, got: {args.signal_threshold}")
+
+    if args.timing_tolerance is not None and not (0.0 <= args.timing_tolerance <= 1.0):
+        errors.append(f"Timing tolerance must be 0.0-1.0, got: {args.timing_tolerance}")
 
     if args.wpm is not None and not (5 <= args.wpm <= 60):
         errors.append(f"WPM must be 5-60, got: {args.wpm}")
@@ -377,11 +391,13 @@ def main(argv: list[str] | None = None) -> int:
         if args.wav_file:
             audio_config.wav_filename = args.wav_file
         if args.frequency is not None:
-            signal_config.frequency = args.frequency
+            signal_config.frequency_hz = args.frequency
         if args.wpm is not None:
             decoder_config.wpm = args.wpm
-        if args.threshold is not None:
-            signal_config.threshold = args.threshold
+        if args.signal_threshold is not None:
+            signal_config.signal_threshold_norm = args.signal_threshold
+        if args.timing_tolerance is not None:
+            decoder_config.timing_tolerance_norm = args.timing_tolerance
         if args.output is not None:
             app_config.output_file = args.output
 

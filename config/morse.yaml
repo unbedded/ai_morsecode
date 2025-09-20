@@ -1,43 +1,73 @@
-# Application Configuration
-# Generated: 2025-09-19 07:31:08
-# 
-# This file was auto-generated with comprehensive documentation.
-# Edit values as needed - comments show valid ranges, units, and options.
-# 
+# Morse Code Decoder Configuration
+# Generated: 2025-09-19 21:55:00
+#
+# This file uses clear parameter names with unit suffixes for safety.
+# All defaults are optimized for real-world morse code audio.
+#
 # Unit naming conventions:
-#   *_ms, *_sec, *_us = time units
 #   *_hz = frequency units
 #   *_norm = normalized values [0.0-1.0]
-#   *_pct = percentage values [0-100]
-# 
-# Null values:
-#   Use 'null' (not None) to disable optional features
-#   Example: output_file: null   # Disables file output
-# 
+#   *_ms, *_sec = time units
+#
 
 application:
-  debug: false       # Enable debug mode and verbose logging | BOOL | default: False
-  log_level: "INFO"      # Global log level | ENUM | {DEBUG, INFO, WARNING, ERROR, CRITICAL} | default: INFO
-  output_file: null        # Output file path for decoded text | STR|NULL | (null to disable)
+  debug: false              # Enable debug mode and verbose logging | BOOL | default: false
+  log_level: "INFO"         # Global log level | ENUM | {DEBUG, INFO, WARNING, ERROR, CRITICAL} | default: INFO
+  output_file: null         # Output file path for decoded text | STR|NULL | (null to disable)
 
   # Per-component log level overrides for debugging
   logging:
     # Uncomment to debug specific components:
-    # morsecode.components.audio.hal: "DEBUG"           # Audio HAL debug
-    # morsecode.components.signal.signal_processor: "DEBUG"   # Signal processing debug
-    # morsecode.components.decoder.morse_decoder: "DEBUG"     # Decoder debug
+    # morsecode.components.audio.hal: "DEBUG"
+    # morsecode.components.signal.signal_processor: "DEBUG"
+    # morsecode.components.decoder.morse_decoder: "DEBUG"
 
-# Profile Examples:
-# Use --profile debug to activate debug-specific overrides:
-#   application:
-#     log_level_debug: "DEBUG"     # Override for debug profile
-#     debug_debug: true            # Enable debug mode in debug profile
-#     logging_debug:
-#       morsecode.components: "DEBUG"  # All components debug in debug profile
-#
-# Use --profile production:
-#   application:
-#     log_level_production: "WARNING"  # Production: warnings and errors only
-#     logging_production:
-#       morsecode.components.signal: "ERROR"  # Signal: errors only in production
+graphics:
+  enabled: true             # Enable real-time graphics display | BOOL | default: true
 
+signal:
+  # Core signal detection parameters (with clear unit naming)
+  frequency_hz: 600         # Target CW frequency for tone detection | INT | 200-2000 Hz | default: 600
+  signal_threshold_norm: 0.25  # Signal detection threshold: minimum energy level to detect CW tone presence | DOUBLE | 0.0-1.0 | default: 0.25 (optimized for real-world)
+  bandwidth_hz: 50          # Filter bandwidth around target frequency | INT | 10-500 Hz | default: 50
+  sample_rate_hz: 44100     # Audio sample rate | INT | 8000-96000 Hz | default: 44100
+  mode: "AUTO"              # Signal processing mode | ENUM | {AUTO, MANUAL, ADAPTIVE} | default: AUTO
+  adaptive_frequency: true  # Enable adaptive frequency detection (auto-finds strongest frequency peak) | BOOL | default: true
+
+  # Profile overrides for different use cases
+  # Debug profile (--profile debug) - for synthetic test patterns
+  signal_threshold_norm_debug: 0.3     # Higher threshold for clean test signals
+  adaptive_frequency_debug: false      # Disable adaptive frequency for exact --frequency control
+
+decoder:
+  # Core timing parameters (with clear naming)
+  wpm: 20                   # Words per minute estimate (PARIS standard) | INT | 5-60 WPM | default: 20
+  timing_tolerance_norm: 0.7   # Timing tolerance: how forgiving when discriminating dots vs dashes vs spaces | DOUBLE | 0.0-1.0 | default: 0.7 (optimized for real-world)
+  dot_duration_ms: null     # Dot duration in milliseconds | DOUBLE|NULL | (null = auto-calculate from WPM)
+
+  # Profile overrides
+  # Debug profile (--profile debug) - for synthetic test patterns
+  timing_tolerance_norm_debug: 0.3    # Strict timing for clean test signals
+  wpm_debug: 15                        # Standard test WPM
+
+# =============================================================================
+# USAGE EXAMPLES
+# =============================================================================
+
+# Standard usage (real-world audio, optimized by default):
+#   morsecode audio.wav --wpm 20                # Adjust WPM to match actual speed
+#   morsecode audio.wav --wpm 13                # For slower operators
+#   morsecode audio.wav --wpm 25                # For faster operators
+
+# For synthetic test patterns (need stricter timing):
+#   morsecode pattern.wav --profile debug       # Uses stricter timing (0.3) for clean signals
+
+# Manual parameter overrides:
+#   morsecode audio.wav --wpm 20 --timing-tolerance 0.8     # Extra forgiving timing
+#   morsecode audio.wav --signal-threshold 0.2              # Lower detection threshold
+#   morsecode audio.wav --frequency 800                     # Different target frequency
+
+# Debugging:
+#   morsecode audio.wav --profile debug --log-level DEBUG   # Verbose logging
+#   morsecode --show-config                                  # Show current settings
+#   morsecode --create-config                                # Create new config file
