@@ -29,11 +29,14 @@ typecheck: ## Type check with mypy (source code only)
 	mypy src/ --config-file pyproject.toml
 
 # Testing (used by enhanced git-flow commands)
-test: ## Run test suite quickly
+test: ensure-test-dirs ## Run test suite quickly
 	pytest -q
 
-test-full: ## Run tests with coverage
+test-full: ensure-test-dirs ## Run tests with coverage
 	pytest --cov=src --cov-report=html --cov-report=term
+
+ensure-test-dirs: ## Ensure required test directories exist
+	@mkdir -p tests/generated_data
 
 # Development
 install: ## Install project dependencies

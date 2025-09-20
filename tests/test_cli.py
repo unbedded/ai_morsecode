@@ -246,7 +246,7 @@ class TestLoggingSetup:
 class TestMainFunction:
     """Test the main CLI function."""
 
-    @patch("morsecode.cli.main.decoder_app.run_decoder_typed")
+    @patch("morsecode.cli.main.decoder_app.run_decoder_configurable")
     def test_main_success(self, mock_run_decoder: Any, tmp_path: Path) -> None:
         """Test successful main execution."""
         # Create test WAV file
@@ -344,7 +344,7 @@ class TestMainFunction:
 
         with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             with patch(
-                "morsecode.cli.main.decoder_app.run_decoder_typed",
+                "morsecode.cli.main.decoder_app.run_decoder_configurable",
                 side_effect=KeyboardInterrupt,
             ):
                 result = main([str(wav_file)])
@@ -365,7 +365,7 @@ class TestMainFunction:
 
         with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             with patch(
-                "morsecode.cli.main.decoder_app.run_decoder_typed",
+                "morsecode.cli.main.decoder_app.run_decoder_configurable",
                 side_effect=RuntimeError("Unexpected"),
             ):
                 result = main([str(wav_file)])
@@ -374,7 +374,7 @@ class TestMainFunction:
         captured = capsys.readouterr()
         assert "Error: Unexpected" in captured.err
 
-    @patch("morsecode.cli.main.decoder_app.run_decoder_typed")
+    @patch("morsecode.cli.main.decoder_app.run_decoder_configurable")
     def test_main_with_overrides(self, mock_run_decoder: Any, tmp_path: Path) -> None:
         """Test main function with CLI parameter overrides."""
         wav_file = tmp_path / "test.wav"
@@ -404,14 +404,22 @@ class TestMainFunction:
 
         assert result == 0
 
-        # Verify that run_decoder_typed was called with the correct arguments
+        # Verify that run_decoder_configurable was called with the correct arguments
         args, kwargs = mock_run_decoder.call_args
-        audio_config, signal_config, decoder_config, app_config = args
 
-        assert signal_config.frequency_hz == 800
-        assert decoder_config.wpm == 25
-        assert signal_config.signal_threshold_norm == 0.4
-        assert app_config.output_file == "result.txt"
+        # Function is called with keyword arguments only
+        assert "config_manager" in kwargs
+        assert "overrides" in kwargs
+        assert "output_file" in kwargs
+
+        overrides = kwargs["overrides"]
+        output_file = kwargs["output_file"]
+
+        # Verify the overrides structure
+        assert overrides["signal"]["frequency_hz"] == 800
+        assert overrides["decoder"]["wpm"] == 25
+        assert overrides["signal"]["signal_threshold_norm"] == 0.4
+        assert output_file == "result.txt"
 
     def test_main_argument_validation_failure(self, capsys: Any) -> None:
         """Test main function when argument validation fails."""
@@ -429,7 +437,7 @@ class TestMainFunction:
 class TestCLIIntegration:
     """Integration tests for CLI functionality."""
 
-    @patch("morsecode.cli.main.decoder_app.run_decoder_typed")
+    @patch("morsecode.cli.main.decoder_app.run_decoder_configurable")
     def test_full_cli_workflow(self, mock_run_decoder: Any, tmp_path: Path) -> None:
         """Test complete CLI workflow from arguments to execution."""
         # Create test files
@@ -486,13 +494,18 @@ decoder:
 
         # Verify configuration was properly applied
         args, kwargs = mock_run_decoder.call_args
-        audio_config, signal_config, decoder_config, app_config = args
+
+        # Function is called with keyword arguments only
+        assert "config_manager" in kwargs
+        assert "overrides" in kwargs
+        assert "output_file" in kwargs
+
+        overrides = kwargs["overrides"]
+        output_file = kwargs["output_file"]
 
         # Should have CLI override
-        assert signal_config.frequency_hz == 700
-        # Should have original config values for non-overridden items
-        assert decoder_config.wpm == 15
-        assert app_config.output_file == "decoded.txt"
+        assert overrides["signal"]["frequency_hz"] == 700
+        assert output_file == "decoded.txt"
 
     def test_error_reporting(self, capsys: Any) -> None:
         """Test comprehensive error reporting."""
@@ -555,7 +568,7 @@ class TestEdgeCases:
 
         with patch.object(AwesomeConfigManager, "__init__", return_value=None):
             with patch.object(AwesomeConfigManager, "get_config", return_value={}):
-                with patch("morsecode.cli.main.decoder_app.run_decoder_typed", return_value=0):
+                with patch("morsecode.cli.main.decoder_app.run_decoder_configurable", return_value=0):
                     result = main([str(wav_file), "--config", str(empty_config)])
 
         # Should still work with defaults

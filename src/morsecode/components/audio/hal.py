@@ -6,14 +6,10 @@ It supports configuration management and logging for debugging and error handlin
 Example usage:
     ```python
     from morsecode.components.audio.hal import HardwareAbstractionLayer
-    from util.config.models import AudioConfig
+    from util.config import AwesomeConfigManager
 
-    config = AudioConfig(
-        wav_filename='/path/to/audio.wav',
-        sample_rate=48000
-    )
-
-    hal = HardwareAbstractionLayer(config=config)
+    config_manager = AwesomeConfigManager()
+    hal = HardwareAbstractionLayer(config_manager)
     audio_chunk = hal.get_next_chunk(update_interval_ms=100)
     ```
 """
@@ -28,17 +24,21 @@ from morsecode.components.audio.keys import CfgKey, CfgSection
 from morsecode.components.audio.schema import ConfigSchema
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import AudioChunkEvent
+from util.config import ConfigurableBase
 
 # Constants
 DEFAULT_WAV_FILENAME = None
 DEFAULT_AUDIO_RATE_HZ = 44100
 
 
-class HardwareAbstractionLayer:
+class HardwareAbstractionLayer(ConfigurableBase):
     """A class to handle audio data processing from a WAV file.
 
     This class provides methods to load audio files and retrieve chunks of audio data
     for real-time processing. It maintains internal state for continuous chunk reading.
+
+    Uses ConfigurableBase inheritance pattern for type-safe configuration access
+    and runtime reconfiguration support.
 
     Attributes:
         audio_data: The audio data loaded from the WAV file.
@@ -46,49 +46,22 @@ class HardwareAbstractionLayer:
         wav_filename: Path to the WAV file being processed.
     """
 
-    def __init__(self, cfg_mgr) -> None:
-        """Initialize the HardwareAbstractionLayer with enum-based configuration.
+    # ConfigurableBase requirements
+    CONFIG_SCHEMA = ConfigSchema
+    CONFIG_SECTION = CfgSection.AUDIO.value
+    CONFIG_KEYS = CfgKey
+
+    def __init__(self, cfg_mgr, overrides=None) -> None:
+        """Initialize the HardwareAbstractionLayer with ConfigurableBase pattern.
 
         Args:
             cfg_mgr: Config manager for enum-based configuration.
+            overrides: Optional configuration overrides for testing/tuning.
         """
-        # STEP 1: Initialize ComponentLogger FIRST (required by CLAUDE.md)
-        from util.logging import ComponentLogger
+        # Call ConfigurableBase constructor (handles all config/logging boilerplate)
+        super().__init__(cfg_mgr, overrides)
 
-        self.logger = ComponentLogger(__name__, cfg_mgr)
-        self.logger.info("HardwareAbstractionLayer initializing...")
-
-        # STEP 2: Register component configuration schema
-        cfg_mgr.register_enum_config(CfgSection.AUDIO, ConfigSchema)
-        cfg = cfg_mgr.get_section(CfgSection.AUDIO)
-
-        # STEP 3: Register logging config for this component (enables config-driven log levels)
-        cfg_mgr.register_logging_config(__name__, default_level="INFO")
-
-        # STEP 4: Access configuration with type safety
-        self.audio_rate_hz: int = cfg.get_int(CfgKey.SAMPLE_RATE)
-        self.wav_filename: str | None = cfg.get_string(CfgKey.WAV_FILENAME)
-        self.auto_gain_control: bool = cfg.get_bool(CfgKey.AUTO_GAIN_CONTROL)
-        self.chunk_size_ms: int = cfg.get_int(CfgKey.CHUNK_SIZE_MS)
-
-        # STEP 5: Global config for cross-cutting concerns (recommended)
-        global_cfg = cfg_mgr.get_section("global")
-        self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
-        self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
-
-        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
-        self.logger.info(
-            "HardwareAbstractionLayer initialized: rate=%d Hz, file=%s, agc=%s, chunk=%d ms",
-            self.audio_rate_hz,
-            self.wav_filename,
-            self.auto_gain_control,
-            self.chunk_size_ms,
-        )
-
-        # STEP 7: Debug logging controlled by config (not code!)
-        self.logger.debug("Internal state: ready for audio processing")
-
-        # Initialize audio processing state
+        # Initialize audio processing state after configuration is loaded
         self.audio_data: np.ndarray = np.array([])
         self._chunk_counter: int = 0
 
@@ -96,6 +69,63 @@ class HardwareAbstractionLayer:
         self._event_bus = get_global_event_bus()
 
         self.load_audio_file()
+        self.logger.info(
+            "HardwareAbstractionLayer initialized with file=%s, rate=%d Hz", self.wav_filename, self.audio_rate_hz
+        )
+
+    def _load_config_values(self) -> None:
+        """Load configuration values using type-safe enum access.
+
+        This method is called by ConfigurableBase during initialization and reconfiguration.
+        Only method we need to implement - all boilerplate handled by base class.
+        """
+        # STEP 1: Load core configuration with type safety
+        self.audio_rate_hz: int = self._cfg_section.get_int(CfgKey.SAMPLE_RATE)
+        self.wav_filename: str | None = self._cfg_section.get_string(CfgKey.WAV_FILENAME)
+        self.auto_gain_control: bool = self._cfg_section.get_bool(CfgKey.AUTO_GAIN_CONTROL)
+        self.chunk_size_ms: int = self._cfg_section.get_int(CfgKey.CHUNK_SIZE_MS)
+
+        # STEP 2: Global config for cross-cutting concerns (recommended pattern)
+        try:
+            global_cfg = self._cfg_mgr.get_section("global")
+            self.debug = global_cfg.get_bool("debug")
+            self.timeout_ms = global_cfg.get_int("timeout_ms")
+        except (KeyError, ValueError):
+            # Global config section may not exist or have values
+            self.debug = False
+            self.timeout_ms = 30000
+
+        # STEP 3: Log completion with lazy % formatting (CRITICAL!)
+        self.logger.info(
+            "HardwareAbstractionLayer configured: rate=%d Hz, file=%s, agc=%s, chunk=%d ms",
+            self.audio_rate_hz,
+            self.wav_filename,
+            self.auto_gain_control,
+            self.chunk_size_ms,
+        )
+
+        # STEP 4: Debug logging controlled by config (not code!)
+        self.logger.debug("Internal state: ready for audio processing")
+
+    def _on_reconfiguration(self) -> None:
+        """Handle reconfiguration side effects.
+
+        Called by ConfigurableBase after configuration values are reloaded.
+        Reload audio file if the filename changed.
+        """
+        # Reset audio processing state
+        self.audio_data = np.array([])
+        self._chunk_counter = 0
+
+        # Reload audio file with new configuration
+        try:
+            self.load_audio_file()
+            self.logger.info(
+                "HardwareAbstractionLayer reconfigured with file=%s, rate=%d Hz", self.wav_filename, self.audio_rate_hz
+            )
+        except Exception as e:
+            self.logger.exception("Error during HardwareAbstractionLayer reconfiguration: %s", str(e))
+            raise RuntimeError(f"Failed to reconfigure audio HAL: {e}") from e
 
     def get_params(self) -> dict[str, Any]:
         """Return the current configuration parameters.
@@ -238,9 +268,16 @@ class HardwareAbstractionLayer:
         duration_seconds = 1.0
         sample_count = int(self.audio_rate_hz * duration_seconds)
 
-        # Generate a simple sine wave at 600 Hz for testing
+        # Generate a simple sine wave at the configured signal frequency for testing
         t = np.linspace(0, duration_seconds, sample_count, endpoint=False)
-        frequency = 600.0  # Hz
+
+        # Get the target frequency from signal configuration for realistic test audio
+        try:
+            signal_cfg = self._cfg_mgr.get_section("signal")
+            frequency = float(signal_cfg.get_int("frequency_hz"))
+        except (KeyError, ValueError, AttributeError):
+            frequency = 600.0  # Safe fallback for test audio
+
         amplitude = 0.5
 
         # Create synthetic Morse-like pattern: tone, silence, tone, silence

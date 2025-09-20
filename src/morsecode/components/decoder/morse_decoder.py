@@ -29,6 +29,7 @@ from morsecode.components.decoder.keys import CfgKey, CfgSection
 from morsecode.components.decoder.schema import ConfigSchema
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import MorsePatternEvent, TextDecodedEvent
+from util.config import ConfigurableBase
 
 # Constants for morse code timing
 DEFAULT_WPM = 15
@@ -99,11 +100,14 @@ MORSE_CODE_TABLE = {
 CHARACTER_TO_MORSE = {v: k for k, v in MORSE_CODE_TABLE.items()}
 
 
-class MorseDecoder:
+class MorseDecoder(ConfigurableBase):
     """A class to decode Morse code patterns from tone detection events.
 
     This class processes sequences of tone on/off events with timing information
     to identify Morse code patterns and translate them to text characters.
+
+    Uses ConfigurableBase inheritance pattern for type-safe configuration access
+    and runtime reconfiguration support.
 
     Attributes:
         wpm_estimate: Estimated words per minute for timing calculations.
@@ -115,64 +119,22 @@ class MorseDecoder:
         detection_tolerance: Tolerance factor for timing variations (0.0-1.0).
     """
 
-    def __init__(self, cfg_mgr) -> None:
-        """Initialize the MorseDecoder with enum-based configuration.
+    # ConfigurableBase requirements
+    CONFIG_SCHEMA = ConfigSchema
+    CONFIG_SECTION = CfgSection.DECODER.value
+    CONFIG_KEYS = CfgKey
+
+    def __init__(self, cfg_mgr, overrides=None) -> None:
+        """Initialize the MorseDecoder with ConfigurableBase pattern.
 
         Args:
             cfg_mgr: Config manager for enum-based configuration.
+            overrides: Optional configuration overrides for testing/tuning.
         """
-        # STEP 1: Initialize ComponentLogger FIRST (required by CLAUDE.md)
-        from util.logging import ComponentLogger
+        # Call ConfigurableBase constructor (handles all config/logging boilerplate)
+        super().__init__(cfg_mgr, overrides)
 
-        self.logger = ComponentLogger(__name__, cfg_mgr)
-        self.logger.info("MorseDecoder initializing...")
-
-        # STEP 2: Register component configuration schema
-        cfg_mgr.register_enum_config(CfgSection.DECODER, ConfigSchema)
-        cfg = cfg_mgr.get_section(CfgSection.DECODER)
-
-        # STEP 3: Register logging config for this component (enables config-driven log levels)
-        cfg_mgr.register_logging_config(__name__, default_level="INFO")
-
-        # STEP 4: Access configuration with type safety
-        self.wpm_estimate: int = cfg.get_int(CfgKey.WPM)
-        self.dot_duration_ms: float = cfg.get_double(CfgKey.DOT_DURATION_MS)
-        self.detection_tolerance: float = cfg.get_double(CfgKey.TIMING_TOLERANCE_NORM)
-
-        # Calculate dot_duration_ms from WPM if not provided (standard PARIS formula)
-        if self.dot_duration_ms is None or self.dot_duration_ms <= 0:
-            self.dot_duration_ms = 1200.0 / self.wpm_estimate
-            self.logger.debug(
-                "Calculated dot_duration_ms from WPM: %.1fms from %d WPM", self.dot_duration_ms, self.wpm_estimate
-            )
-
-        # STEP 5: Global config for cross-cutting concerns (recommended)
-        global_cfg = cfg_mgr.get_section("global")
-        self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
-        self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
-
-        # Calculate derived timing parameters using defaults
-        dash_ratio = DEFAULT_DASH_RATIO
-        character_spacing_ratio = DEFAULT_CHARACTER_SPACING_RATIO
-        word_spacing_ratio = DEFAULT_WORD_SPACING_RATIO
-
-        self.dash_duration_ms: float = self.dot_duration_ms * dash_ratio
-        self.element_spacing_ms: float = self.dot_duration_ms * DEFAULT_ELEMENT_SPACING_RATIO
-        self.character_spacing_ms: float = self.dot_duration_ms * character_spacing_ratio
-        self.word_spacing_ms: float = self.dot_duration_ms * word_spacing_ratio
-
-        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
-        self.logger.info(
-            "MorseDecoder initialized: %d WPM, dot=%.1fms, tolerance=%.2f",
-            self.wpm_estimate,
-            self.dot_duration_ms,
-            self.detection_tolerance,
-        )
-
-        # STEP 7: Debug logging controlled by config (not code!)
-        self.logger.debug("Internal state: ready for decoding")
-
-        # Initialize decoding state
+        # Initialize decoding state after configuration is loaded
         self._current_pattern: list[str] = []
         self._decoded_characters: list[str] = []
         self._tone_start_time: float | None = None
@@ -190,6 +152,89 @@ class MorseDecoder:
         except Exception as e:
             self.logger.exception("Error validating MorseDecoder configuration: %s", str(e))
             raise RuntimeError(f"Failed to initialize morse decoder: {e}") from e
+
+        self.logger.info("MorseDecoder initialized with %d WPM, dot=%.1fms", self.wpm_estimate, self.dot_duration_ms)
+
+    def _load_config_values(self) -> None:
+        """Load configuration values using type-safe enum access.
+
+        This method is called by ConfigurableBase during initialization and reconfiguration.
+        Only method we need to implement - all boilerplate handled by base class.
+        """
+        # STEP 1: Load core configuration with type safety
+        self.wpm_estimate: int = self._cfg_section.get_int(CfgKey.WPM)
+        self.dot_duration_ms: float = self._cfg_section.get_double(CfgKey.DOT_DURATION_MS)
+        self.detection_tolerance: float = self._cfg_section.get_double(CfgKey.TIMING_TOLERANCE_NORM)
+
+        # Calculate dot_duration_ms from WPM if not provided (standard PARIS formula)
+        if self.dot_duration_ms is None or self.dot_duration_ms <= 0:
+            self.dot_duration_ms = 1200.0 / self.wpm_estimate
+            self.logger.debug(
+                "Calculated dot_duration_ms from WPM: %.1fms from %d WPM", self.dot_duration_ms, self.wpm_estimate
+            )
+
+        # STEP 2: Global config for cross-cutting concerns (recommended pattern)
+        try:
+            global_cfg = self._cfg_mgr.get_section("global")
+            self.debug = global_cfg.get_bool("debug")
+            self.timeout_ms = global_cfg.get_int("timeout_ms")
+        except (KeyError, ValueError):
+            # Global config section may not exist or have values
+            self.debug = False
+            self.timeout_ms = 30000
+
+        # STEP 3: Calculate derived timing parameters using defaults
+        dash_ratio = DEFAULT_DASH_RATIO
+        character_spacing_ratio = DEFAULT_CHARACTER_SPACING_RATIO
+        word_spacing_ratio = DEFAULT_WORD_SPACING_RATIO
+
+        self.dash_duration_ms: float = self.dot_duration_ms * dash_ratio
+        self.element_spacing_ms: float = self.dot_duration_ms * DEFAULT_ELEMENT_SPACING_RATIO
+        self.character_spacing_ms: float = self.dot_duration_ms * character_spacing_ratio
+        self.word_spacing_ms: float = self.dot_duration_ms * word_spacing_ratio
+
+        # STEP 4: Log completion with lazy % formatting (CRITICAL!)
+        self.logger.info(
+            "MorseDecoder configured: %d WPM, dot=%.1fms, tolerance=%.2f",
+            self.wpm_estimate,
+            self.dot_duration_ms,
+            self.detection_tolerance,
+        )
+        self.logger.info(
+            "Timing parameters: dash=%.1fms, char_spacing=%.1fms, word_spacing=%.1fms",
+            self.dash_duration_ms,
+            self.character_spacing_ms,
+            self.word_spacing_ms,
+        )
+
+        # STEP 5: Debug logging controlled by config (not code!)
+        self.logger.debug("Internal state: ready for decoding")
+
+    def _on_reconfiguration(self) -> None:
+        """Handle reconfiguration side effects.
+
+        Called by ConfigurableBase after configuration values are reloaded.
+        Recalculate derived timing parameters that depend on configuration.
+        """
+        # Recalculate derived timing parameters
+        dash_ratio = DEFAULT_DASH_RATIO
+        character_spacing_ratio = DEFAULT_CHARACTER_SPACING_RATIO
+        word_spacing_ratio = DEFAULT_WORD_SPACING_RATIO
+
+        self.dash_duration_ms = self.dot_duration_ms * dash_ratio
+        self.element_spacing_ms = self.dot_duration_ms * DEFAULT_ELEMENT_SPACING_RATIO
+        self.character_spacing_ms = self.dot_duration_ms * character_spacing_ratio
+        self.word_spacing_ms = self.dot_duration_ms * word_spacing_ratio
+
+        # Revalidate configuration
+        try:
+            self._validate_configuration()
+            self.logger.info(
+                "MorseDecoder reconfigured with %d WPM, dot=%.1fms", self.wpm_estimate, self.dot_duration_ms
+            )
+        except Exception as e:
+            self.logger.exception("Error during MorseDecoder reconfiguration: %s", str(e))
+            raise RuntimeError(f"Failed to reconfigure morse decoder: {e}") from e
 
     def _validate_configuration(self) -> None:
         """Validate decoder configuration parameters."""

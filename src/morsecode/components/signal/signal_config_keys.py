@@ -22,6 +22,10 @@ class SignalCfgKey(Enum):
     FREQ_RANGE_MIN = "freq_range_min"
     FREQ_RANGE_MAX = "freq_range_max"
 
+    # FFT and noise floor parameters
+    FFT_WINDOW_SIZE = "fft_window_size"
+    NOISE_FLOOR_DB = "noise_floor_db"
+
 
 class SignalCfgSection(Enum):
     """Section names for signal configuration."""

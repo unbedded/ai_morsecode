@@ -115,3 +115,21 @@ class SignalConfigSchema:
         unit="Hz",
         description="Maximum frequency for signal detection range",
     )
+
+    fft_window_size = CfgField(
+        type=CfgType.INT,
+        default=1024,
+        min=256,
+        max=4096,
+        unit="samples",
+        description="FFT window size for frequency analysis (power of 2)",
+    )
+
+    noise_floor_db = CfgField(
+        type=CfgType.INT,
+        default=-40,
+        min=-80,
+        max=-10,
+        unit="dB",
+        description="Noise floor threshold for signal detection",
+    )

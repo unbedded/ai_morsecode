@@ -29,21 +29,19 @@ from morsecode.components.signal.signal_config_keys import SignalCfgKey, SignalC
 from morsecode.components.signal.signal_config_schema import SignalConfigSchema, SignalMode
 from morsecode.events.bus import get_global_event_bus
 from morsecode.events.types import AudioChunkEvent, ToneDetectedEvent
+from util.config import ConfigurableBase
 
-# Constants - components should get values from config, not import constants directly
-DEFAULT_SAMPLE_RATE_HZ = 44100
-DEFAULT_TARGET_FREQUENCY_HZ = 600  # Fallback only - should come from config
-DEFAULT_FFT_WINDOW_SIZE = 1024
-DEFAULT_DETECTION_THRESHOLD = 0.1
-DEFAULT_FILTER_BANDWIDTH_HZ = 50
-DEFAULT_NOISE_FLOOR_DB = -40
+# All configuration values now come from schema - no hardcoded constants needed
 
 
-class SignalProcessor:
+class SignalProcessor(ConfigurableBase):
     """A class to handle FFT-based signal analysis for Morse code detection.
 
     This class provides methods for frequency domain analysis, tone detection,
     and signal filtering specifically designed for Morse code processing.
+
+    Uses ConfigurableBase inheritance pattern for type-safe configuration access
+    and runtime reconfiguration support.
 
     Attributes:
         sample_rate_hz: Audio sampling rate in Hz.
@@ -54,82 +52,22 @@ class SignalProcessor:
         noise_floor_db: Noise floor level in dB for SNR calculations.
     """
 
-    def __init__(self, cfg_mgr) -> None:
-        """Initialize the SignalProcessor with enum-based configuration.
+    # ConfigurableBase requirements
+    CONFIG_SCHEMA = SignalConfigSchema
+    CONFIG_SECTION = SignalCfgSection.SIGNAL.value
+    CONFIG_KEYS = SignalCfgKey
+
+    def __init__(self, cfg_mgr, overrides=None) -> None:
+        """Initialize the SignalProcessor with ConfigurableBase pattern.
 
         Args:
             cfg_mgr: Config manager for enum-based configuration.
+            overrides: Optional configuration overrides for testing/tuning.
         """
-        # STEP 1: Initialize ComponentLogger FIRST (required by CLAUDE.md)
-        from util.logging import ComponentLogger
+        # Call ConfigurableBase constructor (handles all config/logging boilerplate)
+        super().__init__(cfg_mgr, overrides)
 
-        self.logger = ComponentLogger(__name__, cfg_mgr)
-        self.logger.info("SignalProcessor initializing...")
-
-        # STEP 2: Register component configuration schema
-        cfg_mgr.register_enum_config(SignalCfgSection.SIGNAL, SignalConfigSchema)
-        cfg = cfg_mgr.get_section(SignalCfgSection.SIGNAL)
-
-        # STEP 3: Register logging config for this component (enables config-driven log levels)
-        cfg_mgr.register_logging_config(__name__, default_level="INFO")
-
-        # STEP 4: Access configuration with type safety
-        self.sample_rate_hz: int = cfg.get_int(SignalCfgKey.SAMPLE_RATE_HZ)
-        self.target_frequency_hz: int = cfg.get_int(SignalCfgKey.FREQUENCY_HZ)
-        self.detection_threshold: float = cfg.get_double(SignalCfgKey.SIGNAL_THRESHOLD_NORM)
-        self.filter_bandwidth_hz: int = cfg.get_int(SignalCfgKey.BANDWIDTH_HZ)
-        self.mode: SignalMode = cfg.get_enum(SignalCfgKey.MODE, SignalMode)
-        self.adaptive_frequency: bool = cfg.get_bool(SignalCfgKey.ADAPTIVE_FREQUENCY)
-
-        # Critical missing parameters from old config - with safe defaults if not loaded
-        # Check if new parameters are available, otherwise use defaults
-        self.cutoff_hz = cfg.get_double(SignalCfgKey.CUTOFF_HZ) or 15.0
-        self.cw_mag_thresh_seconds = cfg.get_double(SignalCfgKey.CW_MAG_THRESH_SECONDS) or 0.1
-        self.cw_peak_ratio_threshold = cfg.get_int(SignalCfgKey.CW_PEAK_RATIO_THRESHOLD) or 4
-        self.n_move_avg_elements = cfg.get_int(SignalCfgKey.N_MOVE_AVG_ELEMENTS) or 6
-        self.rolling_buffer_seconds = cfg.get_double(SignalCfgKey.ROLLING_BUFFER_SECONDS) or 3.0
-        self.freq_range_min = cfg.get_int(SignalCfgKey.FREQ_RANGE_MIN) or 200
-        self.freq_range_max = cfg.get_int(SignalCfgKey.FREQ_RANGE_MAX) or 1000
-
-        # Log if we're using defaults
-        if not cfg.get_double(SignalCfgKey.CUTOFF_HZ):
-            self.logger.warning("New signal processing parameters not found in config, using old config defaults")
-
-        # STEP 5: Global config for cross-cutting concerns (recommended)
-        global_cfg = cfg_mgr.get_section("global")
-        self.debug = global_cfg.get_bool("debug") if global_cfg.get("debug") else False
-        self.timeout_ms = global_cfg.get_int("timeout_ms") if global_cfg.get("timeout_ms") else 30000
-
-        # Initialize signal processing state with new parameters
-        self.moving_avg_buffer: list[float] = []  # Buffer for moving average smoothing
-        self.signal_history: list[float] = []  # Rolling buffer for signal statistics
-        self.min_tone_samples = int(self.cw_mag_thresh_seconds * self.sample_rate_hz)
-
-        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
-        self.logger.info(
-            "SignalProcessor initialized: freq=%d Hz, threshold=%.2f, bandwidth=%d Hz, mode=%s, adaptive=%s",
-            self.target_frequency_hz,
-            self.detection_threshold,
-            self.filter_bandwidth_hz,
-            self.mode.value,
-            self.adaptive_frequency,
-        )
-        self.logger.info(
-            "Signal filters: cutoff=%.1f Hz, min_tone=%.1f s, peak_ratio=%d, avg_elements=%d",
-            self.cutoff_hz,
-            self.cw_mag_thresh_seconds,
-            self.cw_peak_ratio_threshold,
-            self.n_move_avg_elements,
-        )
-
-        # STEP 7: Debug logging controlled by config (not code!)
-        self.logger.debug("Internal state: ready for processing")
-
-        # Common initialization regardless of config method
-        self.fft_window_size: int = DEFAULT_FFT_WINDOW_SIZE
-        self.noise_floor_db: int = DEFAULT_NOISE_FLOOR_DB  # Not in config model yet
-
-        # Initialize processing state
+        # Initialize processing state and event bus after configuration is loaded
         self._frequency_bins: np.ndarray | None = None
         self._window: np.ndarray | None = None
         self._chunk_counter: int = 0
@@ -145,6 +83,86 @@ class SignalProcessor:
             raise RuntimeError(f"Failed to initialize signal processor: {e}") from e
 
         self.logger.info("SignalProcessor initialized with target frequency %d Hz", self.target_frequency_hz)
+
+    def _load_config_values(self) -> None:
+        """Load configuration values using type-safe enum access.
+
+        This method is called by ConfigurableBase during initialization and reconfiguration.
+        Only method we need to implement - all boilerplate handled by base class.
+        """
+        # STEP 1: Load core configuration with type safety
+        self.sample_rate_hz: int = self._cfg_section.get_int(SignalCfgKey.SAMPLE_RATE_HZ)
+        self.target_frequency_hz: int = self._cfg_section.get_int(SignalCfgKey.FREQUENCY_HZ)
+        self.detection_threshold: float = self._cfg_section.get_double(SignalCfgKey.SIGNAL_THRESHOLD_NORM)
+        self.filter_bandwidth_hz: int = self._cfg_section.get_int(SignalCfgKey.BANDWIDTH_HZ)
+        self.mode: SignalMode = self._cfg_section.get_enum(SignalCfgKey.MODE, SignalMode)
+        self.adaptive_frequency: bool = self._cfg_section.get_bool(SignalCfgKey.ADAPTIVE_FREQUENCY)
+
+        # STEP 2: Load advanced signal processing parameters from configuration
+        self.cutoff_hz = self._cfg_section.get_double(SignalCfgKey.CUTOFF_HZ)
+        self.cw_mag_thresh_seconds = self._cfg_section.get_double(SignalCfgKey.CW_MAG_THRESH_SECONDS)
+        self.cw_peak_ratio_threshold = self._cfg_section.get_int(SignalCfgKey.CW_PEAK_RATIO_THRESHOLD)
+        self.n_move_avg_elements = self._cfg_section.get_int(SignalCfgKey.N_MOVE_AVG_ELEMENTS)
+        self.rolling_buffer_seconds = self._cfg_section.get_double(SignalCfgKey.ROLLING_BUFFER_SECONDS)
+        self.freq_range_min = self._cfg_section.get_int(SignalCfgKey.FREQ_RANGE_MIN)
+        self.freq_range_max = self._cfg_section.get_int(SignalCfgKey.FREQ_RANGE_MAX)
+
+        # STEP 3: Global config for cross-cutting concerns (recommended pattern)
+        try:
+            global_cfg = self._cfg_mgr.get_section("global")
+            self.debug = global_cfg.get_bool("debug")
+            self.timeout_ms = global_cfg.get_int("timeout_ms")
+        except (KeyError, ValueError):
+            # Global config section may not exist or have values
+            self.debug = False
+            self.timeout_ms = 30000
+
+        # STEP 4: Initialize signal processing state with loaded parameters
+        self.moving_avg_buffer: list[float] = []  # Buffer for moving average smoothing
+        self.signal_history: list[float] = []  # Rolling buffer for signal statistics
+        self.min_tone_samples = int(self.cw_mag_thresh_seconds * self.sample_rate_hz)
+
+        # STEP 5: FFT and noise parameters from configuration
+        self.fft_window_size: int = self._cfg_section.get_int(SignalCfgKey.FFT_WINDOW_SIZE)
+        self.noise_floor_db: int = self._cfg_section.get_int(SignalCfgKey.NOISE_FLOOR_DB)
+
+        # STEP 6: Log completion with lazy % formatting (CRITICAL!)
+        self.logger.info(
+            "SignalProcessor configured: freq=%d Hz, threshold=%.2f, bandwidth=%d Hz, mode=%s, adaptive=%s",
+            self.target_frequency_hz,
+            self.detection_threshold,
+            self.filter_bandwidth_hz,
+            self.mode.value if hasattr(self.mode, "value") else str(self.mode),
+            self.adaptive_frequency,
+        )
+        self.logger.info(
+            "Signal filters: cutoff=%.1f Hz, min_tone=%.1f s, peak_ratio=%d, avg_elements=%d",
+            self.cutoff_hz,
+            self.cw_mag_thresh_seconds,
+            self.cw_peak_ratio_threshold,
+            self.n_move_avg_elements,
+        )
+
+        # STEP 7: Debug logging controlled by config (not code!)
+        self.logger.debug("Internal state: ready for processing")
+
+    def _on_reconfiguration(self) -> None:
+        """Handle reconfiguration side effects.
+
+        Called by ConfigurableBase after configuration values are reloaded.
+        Reinitialize processing components that depend on configuration.
+        """
+        # Update derived values that depend on configuration
+        self.min_tone_samples = int(self.cw_mag_thresh_seconds * self.sample_rate_hz)
+        self.actual_frequency_hz = float(self.target_frequency_hz)
+
+        # Reinitialize processing components
+        try:
+            self._initialize_processing()
+            self.logger.info("SignalProcessor reconfigured with frequency %d Hz", self.target_frequency_hz)
+        except Exception as e:
+            self.logger.exception("Error during SignalProcessor reconfiguration: %s", str(e))
+            raise RuntimeError(f"Failed to reconfigure signal processor: {e}") from e
 
     def _initialize_processing(self) -> None:
         """Initialize FFT processing components and pre-compute constants."""

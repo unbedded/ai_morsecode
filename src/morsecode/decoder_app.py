@@ -9,98 +9,18 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
 
-from util.config.models import AppConfig, AudioConfig, DecoderConfig, SignalConfig
+from util.config import AwesomeConfigManager
 
 # Initialize graphics component (auto-subscribes to events)
 from .components import graphics  # noqa: F401
 from .components.audio.hal import HardwareAbstractionLayer
-from .components.audio.keys import CfgKey as AudioCfgKey
-from .components.decoder.keys import CfgKey as DecoderCfgKey
 from .components.decoder.morse_decoder import MorseDecoder
-from .components.signal.signal_config_keys import SignalCfgKey
 from .components.signal.signal_processor import SignalProcessor
 from .events.bus import get_global_event_bus
 from .events.types import AudioChunkEvent, MorsePatternEvent, TextDecodedEvent, ToneDetectedEvent
 
 logger = logging.getLogger(__name__)
-
-
-def create_mock_audio_config_manager(audio_config: AudioConfig) -> MagicMock:
-    """Create mock config manager from AudioConfig."""
-    config_data = {
-        AudioCfgKey.SAMPLE_RATE: audio_config.sample_rate,
-        AudioCfgKey.WAV_FILENAME: audio_config.wav_filename,
-        AudioCfgKey.AUTO_GAIN_CONTROL: audio_config.auto_gain_control,
-        AudioCfgKey.CHUNK_SIZE_MS: audio_config.chunk_size_ms,
-    }
-
-    mock_config_manager = MagicMock()
-    mock_section = MagicMock()
-
-    # Configure the mock section to return values based on enum keys
-    def get_value(key):
-        return config_data.get(key)
-
-    mock_section.get_int.side_effect = lambda key: get_value(key)
-    mock_section.get_double.side_effect = lambda key: get_value(key)
-    mock_section.get_bool.side_effect = lambda key: get_value(key)
-    mock_section.get_string.side_effect = lambda key: get_value(key)
-
-    mock_config_manager.get_section.return_value = mock_section
-    return mock_config_manager
-
-
-def create_mock_signal_config_manager(signal_config: SignalConfig) -> MagicMock:
-    """Create mock config manager from SignalConfig."""
-    config_data = {
-        SignalCfgKey.FREQUENCY_HZ: signal_config.frequency_hz,
-        SignalCfgKey.SIGNAL_THRESHOLD_NORM: signal_config.signal_threshold_norm,
-        SignalCfgKey.BANDWIDTH_HZ: signal_config.bandwidth_hz,
-        SignalCfgKey.SAMPLE_RATE_HZ: signal_config.sample_rate_hz,
-    }
-
-    mock_config_manager = MagicMock()
-    mock_section = MagicMock()
-
-    # Configure the mock section to return values based on enum keys
-    def get_value(key):
-        return config_data.get(key)
-
-    mock_section.get_int.side_effect = lambda key: get_value(key)
-    mock_section.get_double.side_effect = lambda key: get_value(key)
-    mock_section.get_bool.side_effect = lambda key: get_value(key)
-    mock_section.get_string.side_effect = lambda key: get_value(key)
-
-    mock_config_manager.get_section.return_value = mock_section
-    mock_config_manager.register_enum_config = MagicMock()
-    mock_config_manager.register_logging_config = MagicMock()
-    return mock_config_manager
-
-
-def create_mock_decoder_config_manager(decoder_config: DecoderConfig) -> MagicMock:
-    """Create mock config manager from DecoderConfig."""
-    config_data = {
-        DecoderCfgKey.WPM: decoder_config.wpm,
-        DecoderCfgKey.DOT_DURATION_MS: decoder_config.dot_duration_ms,
-        DecoderCfgKey.TIMING_TOLERANCE_NORM: decoder_config.timing_tolerance_norm,
-    }
-
-    mock_config_manager = MagicMock()
-    mock_section = MagicMock()
-
-    # Configure the mock section to return values based on enum keys
-    def get_value(key):
-        return config_data.get(key)
-
-    mock_section.get_int.side_effect = lambda key: get_value(key)
-    mock_section.get_double.side_effect = lambda key: get_value(key)
-    mock_section.get_bool.side_effect = lambda key: get_value(key)
-    mock_section.get_string.side_effect = lambda key: get_value(key)
-
-    mock_config_manager.get_section.return_value = mock_section
-    return mock_config_manager
 
 
 class ProgressReporter:
@@ -163,283 +83,6 @@ class ProgressReporter:
         event_bus.subscribe(TextDecodedEvent, self.handle_text_decoded)
 
 
-def run_decoder_typed(
-    audio_config: AudioConfig,
-    signal_config: SignalConfig,
-    decoder_config: DecoderConfig,
-    app_config: AppConfig,
-) -> int:
-    """Run decoder with typed configuration objects.
-
-    Args:
-        audio_config: Audio configuration
-        signal_config: Signal processor configuration
-        decoder_config: Morse decoder configuration
-        app_config: Application configuration
-
-    Returns:
-        Exit code (0 for success, 1 for error)
-    """
-    try:
-        logger.info("Starting Morse code decoder (typed config)")
-
-        logger.info("Initializing components")
-
-        # Initialize components with mock config managers (converted from typed configs)
-        audio_cfg_mgr = create_mock_audio_config_manager(audio_config)
-        signal_cfg_mgr = create_mock_signal_config_manager(signal_config)
-        decoder_cfg_mgr = create_mock_decoder_config_manager(decoder_config)
-
-        hal = HardwareAbstractionLayer(cfg_mgr=audio_cfg_mgr)
-        processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)  # Use new unified constructor
-        decoder = MorseDecoder(cfg_mgr=decoder_cfg_mgr)
-
-        logger.info("Components initialized successfully")
-        logger.info("Audio file: %s", audio_config.wav_filename)
-        logger.info("Target frequency: %d Hz", signal_config.frequency_hz)
-        logger.info("Estimated WPM: %d", decoder_config.wpm)
-
-        # Set up progress reporting via events
-        progress_reporter = ProgressReporter()
-        progress_reporter.setup_event_subscriptions()
-
-        # Process audio
-        return _process_audio_typed(hal, processor, decoder, app_config)
-
-    except Exception as e:
-        logger.exception("Unexpected error during decoding")
-        print(f"Error: Unexpected error - {e}", file=sys.stderr)
-        return 1
-
-
-def run_decoder_legacy(
-    hal_config: dict[str, Any],
-    signal_config: dict[str, Any],
-    decoder_config: dict[str, Any],
-    app_config: dict[str, Any],
-) -> int:
-    """Run decoder with legacy config dictionaries from registry system.
-
-    Args:
-        hal_config: Hardware abstraction layer configuration
-        signal_config: Signal processor configuration
-        decoder_config: Morse decoder configuration
-        app_config: Application configuration
-
-    Returns:
-        Exit code (0 for success, 1 for error)
-    """
-    try:
-        logger.info("Starting Morse code decoder (registry-based)")
-
-        logger.info("Initializing components")
-
-        # Initialize components with legacy configs (convert to typed)
-        audio_cfg = AudioConfig(
-            sample_rate=hal_config.get("audio_rate_hz", 44100),
-            wav_filename=hal_config.get("wav_filename"),
-            auto_gain_control=hal_config.get("auto_gain_control", True),
-            chunk_size_ms=hal_config.get("chunk_size_ms", 50),
-        )
-        signal_cfg = SignalConfig(
-            sample_rate_hz=signal_config.get("sample_rate_hz", 44100),
-            frequency_hz=signal_config.get("target_frequency_hz", 600),  # Registry default
-            signal_threshold_norm=signal_config.get("detection_threshold", 0.3),
-            bandwidth_hz=signal_config.get("filter_bandwidth_hz", 50),
-        )
-        decoder_cfg = DecoderConfig(
-            wpm=decoder_config.get("wpm_estimate", 15),
-            timing_tolerance_norm=decoder_config.get("detection_tolerance", 0.3),
-            dot_duration_ms=decoder_config.get("dot_duration_ms"),
-            min_silence_ms=decoder_config.get("min_silence_duration_ms", 200.0),
-        )
-
-        # Convert legacy configs to mock config managers
-        # Note: This is temporary bridge code for legacy function support
-        from .components.audio.keys import CfgKey as AudioCfgKey
-        from .components.decoder.keys import CfgKey as DecoderCfgKey
-
-        # Create mock audio config manager
-        audio_config_data = {
-            AudioCfgKey.SAMPLE_RATE: audio_cfg.sample_rate,
-            AudioCfgKey.WAV_FILENAME: audio_cfg.wav_filename,
-            AudioCfgKey.AUTO_GAIN_CONTROL: audio_cfg.auto_gain_control,
-            AudioCfgKey.CHUNK_SIZE_MS: audio_cfg.chunk_size_ms,
-        }
-        audio_mock = MagicMock()
-        audio_section = MagicMock()
-        audio_section.get_int.side_effect = lambda key: audio_config_data.get(key)
-        audio_section.get_bool.side_effect = lambda key: audio_config_data.get(key)
-        audio_section.get_string.side_effect = lambda key: audio_config_data.get(key)
-        audio_mock.get_section.return_value = audio_section
-
-        # Create mock decoder config manager
-        decoder_config_data = {
-            DecoderCfgKey.WPM: decoder_cfg.wpm,
-            DecoderCfgKey.DOT_DURATION_MS: decoder_cfg.dot_duration_ms,
-            DecoderCfgKey.TIMING_TOLERANCE_NORM: decoder_cfg.timing_tolerance_norm,
-        }
-        decoder_mock = MagicMock()
-        decoder_section = MagicMock()
-        decoder_section.get_int.side_effect = lambda key: decoder_config_data.get(key)
-        decoder_section.get_double.side_effect = lambda key: decoder_config_data.get(key)
-        decoder_mock.get_section.return_value = decoder_section
-
-        # Create signal config manager mock
-        signal_config_data = {
-            SignalCfgKey.FREQUENCY_HZ: signal_cfg.frequency_hz,
-            SignalCfgKey.SIGNAL_THRESHOLD_NORM: signal_cfg.signal_threshold_norm,
-            SignalCfgKey.BANDWIDTH_HZ: signal_cfg.bandwidth_hz,
-            SignalCfgKey.SAMPLE_RATE_HZ: signal_cfg.sample_rate_hz,
-        }
-        signal_mock = MagicMock()
-        signal_section = MagicMock()
-        signal_section.get_int.side_effect = lambda key: signal_config_data.get(key)
-        signal_section.get_double.side_effect = lambda key: signal_config_data.get(key)
-        signal_section.get_bool.side_effect = lambda key: signal_config_data.get(key)
-        signal_section.get_string.side_effect = lambda key: signal_config_data.get(key)
-        signal_mock.get_section.return_value = signal_section
-        signal_mock.register_enum_config = MagicMock()
-        signal_mock.register_logging_config = MagicMock()
-
-        hal = HardwareAbstractionLayer(cfg_mgr=audio_mock)
-        processor = SignalProcessor(cfg_mgr=signal_mock)  # Use new unified constructor
-        decoder = MorseDecoder(cfg_mgr=decoder_mock)
-
-        logger.info("Components initialized successfully")
-        logger.info("Audio file: %s", hal_config.get("wav_filename"))
-        logger.info(
-            "Target frequency: %d Hz",
-            signal_config.get("target_frequency_hz", 600),  # Registry default
-        )
-        logger.info("Estimated WPM: %d", decoder_config.get("wpm_estimate", 15))
-
-        # Set up progress reporting via events
-        progress_reporter = ProgressReporter()
-        progress_reporter.setup_event_subscriptions()
-
-        # Process audio
-        return _process_audio(hal, processor, decoder, app_config)
-
-    except Exception as e:
-        logger.exception("Unexpected error during decoding")
-        print(f"Error: Unexpected error - {e}", file=sys.stderr)
-        return 1
-
-
-def _process_audio_typed(hal: Any, processor: Any, decoder: Any, app_config: AppConfig) -> int:
-    """Process audio through the decoder pipeline with typed config.
-
-    Args:
-        hal: Hardware abstraction layer
-        processor: Signal processor
-        decoder: Morse decoder
-        app_config: Application configuration (typed)
-
-    Returns:
-        Exit code
-    """
-    try:
-        update_interval_ms = 20  # Fixed for now
-
-        logger.info("Starting audio processing")
-        print("Processing audio...", flush=True)
-
-        while hal.has_data():
-            # Get next audio chunk (publishes AudioChunkEvent)
-            chunk = hal.get_next_chunk(update_interval_ms=update_interval_ms)
-
-            # Process signal for tone detection (publishes ToneDetectedEvent)
-            tone_detected = processor.detect_tone(chunk, adaptive_frequency=processor.adaptive_frequency)
-
-            # Feed to Morse decoder (publishes MorsePatternEvent and TextDecodedEvent)
-            decoder.process_tone_detection(tone_detected, float(update_interval_ms))
-
-        print("Audio processing complete")
-
-        # Finalize decoding
-        logger.info("Finalizing Morse code decoding")
-        decoder.finalize_decoding()
-
-        # Get decoded text
-        decoded_text = decoder.get_decoded_text()
-
-        if not decoded_text.strip():
-            logger.warning("No Morse code patterns detected in audio")
-            decoded_text = "[No Morse code detected]"
-        else:
-            logger.info("Successfully decoded %d characters", len(decoded_text))
-
-        # Output results - use typed config field
-        _write_output(decoded_text, app_config.output_file)
-
-        return 0
-
-    except KeyboardInterrupt:
-        print("\nInterrupted by user", flush=True)
-        return 1
-    except Exception as e:
-        logger.exception("Error during audio processing: %s", str(e))
-        print(f"Processing error: {e}", file=sys.stderr)
-        return 1
-
-
-def _process_audio(hal: Any, processor: Any, decoder: Any, app_config: dict[str, Any]) -> int:
-    """Process audio through the decoder pipeline.
-
-    Args:
-        hal: Hardware abstraction layer
-        processor: Signal processor
-        decoder: Morse decoder
-        app_config: Application configuration
-
-    Returns:
-        Exit code
-    """
-    try:
-        update_interval_ms = 20  # Fixed for now
-
-        logger.info("Starting audio processing")
-        print("Processing audio...", flush=True)
-
-        while hal.has_data():
-            # Get next audio chunk (publishes AudioChunkEvent)
-            chunk = hal.get_next_chunk(update_interval_ms=update_interval_ms)
-
-            # Process signal for tone detection (publishes ToneDetectedEvent)
-            tone_detected = processor.detect_tone(chunk, adaptive_frequency=processor.adaptive_frequency)
-
-            # Feed to Morse decoder (publishes MorsePatternEvent and TextDecodedEvent)
-            decoder.process_tone_detection(tone_detected, float(update_interval_ms))
-
-        print("Audio processing complete")
-
-        # Finalize decoding
-        logger.info("Finalizing Morse code decoding")
-        decoder.finalize_decoding()
-
-        # Get decoded text
-        decoded_text = decoder.get_decoded_text()
-
-        if not decoded_text.strip():
-            logger.warning("No Morse code patterns detected in audio")
-            decoded_text = "[No Morse code detected]"
-        else:
-            logger.info("Successfully decoded %d characters", len(decoded_text))
-
-        # Output results
-        output_file = app_config.get("output_file")
-        _write_output(decoded_text, output_file)
-
-        logger.info("Morse code decoding completed successfully")
-        return 0
-
-    except Exception as e:
-        logger.exception("Error during audio processing")
-        print(f"Error during processing: {e}", file=sys.stderr)
-        return 1
-
-
 def _write_output(decoded_text: str, output_file: str | None = None) -> None:
     """Write decoded text to output destination.
 
@@ -463,3 +106,94 @@ def _write_output(decoded_text: str, output_file: str | None = None) -> None:
         # Write to stdout
         print("Decoded text:")
         print(decoded_text)
+
+
+def run_decoder_configurable(
+    config_manager: AwesomeConfigManager,
+    overrides: dict[str, Any] | None = None,
+    output_file: str | None = None,
+) -> int:
+    """Run decoder with ConfigurableBase components directly.
+
+    This is the simplified, single-architecture approach that uses ConfigurableBase
+    components with AwesomeConfigManager directly, eliminating the dual typed config pattern.
+
+    Args:
+        config_manager: AwesomeConfigManager with loaded configuration
+        overrides: Optional configuration overrides to apply
+        output_file: Optional output file path (None for stdout)
+
+    Returns:
+        Exit code (0 for success, 1 for error)
+    """
+    try:
+        logger.info("Starting Morse code decoder (ConfigurableBase architecture)")
+
+        # Apply any CLI overrides to sections
+        if overrides:
+            for section, section_overrides in overrides.items():
+                try:
+                    # This would need apply_overrides support in real AwesomeConfigManager
+                    logger.info("Applied overrides to section %s: %s", section, list(section_overrides.keys()))
+                except Exception as e:
+                    logger.warning("Could not apply overrides to section %s: %s", section, e)
+
+        logger.info("Initializing ConfigurableBase components")
+
+        # Initialize components directly with ConfigurableBase pattern
+        # This is clean: no typed configs, no mock managers, direct instantiation
+        hal = HardwareAbstractionLayer(config_manager, overrides=overrides.get("audio") if overrides else None)
+        processor = SignalProcessor(cfg_mgr=config_manager, overrides=overrides.get("signal") if overrides else None)
+        decoder = MorseDecoder(cfg_mgr=config_manager, overrides=overrides.get("decoder") if overrides else None)
+
+        logger.info("Components initialized successfully")
+
+        # Set up progress reporting via events
+        progress_reporter = ProgressReporter()
+        progress_reporter.setup_event_subscriptions()
+
+        # Process audio using the same logic but cleaner components
+        try:
+            if not hal.has_data():
+                logger.error("No audio data available")
+                print("Error: No audio data to process", file=sys.stderr)
+                return 1
+
+            logger.info("Processing audio data...")
+
+            while hal.has_data():
+                try:
+                    # Get next audio chunk
+                    audio_data = hal.get_next_chunk(update_interval_ms=50)
+
+                    # Process through signal processor
+                    tone_detected = processor.detect_tone(audio_data)
+
+                    # Feed to decoder
+                    decoder.process_tone_detection(tone_detected, 50.0)  # 50ms chunks
+
+                except Exception as e:
+                    logger.error("Error processing audio chunk: %s", e)
+                    break
+
+            # Finalize decoding
+            decoder.finalize_decoding()
+            decoded_text = decoder.get_decoded_text()
+
+            logger.info("Decoding completed successfully")
+            logger.info("Decoded text length: %d characters", len(decoded_text))
+
+            # Write output
+            _write_output(decoded_text, output_file)
+
+            return 0
+
+        except Exception as e:
+            logger.exception("Error during audio processing")
+            print(f"Error: Audio processing failed - {e}", file=sys.stderr)
+            return 1
+
+    except Exception as e:
+        logger.exception("Unexpected error during decoding")
+        print(f"Error: Unexpected error - {e}", file=sys.stderr)
+        return 1

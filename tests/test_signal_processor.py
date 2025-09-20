@@ -11,12 +11,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from morsecode.components.signal.signal_processor import (
-    DEFAULT_FFT_WINDOW_SIZE,
-    DEFAULT_NOISE_FLOOR_DB,
-    DEFAULT_TARGET_FREQUENCY_HZ,
-    SignalProcessor,
-)
+from morsecode.components.signal.signal_processor import SignalProcessor
 from tests.mock_config_manager import create_signal_config_manager
 
 # Test constants (inlined to avoid import issues)
@@ -30,6 +25,9 @@ TEST_FREQUENCY_OFF_TARGET = 1500
 TEST_SAMPLE_RATE_HIGH = 48000
 TEST_SAMPLE_RATE_LOW = 22050
 TEST_THRESHOLD_LOW = 0.1
+
+# Default target frequency from mock config (was DEFAULT_TARGET_FREQUENCY_HZ)
+DEFAULT_TARGET_FREQUENCY_HZ = 600
 
 
 class TestSignalProcessor:
@@ -77,10 +75,10 @@ class TestSignalProcessor:
 
         assert processor.sample_rate_hz == 44100  # Default from mock
         assert processor.target_frequency_hz == 600  # Default from mock
-        assert processor.fft_window_size == DEFAULT_FFT_WINDOW_SIZE
+        assert processor.fft_window_size == 1024  # Default from schema
         assert processor.detection_threshold == 0.3  # Default from mock
         assert processor.filter_bandwidth_hz == 50  # Default from mock
-        assert processor.noise_floor_db == DEFAULT_NOISE_FLOOR_DB
+        assert processor.noise_floor_db == -40  # Default from schema
 
     def test_init_with_config(self) -> None:
         """Test SignalProcessor initialization with custom configuration."""
@@ -95,10 +93,10 @@ class TestSignalProcessor:
 
         assert processor.sample_rate_hz == TEST_SAMPLE_RATE_HIGH
         assert processor.target_frequency_hz == TEST_FREQUENCY_ALTERNATE
-        assert processor.fft_window_size == DEFAULT_FFT_WINDOW_SIZE  # Not in config yet
+        assert processor.fft_window_size == 1024  # From configuration schema
         assert processor.detection_threshold == 0.2
         assert processor.filter_bandwidth_hz == 100
-        assert processor.noise_floor_db == DEFAULT_NOISE_FLOOR_DB  # Not in config yet
+        assert processor.noise_floor_db == -40  # From configuration schema
 
     def test_get_params(self) -> None:
         """Test getting configuration parameters."""
@@ -122,8 +120,8 @@ class TestSignalProcessor:
         frequencies, magnitudes = processor.compute_fft(test_signal)
 
         # Check output shapes
-        assert len(frequencies) == DEFAULT_FFT_WINDOW_SIZE // 2
-        assert len(magnitudes) == DEFAULT_FFT_WINDOW_SIZE // 2
+        assert len(frequencies) == 1024 // 2
+        assert len(magnitudes) == 1024 // 2
 
         # Find peak frequency
         peak_idx = np.argmax(magnitudes)
@@ -149,8 +147,8 @@ class TestSignalProcessor:
         frequencies, magnitudes = processor.compute_fft(short_signal)
 
         # Should still return full-size FFT (zero-padded)
-        assert len(frequencies) == DEFAULT_FFT_WINDOW_SIZE // 2
-        assert len(magnitudes) == DEFAULT_FFT_WINDOW_SIZE // 2
+        assert len(frequencies) == 1024 // 2
+        assert len(magnitudes) == 1024 // 2
 
     def test_compute_fft_long_data(self) -> None:
         """Test FFT computation with data longer than window size."""
@@ -161,8 +159,8 @@ class TestSignalProcessor:
         frequencies, magnitudes = processor.compute_fft(long_signal)
 
         # Should still return standard FFT size (truncated)
-        assert len(frequencies) == DEFAULT_FFT_WINDOW_SIZE // 2
-        assert len(magnitudes) == DEFAULT_FFT_WINDOW_SIZE // 2
+        assert len(frequencies) == 1024 // 2
+        assert len(magnitudes) == 1024 // 2
 
     def test_detect_tone_present(self) -> None:
         """Test tone detection when target tone is present."""
@@ -363,8 +361,8 @@ class TestSignalProcessor:
         dominant_freq = processor.get_dominant_frequency(test_signal)
 
         # Basic sanity checks - window_size not configurable yet, use default
-        assert len(frequencies) == DEFAULT_FFT_WINDOW_SIZE // 2
-        assert len(magnitudes) == DEFAULT_FFT_WINDOW_SIZE // 2
+        assert len(frequencies) == 1024 // 2
+        assert len(magnitudes) == 1024 // 2
         assert isinstance(tone_detected, bool)
         assert len(filtered_signal) == len(test_signal)
         assert isinstance(snr_db, float)

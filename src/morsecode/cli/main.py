@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from util.config.config_manager import AwesomeConfigManager
-from util.config.models import AppConfig, AudioConfig, DecoderConfig, SignalConfig
 
 from .. import decoder_app
 
@@ -381,28 +380,29 @@ def main(argv: list[str] | None = None) -> int:
         if args.profile:
             logger.info("Using profile: %s", args.profile)
 
-        # Create typed configs from config manager
-        audio_config = AudioConfig.from_config_manager(config_manager)
-        signal_config = SignalConfig.from_config_manager(config_manager)
-        decoder_config = DecoderConfig.from_config_manager(config_manager)
-        app_config = AppConfig.from_config_manager(config_manager)
+        # Prepare configuration overrides from CLI arguments
+        overrides: dict[str, dict[str, Any]] = {}
 
-        # Apply CLI overrides to typed configs
+        # Audio section overrides
         if args.wav_file:
-            audio_config.wav_filename = args.wav_file
-        if args.frequency is not None:
-            signal_config.frequency_hz = args.frequency
-        if args.wpm is not None:
-            decoder_config.wpm = args.wpm
-        if args.signal_threshold is not None:
-            signal_config.signal_threshold_norm = args.signal_threshold
-        if args.timing_tolerance is not None:
-            decoder_config.timing_tolerance_norm = args.timing_tolerance
-        if args.output is not None:
-            app_config.output_file = args.output
+            overrides.setdefault("audio", {})["wav_filename"] = args.wav_file
 
-        # Run the decoder with typed configs
-        result: int = decoder_app.run_decoder_typed(audio_config, signal_config, decoder_config, app_config)
+        # Signal section overrides
+        if args.frequency is not None:
+            overrides.setdefault("signal", {})["frequency_hz"] = args.frequency
+        if args.signal_threshold is not None:
+            overrides.setdefault("signal", {})["signal_threshold_norm"] = args.signal_threshold
+
+        # Decoder section overrides
+        if args.wpm is not None:
+            overrides.setdefault("decoder", {})["wpm"] = args.wpm
+        if args.timing_tolerance is not None:
+            overrides.setdefault("decoder", {})["timing_tolerance_norm"] = args.timing_tolerance
+
+        # Run the decoder with ConfigurableBase architecture (simplified, single approach)
+        result: int = decoder_app.run_decoder_configurable(
+            config_manager=config_manager, overrides=overrides, output_file=args.output
+        )
         return result
 
     except KeyboardInterrupt:

@@ -9,7 +9,7 @@ from util.config.types import CfgField, CfgType
 class ConfigSchema:
     """Clean struct-like schema for Audio component configuration."""
 
-    sample_hz = CfgField(
+    sample_rate = CfgField(
         type=CfgType.INT, default=44100, min=8000, max=96000, unit="Hz", description="Audio sample rate"
     )
 
@@ -19,4 +19,4 @@ class ConfigSchema:
 
     auto_gain_control = CfgField(type=CfgType.BOOL, default=True, description="Enable automatic gain control")
 
-    chunk_size = CfgField(type=CfgType.INT, default=50, min=10, max=1000, unit="ms", description="Audio chunk size")
+    chunk_size_ms = CfgField(type=CfgType.INT, default=50, min=10, max=1000, unit="ms", description="Audio chunk size")

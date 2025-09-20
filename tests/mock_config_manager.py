@@ -66,6 +66,10 @@ class MockConfigSection:
         """Get raw value from config."""
         return self.data.get(key, default)
 
+    def apply_overrides(self, overrides: dict[str, Any]):
+        """Apply configuration overrides to this section."""
+        self.data.update(overrides)
+
 
 class MockAwesomeConfigManager:
     """Mock implementation of AwesomeConfigManager for testing."""
@@ -107,12 +111,24 @@ def create_signal_config_manager(
     """Create a mock config manager with signal processor configuration."""
     configs = {
         "signal": {
+            # Core parameters
             "frequency_hz": frequency_hz,
             "signal_threshold_norm": threshold,
             "bandwidth_hz": bandwidth_hz,
             "sample_rate_hz": sample_rate_hz,
             "mode": mode,
             "adaptive_frequency": True,
+            # Advanced signal processing parameters (from schema)
+            "cutoff_hz": 15.0,
+            "cw_mag_thresh_seconds": 0.1,
+            "cw_peak_ratio_threshold": 4,
+            "n_move_avg_elements": 6,
+            "rolling_buffer_seconds": 3.0,
+            "freq_range_min": 200,
+            "freq_range_max": 1000,
+            # FFT and noise parameters (newly added)
+            "fft_window_size": 1024,
+            "noise_floor_db": -40,
         },
         "global": {
             "debug": False,

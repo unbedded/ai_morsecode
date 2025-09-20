@@ -22,7 +22,7 @@ class ConfigSchema:
         description="Words per minute for timing calculations",
     )
 
-    dot_duration = CfgField(
+    dot_duration_ms = CfgField(
         type=CfgType.DOUBLE,
         default=80.0,
         min=20.0,
@@ -31,11 +31,20 @@ class ConfigSchema:
         description="Duration of a dot element in milliseconds",
     )
 
-    tolerance = CfgField(
+    timing_tolerance_norm = CfgField(
         type=CfgType.DOUBLE,
         default=0.3,
         min=0.1,
         max=0.8,
         unit="norm",
         description="Tolerance factor for timing variations (0.0-1.0)",
+    )
+
+    min_silence_ms = CfgField(
+        type=CfgType.DOUBLE,
+        default=200.0,
+        min=50.0,
+        max=1000.0,
+        unit="ms",
+        description="Minimum silence duration to detect word boundaries",
     )

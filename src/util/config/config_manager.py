@@ -19,6 +19,231 @@ import yaml
 logger = logging.getLogger(__name__)
 
 
+class ConfigSection:
+    """Type-safe wrapper for configuration sections with enum-based access."""
+
+    def __init__(self, config_data: dict[str, Any], section_name: str, schema_obj: Any = None):
+        """Initialize configuration section wrapper.
+
+        Args:
+            config_data: Raw configuration dictionary
+            section_name: Name of the configuration section
+            schema_obj: Schema object with CfgField definitions for defaults
+        """
+        self._config_data = config_data.copy()
+        self._section_name = section_name
+        self._schema_obj = schema_obj
+        self._logger = logging.getLogger(__name__)
+
+    def get_int(self, key: Any) -> int:
+        """Get integer value for configuration key.
+
+        Args:
+            key: Configuration key (enum or string)
+
+        Returns:
+            Integer configuration value
+
+        Raises:
+            ValueError: If value cannot be converted to int
+            KeyError: If key doesn't exist and no schema default available
+        """
+        key_str = key.value if hasattr(key, "value") else str(key)
+
+        # Try to get value from config data first
+        if key_str in self._config_data:
+            value = self._config_data[key_str]
+        else:
+            # Fall back to schema default if available
+            value = self._get_schema_default(key_str)
+            if value is None:
+                raise KeyError(
+                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+                )
+
+        try:
+            return int(value)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Cannot convert {self._section_name}.{key_str}={value} to int") from e
+
+    def get_double(self, key: Any) -> float:
+        """Get float value for configuration key.
+
+        Args:
+            key: Configuration key (enum or string)
+
+        Returns:
+            Float configuration value
+
+        Raises:
+            ValueError: If value cannot be converted to float
+            KeyError: If key doesn't exist and no schema default available
+        """
+        key_str = key.value if hasattr(key, "value") else str(key)
+
+        # Try to get value from config data first
+        if key_str in self._config_data:
+            value = self._config_data[key_str]
+        else:
+            # Fall back to schema default if available
+            value = self._get_schema_default(key_str)
+            if value is None:
+                raise KeyError(
+                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+                )
+
+        try:
+            return float(value)
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"Cannot convert {self._section_name}.{key_str}={value} to float") from e
+
+    def get_float(self, key: Any) -> float:
+        """Alias for get_double() for consistency with Python conventions."""
+        return self.get_double(key)
+
+    def get_string(self, key: Any) -> str:
+        """Get string value for configuration key.
+
+        Args:
+            key: Configuration key (enum or string)
+
+        Returns:
+            String configuration value
+
+        Raises:
+            KeyError: If key doesn't exist and no schema default available
+        """
+        key_str = key.value if hasattr(key, "value") else str(key)
+
+        # Try to get value from config data first
+        if key_str in self._config_data:
+            value = self._config_data[key_str]
+        else:
+            # Fall back to schema default if available
+            value = self._get_schema_default(key_str)
+            # Check if we have a schema but key is not found (different from None default)
+            if value is None and self._schema_obj and not hasattr(self._schema_obj, key_str):
+                raise KeyError(
+                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+                )
+
+        return str(value) if value is not None else None
+
+    def get_bool(self, key: Any) -> bool:
+        """Get boolean value for configuration key.
+
+        Args:
+            key: Configuration key (enum or string)
+
+        Returns:
+            Boolean configuration value
+
+        Raises:
+            KeyError: If key doesn't exist and no schema default available
+        """
+        key_str = key.value if hasattr(key, "value") else str(key)
+
+        # Try to get value from config data first
+        if key_str in self._config_data:
+            value = self._config_data[key_str]
+        else:
+            # Fall back to schema default if available
+            value = self._get_schema_default(key_str)
+            if value is None:
+                raise KeyError(
+                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+                )
+
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.lower() in ("true", "1", "yes", "on")
+        return bool(value)
+
+    def get_enum(self, key: Any, enum_class: type) -> Any:
+        """Get enum value for configuration key.
+
+        Args:
+            key: Configuration key (enum or string)
+            enum_class: Enum class to convert string value to
+
+        Returns:
+            Enum value
+
+        Raises:
+            ValueError: If value is not a valid enum value
+            KeyError: If key doesn't exist and no schema default available
+        """
+        key_str = key.value if hasattr(key, "value") else str(key)
+
+        # Try to get value from config data first
+        if key_str in self._config_data:
+            value = self._config_data[key_str]
+        else:
+            # Fall back to schema default if available
+            value = self._get_schema_default(key_str)
+            # Check if we have a schema but key is not found (different from None default)
+            if value is None and self._schema_obj and not hasattr(self._schema_obj, key_str):
+                raise KeyError(
+                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+                )
+
+        # Convert string value to enum
+        if isinstance(value, enum_class):
+            return value
+        if isinstance(value, str):
+            try:
+                return enum_class(value)
+            except ValueError as e:
+                valid_values = [e.value for e in enum_class]
+                raise ValueError(
+                    f"Invalid enum value '{value}' for {self._section_name}.{key_str}. Valid values: {valid_values}"
+                ) from e
+
+        raise ValueError(f"Cannot convert {self._section_name}.{key_str}={value} to {enum_class.__name__}")
+
+    def apply_overrides(self, overrides: dict[str, Any]) -> None:
+        """Apply configuration overrides to this section.
+
+        Args:
+            overrides: Dictionary of configuration overrides
+        """
+        for key, value in overrides.items():
+            self._config_data[key] = value
+            self._logger.debug("Applied override: %s.%s = %s", self._section_name, key, value)
+
+    def get_raw_dict(self) -> dict[str, Any]:
+        """Get the raw configuration dictionary.
+
+        Returns:
+            Copy of the raw configuration data
+        """
+        return self._config_data.copy()
+
+    def _get_schema_default(self, key_str: str) -> Any:
+        """Get default value from schema for given key.
+
+        Args:
+            key_str: Configuration key string
+
+        Returns:
+            Default value from schema or None if not found
+        """
+        if not self._schema_obj:
+            return None
+
+        # Check if schema has this field with a default
+        if hasattr(self._schema_obj, key_str):
+            field_obj = getattr(self._schema_obj, key_str)
+            if hasattr(field_obj, "default"):
+                self._logger.debug(
+                    "Using schema default for %s.%s = %s", self._section_name, key_str, field_obj.default
+                )
+                return field_obj.default
+
+        return None
+
+
 class ConfigValidationError(Exception):
     """Raised when configuration validation fails."""
 
@@ -130,16 +355,18 @@ class AwesomeConfigManager:
         self._config_cache[module_name] = base_config
         return base_config
 
-    def get_section(self, section_name: str) -> dict[str, Any]:
-        """Get configuration section (alias for get_config for backward compatibility).
+    def get_section(self, section_name: str) -> ConfigSection:
+        """Get configuration section wrapped in type-safe ConfigSection object.
 
         Args:
             section_name: Name of the section
 
         Returns:
-            Configuration dictionary for the section
+            ConfigSection instance with typed access methods
         """
-        return self.get_config(section_name)
+        config_data = self.get_config(section_name)
+        schema_obj = self._field_configs.get(section_name)
+        return ConfigSection(config_data, section_name, schema_obj)
 
     def register_logging_config(self, module_name: str, default_level: str = "INFO") -> None:
         """Register logging configuration for a module - does all the work automatically.

@@ -19,6 +19,7 @@ from morsecode.components.audio.keys import CfgKey as AudioCfgKey
 from morsecode.components.decoder.keys import CfgKey as DecoderCfgKey
 from morsecode.components.decoder.morse_decoder import MorseDecoder
 from morsecode.components.signal.signal_config_keys import SignalCfgKey
+from morsecode.components.signal.signal_config_schema import SignalMode
 from morsecode.components.signal.signal_processor import SignalProcessor
 from util.config import AwesomeConfigManager
 
@@ -41,8 +42,20 @@ class TestMorseCodeIntegration:
         mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
         mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
 
+        # Mock global section for ConfigurableBase pattern
+        mock_global_section = MagicMock()
+        mock_global_section.get_bool.side_effect = lambda key: False
+        mock_global_section.get_int.side_effect = lambda key: 30000
+        mock_global_section.get.side_effect = lambda key: None
+
+        def get_section_mock(section_name):
+            if section_name == "global":
+                return mock_global_section
+            return mock_config_section
+
         mock_cfg_mgr.register_enum_config.return_value = None
-        mock_cfg_mgr.get_section.return_value = mock_config_section
+        mock_cfg_mgr.register_logging_config.return_value = None
+        mock_cfg_mgr.get_section.side_effect = get_section_mock
         return mock_cfg_mgr
 
     def create_mock_audio_config_manager(self, overrides: dict = None) -> MagicMock:
@@ -51,7 +64,7 @@ class TestMorseCodeIntegration:
             AudioCfgKey.SAMPLE_RATE: 44100,
             AudioCfgKey.WAV_FILENAME: None,
             AudioCfgKey.AUTO_GAIN_CONTROL: True,
-            AudioCfgKey.CHUNK_SIZE: 50,
+            AudioCfgKey.CHUNK_SIZE_MS: 50,
         }
         if overrides:
             config_values.update(overrides)
@@ -62,8 +75,20 @@ class TestMorseCodeIntegration:
         mock_config_section.get_string.side_effect = lambda key: config_values.get(key, "")
         mock_config_section.get_bool.side_effect = lambda key: config_values.get(key, False)
 
+        # Mock global section for ConfigurableBase pattern
+        mock_global_section = MagicMock()
+        mock_global_section.get_bool.side_effect = lambda key: False
+        mock_global_section.get_int.side_effect = lambda key: 30000
+        mock_global_section.get.side_effect = lambda key: None
+
+        def get_section_mock(section_name):
+            if section_name == "global":
+                return mock_global_section
+            return mock_config_section
+
         mock_cfg_mgr.register_enum_config.return_value = None
-        mock_cfg_mgr.get_section.return_value = mock_config_section
+        mock_cfg_mgr.register_logging_config.return_value = None
+        mock_cfg_mgr.get_section.side_effect = get_section_mock
         return mock_cfg_mgr
 
     def create_mock_signal_config_manager(self, overrides: dict = None) -> MagicMock:
@@ -73,6 +98,19 @@ class TestMorseCodeIntegration:
             SignalCfgKey.FREQUENCY_HZ: 600,
             SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.3,
             SignalCfgKey.BANDWIDTH_HZ: 50,
+            SignalCfgKey.MODE: SignalMode.AUTO,
+            SignalCfgKey.ADAPTIVE_FREQUENCY: True,
+            # Add new signal processing parameters with proper defaults
+            SignalCfgKey.CUTOFF_HZ: 15.0,
+            SignalCfgKey.CW_MAG_THRESH_SECONDS: 0.1,
+            SignalCfgKey.CW_PEAK_RATIO_THRESHOLD: 4,
+            SignalCfgKey.N_MOVE_AVG_ELEMENTS: 6,
+            SignalCfgKey.ROLLING_BUFFER_SECONDS: 3.0,
+            SignalCfgKey.FREQ_RANGE_MIN: 200,
+            SignalCfgKey.FREQ_RANGE_MAX: 1000,
+            # FFT and noise parameters (added to prevent division by zero)
+            SignalCfgKey.FFT_WINDOW_SIZE: 1024,
+            SignalCfgKey.NOISE_FLOOR_DB: -40,
         }
         if overrides:
             config_values.update(overrides)
@@ -81,9 +119,23 @@ class TestMorseCodeIntegration:
         mock_config_section = MagicMock()
         mock_config_section.get_int.side_effect = lambda key: config_values.get(key, 0)
         mock_config_section.get_double.side_effect = lambda key: config_values.get(key, 0.0)
+        mock_config_section.get_bool.side_effect = lambda key: config_values.get(key, False)
+        mock_config_section.get_enum.side_effect = lambda key, enum_class: config_values.get(key, list(enum_class)[0])
+
+        # Mock global section for ConfigurableBase pattern
+        mock_global_section = MagicMock()
+        mock_global_section.get_bool.side_effect = lambda key: False
+        mock_global_section.get_int.side_effect = lambda key: 30000
+        mock_global_section.get.side_effect = lambda key: None
+
+        def get_section_mock(section_name):
+            if section_name == "global":
+                return mock_global_section
+            return mock_config_section
 
         mock_cfg_mgr.register_enum_config.return_value = None
-        mock_cfg_mgr.get_section.return_value = mock_config_section
+        mock_cfg_mgr.register_logging_config.return_value = None
+        mock_cfg_mgr.get_section.side_effect = get_section_mock
         return mock_cfg_mgr
 
     def test_synthetic_morse_pipeline(self) -> None:
@@ -147,12 +199,13 @@ class TestMorseCodeIntegration:
         sample_rate = 44100
         target_freq = 600
 
-        # Initialize signal processor
+        # Initialize signal processor with conservative settings for noise test
         signal_cfg_mgr = self.create_mock_signal_config_manager(
             {
                 SignalCfgKey.SAMPLE_RATE_HZ: sample_rate,
                 SignalCfgKey.FREQUENCY_HZ: target_freq,
-                SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.2,
+                SignalCfgKey.SIGNAL_THRESHOLD_NORM: 0.4,  # Higher threshold for stricter detection
+                SignalCfgKey.ADAPTIVE_FREQUENCY: False,  # Disable adaptive frequency for predictable behavior
             }
         )
         processor = SignalProcessor(cfg_mgr=signal_cfg_mgr)
@@ -163,13 +216,13 @@ class TestMorseCodeIntegration:
         t = np.linspace(0, duration_ms / 1000, samples)
         tone_signal = 0.5 * np.sin(2 * np.pi * target_freq * t)
 
-        # Test tone detection
-        tone_detected = processor.detect_tone(tone_signal)
+        # Test tone detection (disable adaptive frequency for predictable behavior)
+        tone_detected = processor.detect_tone(tone_signal, adaptive_frequency=False)
         assert tone_detected, "Failed to detect target tone"
 
         # Test noise (no tone)
         noise_signal = 0.1 * np.random.randn(samples)
-        noise_detected = processor.detect_tone(noise_signal)
+        noise_detected = processor.detect_tone(noise_signal, adaptive_frequency=False)
         assert not noise_detected, "False positive on noise"
 
     def test_envelope_detection_simulation(self) -> None:

@@ -1,11 +1,7 @@
-"""Component implementations and factories.
+"""Component implementations.
 
-This package contains concrete implementations of the protocol interfaces
-and factory classes for creating configured components.
+This package contains concrete implementations using the ConfigurableBase pattern
+for type-safe configuration and runtime reconfiguration support.
 """
 
-from .factory import ComponentFactory
-
-__all__ = [
-    "ComponentFactory",
-]
+# No exports needed - components are imported directly where used
