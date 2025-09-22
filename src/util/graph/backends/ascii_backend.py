@@ -13,10 +13,11 @@ from typing import Union
 
 from ..core.data_buffer import DataBuffer
 from ..core.time_axis import TimeAxis
-from ..utils.decimation import SmartDecimation, Backend
+from ..utils.decimation import Backend, SmartDecimation
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False

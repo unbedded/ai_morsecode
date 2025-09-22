@@ -45,46 +45,55 @@ Direct backend usage:
 """
 
 # Core components
-from .core.time_axis import TimeAxis
-from .core.data_buffer import DataBuffer
-
 # Backend implementations
 from .backends.ascii_backend import ASCIIBackend
 from .backends.braille_backend import BrailleBackend
+from .core.data_buffer import DataBuffer
+from .core.time_axis import TimeAxis
 
 # Utilities
-from .utils.decimation import SmartDecimation, Backend
+from .utils.decimation import Backend, SmartDecimation
+
 
 # Convenience functions (imported on demand to avoid circular imports)
 def plot_signal_ascii(*args, **kwargs):
+    """Plot signal using ASCII backend (convenience function)."""
     from .utils.convenience import plot_signal_ascii as _plot_signal_ascii
+
     return _plot_signal_ascii(*args, **kwargs)
 
+
 def plot_signal_braille(*args, **kwargs):
+    """Plot signal using Braille backend (convenience function)."""
     from .utils.convenience import plot_signal_braille as _plot_signal_braille
+
     return _plot_signal_braille(*args, **kwargs)
 
+
 def plot_signal_auto(*args, **kwargs):
+    """Plot signal using automatic backend selection (convenience function)."""
     from .utils.convenience import plot_signal_auto as _plot_signal_auto
+
     return _plot_signal_auto(*args, **kwargs)
 
+
 def compare_backends(*args, **kwargs):
+    """Compare ASCII and Braille backends side-by-side (convenience function)."""
     from .utils.convenience import compare_backends as _compare_backends
+
     return _compare_backends(*args, **kwargs)
+
 
 __all__ = [
     # Core components
     "TimeAxis",
     "DataBuffer",
-
     # Backends
     "ASCIIBackend",
     "BrailleBackend",
-
     # Utilities
     "SmartDecimation",
     "Backend",
-
     # Convenience functions
     "plot_signal_ascii",
     "plot_signal_braille",

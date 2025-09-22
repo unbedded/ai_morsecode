@@ -11,12 +11,10 @@ Usage:
 
 import math
 import os
-import sys
 import time
-from typing import List
 
 
-def generate_ramp_wave(length: int = 40, cycles: int = 4) -> List[float]:
+def generate_ramp_wave(length: int = 40, cycles: int = 4) -> list[float]:
     """Generate a sawtooth/ramp wave from 0 to 1."""
     values = []
     for i in range(length):
@@ -27,7 +25,7 @@ def generate_ramp_wave(length: int = 40, cycles: int = 4) -> List[float]:
     return values
 
 
-def render_ascii_filled(data: List[float], width: int = 50, height: int = 8) -> List[str]:
+def render_ascii_filled(data: list[float], width: int = 50, height: int = 8) -> list[str]:
     """Render data as filled ASCII plot (current style)."""
     if not data:
         return [" " * width for _ in range(height)]
@@ -74,23 +72,23 @@ def test_braille_support() -> bool:
     """Test if terminal supports Braille characters."""
     try:
         # Check locale
-        lang = os.environ.get('LANG', '')
-        if not lang.endswith('.UTF-8'):
+        lang = os.environ.get("LANG", "")
+        if not lang.endswith(".UTF-8"):
             return False
 
         # Test basic Braille rendering
-        test_chars = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-        print(f"Braille test: {test_chars}", end='', flush=True)
-        print('\r' + ' ' * 30 + '\r', end='', flush=True)  # Clear test line
+        test_chars = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        print(f"Braille test: {test_chars}", end="", flush=True)
+        print("\r" + " " * 30 + "\r", end="", flush=True)  # Clear test line
         return True
     except UnicodeEncodeError:
         return False
 
 
-def render_braille_filled(data: List[float], width: int = 50, height: int = 4) -> List[str]:
+def render_braille_filled(data: list[float], width: int = 50, height: int = 4) -> list[str]:
     """Render data as filled Braille plot (2x horizontal resolution)."""
     if not data:
-        return ['⠀' * width for _ in range(height)]
+        return ["⠀" * width for _ in range(height)]
 
     # Braille advantage: 2x horizontal resolution (left + right columns)
     effective_width = width * 2  # Each Braille char can show 2 data points
@@ -104,14 +102,22 @@ def render_braille_filled(data: List[float], width: int = 50, height: int = 4) -
 
     # Braille dot patterns for different vertical levels (0-7)
     # Using proper left/right column combinations
-    dot_patterns = {
+    _dot_patterns = {
         # Format: (left_col_level, right_col_level) -> braille_char
-        (0, 0): '⠀',  # Empty
-        (1, 0): '⠁', (0, 1): '⠈', (1, 1): '⠉',  # Bottom dots
-        (2, 0): '⠃', (0, 2): '⠘', (2, 2): '⠛',  # Mid-bottom
-        (3, 0): '⠇', (0, 3): '⠸', (3, 3): '⠿',  # Higher levels
-        (4, 0): '⠏', (0, 4): '⠰', (4, 4): '⠿',  # Even higher
-        (7, 7): '⠿',  # Full block
+        (0, 0): "⠀",  # Empty
+        (1, 0): "⠁",
+        (0, 1): "⠈",
+        (1, 1): "⠉",  # Bottom dots
+        (2, 0): "⠃",
+        (0, 2): "⠘",
+        (2, 2): "⠛",  # Mid-bottom
+        (3, 0): "⠇",
+        (0, 3): "⠸",
+        (3, 3): "⠿",  # Higher levels
+        (4, 0): "⠏",
+        (0, 4): "⠰",
+        (4, 4): "⠿",  # Even higher
+        (7, 7): "⠿",  # Full block
     }
 
     rows = []
@@ -169,7 +175,7 @@ def render_braille_filled(data: List[float], width: int = 50, height: int = 4) -
             char = create_braille_char(left_show, right_show)
             row_chars.append(char)
 
-        rows.append(''.join(row_chars))
+        rows.append("".join(row_chars))
 
     return rows
 
@@ -178,26 +184,26 @@ def create_braille_char(left_level: int, right_level: int) -> str:
     """Create Braille character from left and right column levels (0-7)."""
     # Simplified mapping - in real implementation, we'd have full 8x8 matrix
     if left_level == 0 and right_level == 0:
-        return '⠀'
+        return "⠀"
     elif left_level == 7 and right_level == 7:
-        return '⠿'
+        return "⠿"
     elif left_level > 0 and right_level == 0:
-        patterns = ['⠀', '⠁', '⠃', '⠇', '⠏', '⠟', '⠿', '⠿']
+        patterns = ["⠀", "⠁", "⠃", "⠇", "⠏", "⠟", "⠿", "⠿"]
         return patterns[min(left_level, 7)]
     elif left_level == 0 and right_level > 0:
-        patterns = ['⠀', '⠈', '⠘', '⠸', '⠰', '⠿', '⠿', '⠿']
+        patterns = ["⠀", "⠈", "⠘", "⠸", "⠰", "⠿", "⠿", "⠿"]
         return patterns[min(right_level, 7)]
     else:
         # Both have signal - combine patterns (simplified)
-        combined_patterns = ['⠀', '⠉', '⠛', '⠿', '⠿', '⠿', '⠿', '⠿']
+        combined_patterns = ["⠀", "⠉", "⠛", "⠿", "⠿", "⠿", "⠿", "⠿"]
         avg_level = (left_level + right_level) // 2
         return combined_patterns[min(avg_level, 7)]
 
 
-def render_braille_thin_line(data: List[float], width: int = 50, height: int = 4) -> List[str]:
+def render_braille_thin_line(data: list[float], width: int = 50, height: int = 4) -> list[str]:
     """Render data as thin line Braille plot (2x horizontal resolution)."""
     if not data:
-        return ['⠀' * width for _ in range(height)]
+        return ["⠀" * width for _ in range(height)]
 
     # Braille advantage: 2x horizontal resolution (left + right columns)
     effective_width = width * 2  # Each Braille char can show 2 data points
@@ -242,7 +248,7 @@ def render_braille_thin_line(data: List[float], width: int = 50, height: int = 4
             char = create_thin_line_braille_char(left_show, right_show)
             row_chars.append(char)
 
-        rows.append(''.join(row_chars))
+        rows.append("".join(row_chars))
 
     return rows
 
@@ -251,23 +257,23 @@ def create_thin_line_braille_char(left_level: int, right_level: int) -> str:
     """Create thin line Braille character from left and right column levels."""
     # Single dots only (no filling)
     if left_level == 0 and right_level == 0:
-        return '⠀'
+        return "⠀"
     elif left_level > 0 and right_level == 0:
         # Left column only
-        left_dots = ['⠀', '⠁', '⠂', '⠄', '⠈', '⠐', '⠠', '⡀']
+        left_dots = ["⠀", "⠁", "⠂", "⠄", "⠈", "⠐", "⠠", "⡀"]
         return left_dots[min(left_level, 7)]
     elif left_level == 0 and right_level > 0:
         # Right column only
-        right_dots = ['⠀', '⠈', '⠘', '⠸', '⠰', '⠿', '⠿', '⠿']
+        right_dots = ["⠀", "⠈", "⠘", "⠸", "⠰", "⠿", "⠿", "⠿"]
         return right_dots[min(right_level, 7)]
     else:
         # Both columns have dots - combine single dots
-        combined_dots = ['⠀', '⠉', '⠊', '⠋', '⠌', '⠍', '⠎', '⠏']
+        combined_dots = ["⠀", "⠉", "⠊", "⠋", "⠌", "⠍", "⠎", "⠏"]
         avg_level = (left_level + right_level) // 2
         return combined_dots[min(avg_level, 7)]
 
 
-def render_ascii_thin_line(data: List[float], width: int = 50, height: int = 8) -> List[str]:
+def render_ascii_thin_line(data: list[float], width: int = 50, height: int = 8) -> list[str]:
     """Render data as thin line ASCII plot (new style)."""
     if not data:
         return [" " * width for _ in range(height)]
@@ -307,7 +313,7 @@ def render_ascii_thin_line(data: List[float], width: int = 50, height: int = 8) 
     return rows
 
 
-def print_plot(lines: List[str], title: str, y_labels: List[str] = None):
+def print_plot(lines: list[str], title: str, y_labels: list[str] = None):
     """Print a plot with title and optional Y-axis labels."""
     if y_labels is None:
         y_labels = ["1.0", "0.7", "0.5", "0.3", "0.1"]
@@ -336,8 +342,8 @@ def main():
     # Test Braille support
     print("\n🧪 Testing terminal capabilities...")
     braille_supported = test_braille_support()
-    lang = os.environ.get('LANG', 'not set')
-    ssh = 'SSH_CONNECTION' in os.environ
+    lang = os.environ.get("LANG", "not set")
+    ssh = "SSH_CONNECTION" in os.environ
 
     print(f"   LANG: {lang}")
     print(f"   SSH: {'Yes' if ssh else 'No'}")
@@ -355,9 +361,9 @@ def main():
     print(f"   Range: {min(ramp_data):.2f} to {max(ramp_data):.2f}")
     print(f"   Sample values: {[f'{x:.2f}' for x in ramp_data[:8]]}...")
 
-    print(f"\n🎯 Resolution comparison for width=50:")
-    print(f"   ASCII Backend:   50 chars = 50 data points")
-    print(f"   Braille Backend: 50 chars = 100 data points (2x resolution!)")
+    print("\n🎯 Resolution comparison for width=50:")
+    print("   ASCII Backend:   50 chars = 50 data points")
+    print("   Braille Backend: 50 chars = 100 data points (2x resolution!)")
 
     time.sleep(1)
 
@@ -465,7 +471,7 @@ def main():
         braille_sine_labels = ["1.0", "0.65", "0.35", "0.0"]
         print_plot(sine_braille_filled, "Sine - Braille Filled", braille_sine_labels)
 
-    print(f"\n🎉 Demo complete! Ready to implement UILT with backend selection.")
+    print("\n🎉 Demo complete! Ready to implement UILT with backend selection.")
 
 
 if __name__ == "__main__":

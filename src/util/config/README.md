@@ -2,9 +2,11 @@
 
 This is the **canonical reference** for using the `util/config` system in any Python project.
 
-## 📖 Human Developer Documentation
+## 📖 Quick Reference for Developers
 
 Universal Configuration System providing type-safe, enum-based configuration with automatic validation, unit safety, and component self-registration. Prevents Mars Climate Orbiter disasters through unit naming and provides 100% compile-time type safety.
+
+> 📄 **For design philosophy and architecture details**, see [`../docs/article_config.md`](../docs/article_config.md)
 
 ## 🚀 Quick Demo
 

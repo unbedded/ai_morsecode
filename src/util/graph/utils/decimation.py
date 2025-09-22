@@ -10,6 +10,7 @@ from typing import Union
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -20,6 +21,7 @@ ArrayLike = Union[list[float], "np.ndarray"]
 
 class Backend(Enum):
     """Supported rendering backends."""
+
     ASCII = "ascii"
     BRAILLE = "braille"
     MATPLOTLIB = "matplotlib"

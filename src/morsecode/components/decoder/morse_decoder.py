@@ -28,7 +28,7 @@ import numpy as np
 from morsecode.components.decoder.keys import CfgKey, CfgSection
 from morsecode.components.decoder.schema import ConfigSchema
 from morsecode.events.bus import get_global_event_bus
-from morsecode.events.types import MorsePatternEvent, TextDecodedEvent
+from morsecode.events.types import MorsePatternEvent, MorseProbabilityEvent, TextDecodedEvent
 from util.config import ConfigurableBase
 
 # Constants for morse code timing
@@ -143,6 +143,7 @@ class MorseDecoder(ConfigurableBase):
         self._total_dots_decoded: int = 0
         self._total_dashes_decoded: int = 0
         self._total_characters_decoded: int = 0
+        self._chunk_counter: int = 0
 
         # Get global event bus for publishing events
         self._event_bus = get_global_event_bus()
@@ -299,8 +300,12 @@ class MorseDecoder(ConfigurableBase):
 
                     self.logger.debug("Tone ended at %.1fms, duration: %.1fms", self._current_time, tone_duration)
 
-            # Update current time
+            # Update current time and chunk counter
             self._current_time += chunk_duration_ms
+            self._chunk_counter += 1
+
+            # Calculate and publish probability events for real-time visualization
+            self._publish_probability_event(tone_detected, chunk_duration_ms)
 
         except Exception as e:
             self.logger.exception("Error processing tone detection: %s", str(e))
@@ -521,3 +526,111 @@ class MorseDecoder(ConfigurableBase):
         except Exception as e:
             self.logger.exception("Error estimating WPM: %s", str(e))
             return float(self.wpm_estimate)
+
+    def _publish_probability_event(self, tone_detected: bool, chunk_duration_ms: float) -> None:
+        """Calculate and publish Morse probability events for real-time visualization.
+
+        Args:
+            tone_detected: Whether tone was detected in this chunk
+            chunk_duration_ms: Duration of the audio chunk in milliseconds
+        """
+        try:
+            # Calculate probabilities based on current decoder state
+            prob_dit = self._calculate_dit_probability(tone_detected)
+            prob_dash = self._calculate_dash_probability(tone_detected)
+            prob_letter_space = self._calculate_letter_space_probability()
+            prob_word_space = self._calculate_word_space_probability()
+
+            # Create and publish the event
+            event = MorseProbabilityEvent(
+                prob_dit=prob_dit,
+                prob_dash=prob_dash,
+                prob_letter_space=prob_letter_space,
+                prob_word_space=prob_word_space,
+                chunk_number=self._chunk_counter,
+            )
+
+            self._event_bus.publish(event)
+
+        except Exception as e:
+            self.logger.debug("Error publishing probability event: %s", str(e))
+
+    def _calculate_dit_probability(self, tone_detected: bool) -> float:
+        """Calculate probability that current state represents a dit (dot)."""
+        if not tone_detected:
+            return 0.0
+
+        if self._tone_start_time is None:
+            return 0.1  # Low probability at start of tone
+
+        # Calculate current tone duration
+        current_duration = self._current_time - self._tone_start_time
+        expected_dot = self.dot_duration_ms
+        tolerance = self.detection_tolerance
+
+        # Gaussian-like probability centered on expected dot duration
+        deviation = abs(current_duration - expected_dot) / expected_dot
+        if deviation <= tolerance:
+            return max(0.1, 1.0 - (deviation / tolerance) * 0.8)
+        else:
+            return 0.1
+
+    def _calculate_dash_probability(self, tone_detected: bool) -> float:
+        """Calculate probability that current state represents a dash."""
+        if not tone_detected:
+            return 0.0
+
+        if self._tone_start_time is None:
+            return 0.1  # Low probability at start of tone
+
+        # Calculate current tone duration
+        current_duration = self._current_time - self._tone_start_time
+        expected_dash = self.dash_duration_ms
+        tolerance = self.detection_tolerance
+
+        # Gaussian-like probability centered on expected dash duration
+        deviation = abs(current_duration - expected_dash) / expected_dash
+        if deviation <= tolerance:
+            return max(0.1, 1.0 - (deviation / tolerance) * 0.8)
+        else:
+            return 0.1
+
+    def _calculate_letter_space_probability(self) -> float:
+        """Calculate probability that we're in a letter space (between characters)."""
+        if self._tone_start_time is not None:
+            return 0.0  # Can't be in letter space during tone
+
+        if self._last_tone_end_time is None:
+            return 0.0  # No previous tone
+
+        # Calculate current silence duration
+        silence_duration = self._current_time - self._last_tone_end_time
+        expected_letter_space = self.character_spacing_ms
+        tolerance = self.detection_tolerance
+
+        # Probability increases as we approach expected letter space duration
+        if silence_duration < expected_letter_space * (1 - tolerance):
+            return float(min(0.9, silence_duration / (expected_letter_space * (1 - tolerance))))
+        elif silence_duration > expected_letter_space * (1 + tolerance):
+            return float(max(0.1, 1.0 - (silence_duration - expected_letter_space) / expected_letter_space * 0.5))
+        else:
+            return 0.9
+
+    def _calculate_word_space_probability(self) -> float:
+        """Calculate probability that we're in a word space (between words)."""
+        if self._tone_start_time is not None:
+            return 0.0  # Can't be in word space during tone
+
+        if self._last_tone_end_time is None:
+            return 0.0  # No previous tone
+
+        # Calculate current silence duration
+        silence_duration = self._current_time - self._last_tone_end_time
+        expected_word_space = self.word_spacing_ms
+        tolerance = self.detection_tolerance
+
+        # Probability increases as we approach expected word space duration
+        if silence_duration < expected_word_space * (1 - tolerance):
+            return float(min(0.9, silence_duration / (expected_word_space * (1 - tolerance))))
+        else:
+            return 0.9

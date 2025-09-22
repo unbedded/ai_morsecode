@@ -1,10 +1,9 @@
 """YAML Configuration Manager with enum-based validation.
 
 This module provides a clean, simple config system that:
-- Uses ConfigRegistry for config file generation
-- Uses single YAML file for all configuration
+- Uses XDG standard location: ~/.config/morsecode/config.yaml
 - Auto-creates default config if none exists
-- Searches multiple default locations
+- Override with --cfg-file for custom locations
 - Validates against enum-based CfgField definitions
 - Supports profile postfix overrides (e.g., setting_debug, setting_production)
 - Provides excellent error handling and logging integration
@@ -51,15 +50,20 @@ class ConfigSection:
         key_str = key.value if hasattr(key, "value") else str(key)
 
         # Try to get value from config data first
+        value = None
         if key_str in self._config_data:
             value = self._config_data[key_str]
+            # If value is explicitly None/null, treat as missing and use schema default
+            if value is None:
+                value = self._get_schema_default(key_str)
         else:
             # Fall back to schema default if available
             value = self._get_schema_default(key_str)
-            if value is None:
-                raise KeyError(
-                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
-                )
+
+        if value is None:
+            raise KeyError(
+                f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+            )
 
         try:
             return int(value)
@@ -82,15 +86,20 @@ class ConfigSection:
         key_str = key.value if hasattr(key, "value") else str(key)
 
         # Try to get value from config data first
+        value = None
         if key_str in self._config_data:
             value = self._config_data[key_str]
+            # If value is explicitly None/null, treat as missing and use schema default
+            if value is None:
+                value = self._get_schema_default(key_str)
         else:
             # Fall back to schema default if available
             value = self._get_schema_default(key_str)
-            if value is None:
-                raise KeyError(
-                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
-                )
+
+        if value is None:
+            raise KeyError(
+                f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+            )
 
         try:
             return float(value)
@@ -144,15 +153,20 @@ class ConfigSection:
         key_str = key.value if hasattr(key, "value") else str(key)
 
         # Try to get value from config data first
+        value = None
         if key_str in self._config_data:
             value = self._config_data[key_str]
+            # If value is explicitly None/null, treat as missing and use schema default
+            if value is None:
+                value = self._get_schema_default(key_str)
         else:
             # Fall back to schema default if available
             value = self._get_schema_default(key_str)
-            if value is None:
-                raise KeyError(
-                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
-                )
+
+        if value is None:
+            raise KeyError(
+                f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+            )
 
         if isinstance(value, bool):
             return value
@@ -276,30 +290,21 @@ class AwesomeConfigManager:
         self._load_config()
 
     def _find_or_create_config(self, config_file: str | None) -> Path:
-        """Find existing config or create new one in appropriate location."""
+        """Find existing config or create new one using XDG standard location."""
         if config_file:
             return Path(config_file)
 
-        # Default search locations in priority order
-        search_paths = [
-            Path("config/config.yaml"),  # Current directory (project-specific)
-            Path.home() / ".config" / "app" / "config.yaml",  # User config dir
-            Path.home() / ".config.yaml",  # User home (fallback)
-        ]
+        # XDG Base Directory Specification: ~/.config/morsecode/config.yaml
+        config_path = Path.home() / ".config" / "morsecode" / "config.yaml"
 
-        # Check if any existing config exists
-        for path in search_paths:
-            if path.exists():
-                return path
+        if not config_path.exists():
+            self._create_initial_config(config_path)
 
-        # No config found - create new one in first location
-        config_path = search_paths[0]
-        self._create_initial_config(config_path)
         return config_path
 
     def _create_initial_config(self, config_path: Path) -> None:
-        """Create initial configuration file using registry."""
-        # Ensure directory exists
+        """Create initial configuration file and directory structure."""
+        # Ensure config directory exists
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Create minimal application config template
@@ -317,6 +322,15 @@ class AwesomeConfigManager:
             f.write("  debug: false\n")
             f.write('  log_level: "INFO"\n')
             f.write("  output_file: null\n")
+            f.write("  \n")
+            f.write("  # Development vs Production mode\n")
+            f.write("  development_mode: true  # Set to false for embedded/production deployment\n")
+            f.write("  \n")
+            f.write("  # Embedded system logging (performance monitoring)\n")
+            f.write("  log_to_file: true\n")
+            f.write('  log_directory: "/var/log/morsecode"  # Falls back to ~/.local/share/morsecode/logs\n')
+            f.write("  log_max_files: 10\n")
+            f.write("  log_max_size_mb: 100\n")
             f.write("  \n")
             f.write("  # Per-component log level overrides\n")
             f.write("  logging: {}\n")

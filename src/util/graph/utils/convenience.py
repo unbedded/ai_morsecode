@@ -11,6 +11,7 @@ from typing import Union
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -123,12 +124,13 @@ def plot_signal_auto(
         try:
             # Try Braille first
             from ..backends.braille_backend import BrailleBackend
+
             backend = BrailleBackend(width, height, title)
             backend.plot(data, sample_rate_hz=sample_rate_hz)
             lines = backend.render_braille()
             # Test if we can actually print Braille characters
-            test_char = '⠁'
-            test_char.encode('utf-8')  # This will raise if no UTF-8 support
+            test_char = "⠁"
+            test_char.encode("utf-8")  # This will raise if no UTF-8 support
             return lines, "BRAILLE"
         except (UnicodeEncodeError, UnicodeError):
             # Fall back to ASCII
@@ -136,6 +138,7 @@ def plot_signal_auto(
 
     # Use ASCII backend
     from ..backends.ascii_backend import ASCIIBackend
+
     backend = ASCIIBackend(width, height, title)
     backend.plot(data, sample_rate_hz=sample_rate_hz)
     lines = backend.render_sparkline()
@@ -152,6 +155,7 @@ def compare_backends(
     """Compare ASCII vs Braille backends side by side.
 
     Useful for demonstrating the resolution advantage of Braille.
+    Uses pre-decimated data to ensure fair comparison between backends.
 
     Args:
         data: Signal data to plot
@@ -172,13 +176,26 @@ def compare_backends(
     """
     from ..backends.ascii_backend import ASCIIBackend
     from ..backends.braille_backend import BrailleBackend
+    from ..utils.decimation import Backend, SmartDecimation
 
+    # Pre-decimate to ASCII resolution for fair comparison
+    # This ensures both backends see the same data points
+    ascii_decimated = SmartDecimation.decimate(data, Backend.ASCII, width, height)
+
+    # For Braille, we need to duplicate data points to match 2x resolution
+    # Each ASCII point becomes two identical Braille points
+    braille_decimated = []
+    for value in ascii_decimated:
+        braille_decimated.extend([value, value])
+
+    # Render ASCII with pre-decimated data
     ascii_backend = ASCIIBackend(width, height, "ASCII")
-    ascii_backend.plot(data, sample_rate_hz=sample_rate_hz)
+    ascii_backend.plot(ascii_decimated, sample_rate_hz=sample_rate_hz)
     ascii_lines = ascii_backend.render_sparkline()
 
+    # Render Braille with duplicated data for 2x resolution
     braille_backend = BrailleBackend(width, height, "Braille")
-    braille_backend.plot(data, sample_rate_hz=sample_rate_hz)
+    braille_backend.plot(braille_decimated, sample_rate_hz=sample_rate_hz)
     braille_lines = braille_backend.render_braille()
 
     # Combine side by side

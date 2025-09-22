@@ -112,6 +112,8 @@ def run_decoder_configurable(
     config_manager: AwesomeConfigManager,
     overrides: dict[str, Any] | None = None,
     output_file: str | None = None,
+    debug_graphics: bool = False,
+    real_time: bool = False,
 ) -> int:
     """Run decoder with ConfigurableBase components directly.
 
@@ -122,10 +124,14 @@ def run_decoder_configurable(
         config_manager: AwesomeConfigManager with loaded configuration
         overrides: Optional configuration overrides to apply
         output_file: Optional output file path (None for stdout)
+        debug_graphics: If True, enable ASCII debug graphics display for SSH debugging
+        real_time: If True, process audio in real-time for live oscilloscope debugging
 
     Returns:
         Exit code (0 for success, 1 for error)
     """
+    debug_display = None  # Initialize at function scope for cleanup
+
     try:
         logger.info("Starting Morse code decoder (ConfigurableBase architecture)")
 
@@ -140,41 +146,100 @@ def run_decoder_configurable(
 
         logger.info("Initializing ConfigurableBase components")
 
+        # Real-time mode requires smaller FFT window for 20ms chunks
+        signal_overrides = overrides.get("signal", {}).copy() if overrides else {}
+        if real_time:
+            # 20ms chunks at 44100 Hz = 882 samples, so use 512-sample FFT window
+            signal_overrides["fft_window_size"] = 512
+            logger.info("Real-time mode: using smaller FFT window (512 samples) for 20ms chunks")
+
+        # Convert empty dict to None for consistency with test expectations
+        signal_overrides = signal_overrides if signal_overrides else None
+
         # Initialize components directly with ConfigurableBase pattern
         # This is clean: no typed configs, no mock managers, direct instantiation
         hal = HardwareAbstractionLayer(config_manager, overrides=overrides.get("audio") if overrides else None)
-        processor = SignalProcessor(cfg_mgr=config_manager, overrides=overrides.get("signal") if overrides else None)
+        processor = SignalProcessor(cfg_mgr=config_manager, overrides=signal_overrides)
         decoder = MorseDecoder(cfg_mgr=config_manager, overrides=overrides.get("decoder") if overrides else None)
 
         logger.info("Components initialized successfully")
 
-        # Set up progress reporting via events
-        progress_reporter = ProgressReporter()
-        progress_reporter.setup_event_subscriptions()
+        # Initialize ASCII debug display if requested
+        if debug_graphics:
+            from .components.graphics.debug_display import ASCIIDebugDisplay
+
+            logger.info("Initializing ASCII debug display for SSH debugging")
+            debug_display = ASCIIDebugDisplay(
+                config_manager, overrides=overrides.get("debug_display") if overrides else None
+            )
+            debug_display.start_display()
+            print("🔍 ASCII Debug Display started - PyQt replacement for SSH debugging")
+            print("   Press Ctrl+C to stop...")
+
+        # Set up progress reporting via events (only if debug display is not active)
+        progress_reporter = None
+        if not debug_graphics:
+            progress_reporter = ProgressReporter()
+            progress_reporter.setup_event_subscriptions()
 
         # Process audio using the same logic but cleaner components
         try:
-            if not hal.has_data():
+            # Debug: Check audio data status
+            has_data = hal.has_data()
+            logger.info("Audio data check: has_data=%s", has_data)
+
+            if not has_data:
                 logger.error("No audio data available")
                 print("Error: No audio data to process", file=sys.stderr)
                 return 1
 
-            logger.info("Processing audio data...")
+            if real_time:
+                logger.info("Processing audio data in REAL-TIME mode for live debugging...")
+                print("🎵 Real-time processing mode enabled - watch the oscilloscope!")
+            else:
+                logger.info("Processing audio data in BATCH mode...")
+
+            # Real-time processing variables - smaller chunks for better time granularity
+            chunk_duration_ms = 20  # ms per chunk (reduced from 50ms for finer granularity)
+            real_time_delay = chunk_duration_ms / 1000.0  # Convert to seconds
+
+            chunk_count = 0
+            logger.info("Starting audio processing loop - real_time=%s", real_time)
 
             while hal.has_data():
                 try:
+                    chunk_count += 1
+                    # Real-time timing: sleep to match actual audio playback speed
+                    if real_time:
+                        time.sleep(real_time_delay)
+
+                    # Debug: Log first few chunks in real-time mode
+                    if real_time and chunk_count <= 3:
+                        logger.info("Real-time chunk %d: processing with delay=%.3fs", chunk_count, real_time_delay)
+
                     # Get next audio chunk
-                    audio_data = hal.get_next_chunk(update_interval_ms=50)
+                    audio_data = hal.get_next_chunk(update_interval_ms=chunk_duration_ms)
+
+                    # Debug: Log processing activity
+                    if chunk_count % 50 == 1:  # Log every 50 chunks to avoid spam
+                        logger.debug("Processing chunk %d: %d samples", chunk_count, len(audio_data))
 
                     # Process through signal processor
                     tone_detected = processor.detect_tone(audio_data)
 
+                    # Debug: Log tone detection results for first few chunks in real-time mode
+                    if real_time and chunk_count <= 3:
+                        logger.info("Real-time chunk %d: tone_detected=%s", chunk_count, tone_detected)
+
                     # Feed to decoder
-                    decoder.process_tone_detection(tone_detected, 50.0)  # 50ms chunks
+                    decoder.process_tone_detection(tone_detected, float(chunk_duration_ms))
 
                 except Exception as e:
                     logger.error("Error processing audio chunk: %s", e)
                     break
+
+            # Log completion stats
+            logger.info("Audio processing complete: processed %d chunks", chunk_count)
 
             # Finalize decoding
             decoder.finalize_decoding()
@@ -193,7 +258,22 @@ def run_decoder_configurable(
             print(f"Error: Audio processing failed - {e}", file=sys.stderr)
             return 1
 
+        finally:
+            # Clean up debug display if it was started
+            if debug_display:
+                logger.debug("Cleaning up debug display from finally block")
+                debug_display.stop_display()
+
+    except KeyboardInterrupt:
+        logger.info("Processing interrupted by user")
+        print("\nProcessing interrupted by user")
+        if debug_display:
+            debug_display.stop_display()
+        return 1
+
     except Exception as e:
         logger.exception("Unexpected error during decoding")
         print(f"Error: Unexpected error - {e}", file=sys.stderr)
+        if debug_display:
+            debug_display.stop_display()
         return 1

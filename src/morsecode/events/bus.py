@@ -185,8 +185,14 @@ class EventBus:
         handlers = handlers.copy()  # Avoid modification during iteration
         for handler in handlers:
             try:
+                # Debug: Log handler calls for FFT events
+                if event_type.__name__ == "FFTSpectrumEvent":
+                    self.logger.debug(f"Calling FFT handler: {getattr(handler, '__name__', str(handler))}")
                 handler(event)
                 self._stats["events_handled"] += 1
+                if event_type.__name__ == "FFTSpectrumEvent":
+                    self.logger.debug("FFT handler completed successfully")
+
             except Exception as e:
                 self._stats["handler_errors"] += 1
                 handler_name = getattr(handler, "__name__", str(handler))

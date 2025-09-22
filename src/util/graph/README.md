@@ -1,26 +1,69 @@
-# UTIL Graphing Library - Universal Interface for Live Telemetry (UILT)
+# UTIL Graphics System - AI Development Guide
 
-## 🎯 **Overview**
+This is the **canonical reference** for using the `util/graph` system in any Python project.
 
-A high-performance asyncio-based graphing utility with matplotlib-like interface that supports multiple output backends (ASCII, Braille, Sparklines) for real-time data visualization. Designed for SSH-friendly debugging and live telemetry display.
+## 📖 Quick Reference for Developers
 
-## 🏗️ **Architecture Design**
+UILT (Universal Interface for Live Telemetry) provides SSH-friendly signal visualization with backend-aware decimation, 2x resolution Braille mode, and matplotlib-like API. Works across any terminal environment for real-time telemetry.
 
-### **Core Principles**
-- **Asyncio-driven**: Non-blocking real-time updates
-- **Backend Agnostic**: ASCII, Braille, Sparklines, and future matplotlib GUI
+> 📄 **For design philosophy and architecture details**, see [`../docs/article_ascii_graphing.md`](../docs/article_ascii_graphing.md)
+
+## 🚀 Quick Demo
+
+```bash
+cd src/util/graph/examples
+python signal_visualization_demo.py
+```
+
+---
+
+# 🤖 **AI DEVELOPMENT POLICY - CLAUDE.md Compliance** ⬇️
+
+## Key Features
+
+- **SSH Compatible**: Works over any terminal connection
+- **Backend Selection**: ASCII (universal) or Braille (2x resolution)
+- **Real-time Capable**: Async streaming with minimal latency
 - **Matplotlib-like API**: Familiar interface for easy adoption
-- **Loose Coupling**: Independent from src/morsecode - pure utility
-- **Data Type Flexibility**: Supports both Python lists and scipy/numpy arrays
-- **Auto-decimation**: Intelligent data reduction to fit display limits
+- **Auto-decimation**: Intelligent data reduction preserving signal characteristics
+- **Terminal Detection**: Automatic capability assessment for optimal rendering
 
-### **Key Features**
-- ✅ **Scrolling Time-series**: Real-time data streaming
-- ✅ **Vector Plotting**: Static vector visualization
-- ✅ **Y-axis Scaling**: Manual limits or auto-scaling (like FFT magnitude)
-- ✅ **X-axis Sample Period**: Configurable time base
-- ✅ **Multi-backend Output**: ASCII/Braille/Sparklines
-- ✅ **Data Decimation**: Smart downsampling for performance
+### Essential Usage Patterns
+
+#### Simple Signal Visualization
+```python
+from util.graph import plot_signal_auto
+
+# Automatic backend selection and terminal optimization
+data = [0.1, 0.5, 0.8, 0.3, -0.2, 0.7]
+plot_signal_auto(data)  # Works everywhere: SSH, local, containers
+```
+
+#### Real-time Streaming
+```python
+import asyncio
+from util.graph import AsyncPlot, Backend
+
+async def monitor_signal():
+    plot = AsyncPlot(backend=Backend.AUTO, width=80, height=20)
+    await plot.show_async()
+
+    while True:
+        new_sample = get_sensor_reading()
+        await plot.add_data(new_sample)
+        await asyncio.sleep(0.01)  # 100Hz update rate
+```
+
+#### Backend-Specific Control
+```python
+# ASCII: Maximum compatibility (SSH-safe)
+plot_signal_ascii(signal_data, width=60)
+
+# Braille: 2x resolution when Unicode supported
+plot_signal_braille(signal_data, width=60)  # Double effective resolution
+```
+
+# 🤖 **END AI DEVELOPMENT POLICY** ⬆️
 
 ---
 
@@ -153,10 +196,14 @@ src/util/graph/
 │   ├── __init__.py
 │   ├── decimation.py          # Data reduction algorithms
 │   └── scaling.py             # Auto-scaling logic
-└── examples/
-    ├── basic_usage.py
-    ├── scrolling_demo.py
-    └── multi_backend_demo.py
+├── examples/
+│   ├── basic_usage.py
+│   ├── scrolling_demo.py
+│   └── multi_backend_demo.py
+└── debug/
+    ├── demo_clean_braille.py     # Braille implementation demos
+    ├── test_braille_sine.py      # Real-time animation tests
+    └── debug_*.py               # Development debugging tools
 ```
 
 ### **Core Classes**
@@ -714,6 +761,23 @@ morsecode --debug-graphics --graphics-backend=braille audio.wav
 # Auto-detect (recommended):
 morsecode --debug-graphics audio.wav
 ```
+
+## 🔧 **Debug Tools**
+
+For UILT library development and debugging, see `debug/` directory:
+
+```bash
+# Test Braille rendering with real-time animation
+python src/util/graph/debug/test_braille_sine.py
+
+# Debug Braille implementation details
+python src/util/graph/debug/demo_clean_braille.py
+
+# Other debugging utilities for backend development
+ls src/util/graph/debug/debug_*.py
+```
+
+These tools were used during development to solve orientation issues, validate Unicode mapping, and ensure proper signal fidelity preservation.
 
 ---
 

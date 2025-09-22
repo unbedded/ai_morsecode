@@ -163,6 +163,11 @@ class HardwareAbstractionLayer(ConfigurableBase):
 
             # Simple, clean logging
             self.logger.info("Audio file loaded: %s @ %dHz", self.wav_filename, self.audio_rate_hz)
+            self.logger.info(
+                "Audio data length: %d samples (%.2f seconds)",
+                len(self.audio_data),
+                len(self.audio_data) / self.audio_rate_hz,
+            )
 
         except FileNotFoundError:
             self.logger.exception("Audio file '%s' not found", self.wav_filename)
@@ -260,7 +265,9 @@ class HardwareAbstractionLayer(ConfigurableBase):
         Returns:
             True if audio data is available, False otherwise.
         """
-        return len(self.audio_data) > 0
+        has_data = len(self.audio_data) > 0
+        self.logger.debug("has_data() check: audio_data length=%d, result=%s", len(self.audio_data), has_data)
+        return has_data
 
     def _generate_synthetic_audio(self) -> None:
         """Generate synthetic audio data for testing purposes."""

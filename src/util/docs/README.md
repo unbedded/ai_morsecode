@@ -1,141 +1,75 @@
-# Universal Configuration System Documentation
+# UTIL Package Documentation
 
-This directory contains documentation and examples for the **Universal Configuration System** - a standalone, reusable configuration framework extracted from the Morse Code Decoder project.
+This directory contains comprehensive documentation for the Universal Utility (UTIL) package - a collection of application-agnostic utilities for Python projects.
 
-## 📁 Directory Structure
+## 📋 Documentation Best Practices
 
-```
-src/util/
-├── docs/
-│   ├── README.md                      # This file - overview and usage
-│   ├── component-config-interface.md # Component integration patterns
-│   ├── validator-plan.md             # Validation framework design
-│   └── cfg_todo.md                   # Development roadmap
-├── examples/                         # Working code examples
-│   ├── README.md                     # Examples documentation
-│   ├── enum_config_demo.py          # ✅ Demonstrates enum-based config pattern
-│   └── debug_snippet_issue.py       # 🔧 Audio analysis utility
-├── config/                           # Configuration system
-├── logging/                          # Logging system
-└── tests/                           # Future test placeholder
-```
+**README files (`README.md`) focus on:**
+- **HOW to use the utility correctly** - practical usage patterns
+- **Basic features and API** - what the utility does and how to use it
+- **Quick start examples** - get up and running fast
+- **Day-to-day development** - common patterns and commands
+- **Configuration options** - settings and customization
 
-## 🚀 Quick Start
+**Article files (`article_*.md`) focus on:**
+- **Internal architecture** - how the system is designed internally
+- **Philosophy and design choices** - why decisions were made
+- **Engineering innovations** - technical breakthroughs and patterns
+- **Performance characteristics** - benchmarks and optimization details
+- **Future roadmap** - planned enhancements and evolution
 
-**See the enum-based configuration in action:**
+**Golden Rule**: If you need to USE it → README. If you want to UNDERSTAND it → Article.
 
-```bash
-cd src/util/examples
-python enum_config_demo.py
-```
+## 📚 Available Documentation
 
-## 📖 Documentation Files
+### 🔗 Technical Articles
 
-### `examples/` - **Working Code Examples**
-- **`enum_config_demo.py`** - Complete demonstration of enum-based configuration
-- **`debug_snippet_issue.py`** - Practical debugging utility for audio analysis
-- **`README.md`** - Detailed examples documentation
+| Document | Topic | Focus |
+|----------|-------|-------|
+| **[`article_log.md`](article_log.md)** | **Logging Architecture** | AI-first logging design philosophy, ComponentLogger innovations, and observability patterns |
+| **[`article_ascii_graphing.md`](article_ascii_graphing.md)** | **ASCII Graphics Architecture** | UILT visualization design, backend-aware decimation, and SSH-compatible signal telemetry |
+| **[`article_config.md`](article_config.md)** | **Configuration Architecture** | Enum-based configuration design, type safety innovations, and ConfigurableBase patterns |
 
-### `component-config-interface.md` - **Integration Guide**
-- How components should interface with the configuration system
-- Best practices for schema definition and registration
-- Type-safe configuration access patterns
+### 📖 Component Documentation
 
-### `validator-plan.md` - **Validation Framework Design**
-- Design document for the validation framework
-- CfgField and CfgType system architecture
-- Plans for extracting validation as standalone library
+| Component | README Location | Purpose |
+|-----------|----------------|---------|
+| **Logging** | [`../logging/README.md`](../logging/README.md) | ComponentLogger usage guide and API reference |
+| **Configuration** | [`../config/README.md`](../config/README.md) | AwesomeConfigManager usage and enum-based config patterns |
+| **Graphics (UILT)** | [`../graph/README.md`](../graph/README.md) | Universal Interface for Live Telemetry - ASCII/Braille visualization |
 
-## 🎯 Configuration System Features
+## 🎯 Documentation Organization
 
-### **Type Safety & Auto-complete**
-```python
-from util.config.types import CfgType, CfgField
-from morsecode.components.signal.signal_config_keys import SignalCfgKey
+**This `docs/` directory focuses on:**
+- Strategic design articles and philosophy
+- Cross-component architectural decisions
+- Engineering innovation explanations
+- AI-driven development patterns
 
-# Type-safe access with auto-complete
-frequency = cfg.get_int(SignalCfgKey.FREQUENCY)      # IDE knows this returns int
-threshold = cfg.get_double(SignalCfgKey.THRESHOLD)   # IDE knows this returns float
-```
+**Component `README.md` files focus on:**
+- Practical usage guides
+- API documentation
+- Quick start examples
+- Day-to-day development patterns
 
-### **Unit-Aware Validation**
-```python
-@dataclass
-class ConfigSchema:
-    frequency = CfgField(
-        type=CfgType.INT,
-        default=600,
-        min=200, max=2000,
-        unit="Hz",                    # Unit metadata for validation
-        description="CW tone frequency"
-    )
-```
+## 🔮 Future Articles
 
-### **Declarative Schema Registration**
-```python
-def __init__(self, cfg_mgr):
-    # Component registers its schema
-    cfg_mgr.register_enum_config(CfgSection.SIGNAL, ConfigSchema)
+Planned documentation expansions:
 
-    # Get type-safe configuration section
-    cfg = cfg_mgr.get_section(CfgSection.SIGNAL)
+- **`article_architecture.md`** - Overall UTIL package design philosophy and component integration
 
-    # Access with compile-time safety
-    self.frequency_hz = cfg.get_int(CfgKey.FREQUENCY)
-```
+## 🤖 AI Development Guidelines
 
-## 🔄 Migration from Legacy Systems
+All UTIL documentation follows AI-first principles:
 
-### **Before (Legacy String-based)**
-```python
-# ❌ Magic strings, no auto-complete, runtime errors
-config = {"frequency": 600, "threshold": 0.3}
-frequency = config["frequncy"]  # Typo not caught!
-```
-
-### **After (Enum-based)**
-```python
-# ✅ Type-safe enums, auto-complete, compile-time safety
-frequency = cfg.get_int(CfgKey.FREQUENCY)  # IDE catches CfgKey.FREQUNCY typos
-```
-
-## 🏗️ Architecture Benefits
-
-- **🔒 Type Safety**: Enum keys prevent configuration typos
-- **🎯 Auto-complete**: IDEs provide full configuration discovery
-- **📏 Unit Safety**: CfgField enforces units and prevents unit conversion errors
-- **🔧 Validation**: Min/max constraints and regex patterns built-in
-- **📚 Self-documenting**: Schema definitions serve as living documentation
-- **🔄 Reusable**: Framework works across any Python project
-
-## 🎯 Design Goals
-
-1. **Mars Climate Orbiter Prevention**: Unit-aware validation prevents unit conversion disasters
-2. **Developer Happiness**: Auto-complete and type safety reduce debugging time
-3. **Zero Magic Numbers**: All configuration values come from declared schemas
-4. **C++ Compatibility**: Patterns translate directly to C++ enum class implementations
-
-## 🚀 Usage in Your Project
-
-To use this configuration system in your own project:
-
-1. **Copy the framework**: `src/util/config/` directory
-2. **Define enum keys**: Create `keys.py` with your configuration enums
-3. **Define validation**: Create `schema.py` with CfgField definitions
-4. **Register schemas**: Call `cfg_mgr.register_schema()` in constructors
-5. **Access config**: Use type-safe `get_int()`, `get_double()`, etc.
-
-See `examples/enum_config_demo.py` for a complete working example!
-
-## 📝 Contributing
-
-When adding new features to the configuration system:
-
-1. **Update examples** to demonstrate new capabilities
-2. **Document patterns** in the appropriate .md files
-3. **Maintain type safety** - all access should be compile-time safe
-4. **Add validation** - new field types should have proper CfgField definitions
+1. **LLM Policy Sections** - Clear guidance for AI assistants using these utilities
+2. **Pattern Enforcement** - Documentation that encourages correct usage patterns
+3. **Security by Default** - Built-in security practices that don't require manual intervention
+4. **Application Agnostic** - Utilities designed to work across any Python project
 
 ---
 
-*This configuration system was extracted from the Morse Code Decoder project and designed for universal reuse across Python projects.*
+**Quick Links:**
+- [UTIL Logging System](../logging/) - ComponentLogger for AI-compliant logging
+- [UTIL Configuration](../config/) - AwesomeConfigManager for type-safe config
+- [UTIL Graphics](../graph/) - UILT for SSH-friendly signal visualization

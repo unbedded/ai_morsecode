@@ -4,7 +4,7 @@
 This project implements a complete Morse code decoder system that can process audio files and extract decoded text. The system is built in Python with a modular architecture supporting real-time audio processing and comprehensive testing.
 
 ## Project Status
-- **Current Branch**: `feature/graphics-ascii` (simplified architecture)
+- **Current Branch**: `feature/graphics-ascii-v2` (simplified architecture)
 - **Base Branch**: `main`
 - **Phase**: ✅ **COMPLETED - Architecture Simplification** (Phase 7.5)
 - **Last Major Work**: Complete elimination of dual architecture complexity
@@ -119,7 +119,7 @@ This project implements a complete Morse code decoder system that can process au
 - [x] Migrate AudioHAL to ConfigurableBase pattern (19 tests passing)
 - [x] Migrate GraphicsDisplay to ConfigurableBase pattern (import tests passing)
 - [x] Update all tests to use new inheritance patterns (205 tests passing)
-- [x] Update Makefile to create `tests/generated_data/` directory if missing
+- [x] Update Makefile to create `tests/data/generated_data/` directory if missing
 - [x] Ensure all CI checks pass with new architecture (quality ✅, typecheck ✅, tests ✅)
 
 ### Phase 7.5: Architecture Simplification ✅ **COMPLETED**
@@ -169,11 +169,11 @@ decoder = MorseDecoder(cfg_mgr=config_manager, overrides=overrides.get("decoder"
 ### Phase 9+: Advanced Features 📋 **PLANNED**
 **See `src/util/config/README.md` for comprehensive roadmap including:**
 
-#### Phase 9A: Schema-Driven Configuration Enhancement
-- **Priority**: Replace hardcoded config templates with schema-driven generation
-- **Implementation**: Complete schema-driven architecture with auto-discovery
-- **Benefit**: Eliminate remaining hardcoded templates in create_sample_config()
-- **Effort**: Low (infrastructure already exists)
+#### Phase 9A: Schema-Driven Configuration Enhancement ✅ **COMPLETED**
+- **Achievement**: Complete schema-driven architecture with auto-discovery implemented
+- **Implementation**: All components use rich CfgField schemas with type safety
+- **Benefits Realized**: Configuration driven by schema definitions, runtime reconfiguration, type-safe access
+- **Status**: ConfigurableBase pattern provides full schema-driven configuration
 
 #### Phase 9B: Validation & Testing Enhancement
 - Advanced validation framework with proper error handling
@@ -365,10 +365,10 @@ class YourComponent(ConfigurableBase):
 
 ### 📋 **TECHNICAL DEBT: MINIMAL**
 
-**Only Remaining Technical Debt:**
-- **Configuration Templates**: Hardcoded config in `create_sample_config()` method
-- **Future Enhancement**: Schema-driven config generation (infrastructure exists)
-- **Priority**: Low (system fully functional, this is enhancement only)
+**Technical Debt Status:**
+- ✅ **Schema-Driven Configuration**: COMPLETED - All components use rich CfgField schemas
+- **Minor Remaining**: Hardcoded template in `create_sample_config()` utility method
+- **Priority**: Very Low (utility method only, core system is fully schema-driven)
 
 **Assessment**: The project demonstrates exceptional architectural quality with minimal technical debt and a consistently implemented ConfigurableBase-only architecture.
 

@@ -39,7 +39,7 @@ class TestArgumentParser:
         assert args.wav_file == "audio.wav"
         assert args.config is None
         assert args.profile is None
-        assert args.create_config is False
+        assert args.show_config is False
 
     def test_parse_all_options(self) -> None:
         """Test parsing all available options."""
@@ -48,20 +48,20 @@ class TestArgumentParser:
         args = parser.parse_args(
             [
                 "test.wav",
-                "--config",
+                "--cfg-file",
                 "custom.yaml",
-                "--profile",
+                "--cfg-profile",
                 "debug",
-                "--frequency",
+                "--sig-freq",
                 "800",
-                "--wpm",
+                "--dec-wpm",
                 "20",
-                "--signal-threshold",
+                "--sig-threshold",
                 "0.4",
-                "--debug",
-                "--output",
+                "--dbg-enable",
+                "--opt-output",
                 "output.txt",
-                "--log-level",
+                "--opt-loglevel",
                 "INFO",
             ]
         )
@@ -80,12 +80,12 @@ class TestArgumentParser:
         """Test parsing utility commands."""
         parser = create_parser()
 
-        # Test create-config
-        args = parser.parse_args(["--create-config"])
-        assert args.create_config is True
+        # Test cfg-show
+        args = parser.parse_args(["--cfg-show"])
+        assert args.show_config is True
 
-        # Test validate-config
-        args = parser.parse_args(["--validate-config"])
+        # Test cfg-validate
+        args = parser.parse_args(["--cfg-validate"])
         assert args.validate_config is True
 
     def test_parse_no_args(self) -> None:
@@ -94,7 +94,7 @@ class TestArgumentParser:
 
         args = parser.parse_args([])
         assert args.wav_file is None
-        assert args.create_config is False
+        assert args.show_config is False
 
 
 class TestArgumentValidation:
@@ -140,7 +140,7 @@ class TestArgumentValidation:
     def test_validate_invalid_frequency(self, capsys: Any) -> None:
         """Test validation with invalid frequency."""
         parser = create_parser()
-        args = parser.parse_args(["--frequency", "5000", "test.wav"])
+        args = parser.parse_args(["--sig-freq", "5000", "test.wav"])
 
         with pytest.raises(SystemExit):
             validate_args(args)
@@ -151,7 +151,7 @@ class TestArgumentValidation:
     def test_validate_invalid_threshold(self, capsys: Any) -> None:
         """Test validation with invalid threshold."""
         parser = create_parser()
-        args = parser.parse_args(["--signal-threshold", "2.0", "test.wav"])
+        args = parser.parse_args(["--sig-threshold", "2.0", "test.wav"])
 
         with pytest.raises(SystemExit):
             validate_args(args)
@@ -162,7 +162,7 @@ class TestArgumentValidation:
     def test_validate_invalid_wpm(self, capsys: Any) -> None:
         """Test validation with invalid WPM."""
         parser = create_parser()
-        args = parser.parse_args(["--wpm", "100", "test.wav"])
+        args = parser.parse_args(["--dec-wpm", "100", "test.wav"])
 
         with pytest.raises(SystemExit):
             validate_args(args)
@@ -173,7 +173,7 @@ class TestArgumentValidation:
     def test_validate_nonexistent_config(self, capsys: Any) -> None:
         """Test validation with non-existent config file."""
         parser = create_parser()
-        args = parser.parse_args(["--config", "nonexistent.yaml", "test.wav"])
+        args = parser.parse_args(["--cfg-file", "nonexistent.yaml", "test.wav"])
 
         with pytest.raises(SystemExit):
             validate_args(args)
@@ -199,7 +199,11 @@ class TestLoggingSetup:
     def test_setup_logging_debug_override(self, caplog: Any, capsys: Any) -> None:
         """Test logging setup with debug override."""
         config_manager = MagicMock()
-        config_manager.get_config.return_value = {"log_level": "WARNING", "debug": False}
+        config_manager.get_config.return_value = {
+            "log_level": "WARNING",
+            "debug": False,
+            "log_to_file": False,  # Disable file logging for test
+        }
 
         # Reset logging to ensure clean state
         logging.getLogger().handlers.clear()
@@ -263,15 +267,15 @@ class TestMainFunction:
         mock_run_decoder.assert_called_once()
 
     def test_main_create_config(self, capsys: Any) -> None:
-        """Test main function with --create-config."""
-        with patch.object(AwesomeConfigManager, "create_sample_config") as mock_create:
-            result = main(["--create-config"])
+        """Test main function with --cfg-show."""
+        with patch("morsecode.cli.main.show_config_info") as mock_show:
+            result = main(["--cfg-show"])
 
         assert result == 0
-        mock_create.assert_called_once_with("config/morse.yaml")
+        mock_show.assert_called_once()
 
-        captured = capsys.readouterr()
-        assert "Sample configuration created: config/morse.yaml" in captured.out
+        # Updated to expect different output since we're using show_config_info
+        # assert "Configuration displayed" in captured.out
 
     def test_main_validate_config_success(self, capsys: Any) -> None:
         """Test main function with successful config validation."""
@@ -281,7 +285,7 @@ class TestMainFunction:
         mock_config_manager.get_config.return_value = {}
 
         with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
-            result = main(["--validate-config"])
+            result = main(["--cfg-validate"])
 
         assert result == 0
         captured = capsys.readouterr()
@@ -295,7 +299,7 @@ class TestMainFunction:
         mock_config_manager.get_config.side_effect = Exception("Invalid config")
 
         with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
-            result = main(["--validate-config"])
+            result = main(["--cfg-validate"])
 
         assert result == 1
         captured = capsys.readouterr()
@@ -327,7 +331,7 @@ class TestMainFunction:
         assert result == 1
         captured = capsys.readouterr()
         assert "Failed to load configuration" in captured.err
-        assert "Run 'morsecode --create-config'" in captured.err
+        assert "Configuration file will be auto-created on first run" in captured.err
 
     def test_main_keyboard_interrupt(self, tmp_path: Path, capsys: Any) -> None:
         """Test main function handling keyboard interrupt."""
@@ -391,13 +395,13 @@ class TestMainFunction:
             result = main(
                 [
                     str(wav_file),
-                    "--frequency",
+                    "--sig-freq",
                     "800",
-                    "--wpm",
+                    "--dec-wpm",
                     "25",
-                    "--signal-threshold",
+                    "--sig-threshold",
                     "0.4",
-                    "--output",
+                    "--opt-output",
                     "result.txt",
                 ]
             )
@@ -479,12 +483,12 @@ decoder:
                 result = main(
                     [
                         str(wav_file),
-                        "--config",
+                        "--cfg-file",
                         str(config_file),
-                        "--frequency",
+                        "--sig-freq",
                         "700",
-                        "--debug",
-                        "--output",
+                        "--dbg-enable",
+                        "--opt-output",
                         "decoded.txt",
                     ]
                 )
@@ -511,7 +515,7 @@ decoder:
         """Test comprehensive error reporting."""
         # Test multiple validation errors - this will exit early due to validation
         try:
-            result = main(["nonexistent.wav", "--frequency", "5000", "--wpm", "200", "--signal-threshold", "5.0"])
+            result = main(["nonexistent.wav", "--sig-freq", "5000", "--dec-wpm", "200", "--sig-threshold", "5.0"])
             assert result == 1
         except SystemExit:
             pass  # Expected due to validation failure
@@ -543,7 +547,7 @@ class TestEdgeCases:
         assert "Configuration:" in help_text
         assert "Profiles:" in help_text
         assert "Examples:" in help_text
-        assert "morse.yaml" in help_text
+        assert "config.yaml" in help_text  # Updated to match XDG standard naming
         assert "--profile" in help_text
 
     @patch("sys.argv", ["morsecode"])
@@ -569,7 +573,7 @@ class TestEdgeCases:
         with patch.object(AwesomeConfigManager, "__init__", return_value=None):
             with patch.object(AwesomeConfigManager, "get_config", return_value={}):
                 with patch("morsecode.cli.main.decoder_app.run_decoder_configurable", return_value=0):
-                    result = main([str(wav_file), "--config", str(empty_config)])
+                    result = main([str(wav_file), "--cfg-file", str(empty_config)])
 
         # Should still work with defaults
         assert result == 0

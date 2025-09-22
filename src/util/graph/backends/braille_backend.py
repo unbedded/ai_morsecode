@@ -10,10 +10,11 @@ from typing import Union
 
 from ..core.data_buffer import DataBuffer
 from ..core.time_axis import TimeAxis
-from ..utils.decimation import SmartDecimation, Backend
+from ..utils.decimation import Backend, SmartDecimation
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
@@ -72,31 +73,47 @@ class BrailleBackend:
         active_dots = []
 
         if positive:
-            # Positive: fill from top down
-            # Left column: dots 1,2,3,7 (top to bottom)
-            if left_dots >= 1: active_dots.append(1)
-            if left_dots >= 2: active_dots.append(2)
-            if left_dots >= 3: active_dots.append(3)
-            if left_dots >= 4: active_dots.append(7)
-
-            # Right column: dots 4,5,6,8 (top to bottom)
-            if right_dots >= 1: active_dots.append(4)
-            if right_dots >= 2: active_dots.append(5)
-            if right_dots >= 3: active_dots.append(6)
-            if right_dots >= 4: active_dots.append(8)
-        else:
-            # Negative: fill from bottom up
+            # Positive: fill from BOTTOM UP (like a bar chart going up)
             # Left column: dots 7,3,2,1 (bottom to top)
-            if left_dots >= 1: active_dots.append(7)
-            if left_dots >= 2: active_dots.append(3)
-            if left_dots >= 3: active_dots.append(2)
-            if left_dots >= 4: active_dots.append(1)
+            if left_dots >= 1:
+                active_dots.append(7)
+            if left_dots >= 2:
+                active_dots.append(3)
+            if left_dots >= 3:
+                active_dots.append(2)
+            if left_dots >= 4:
+                active_dots.append(1)
 
             # Right column: dots 8,6,5,4 (bottom to top)
-            if right_dots >= 1: active_dots.append(8)
-            if right_dots >= 2: active_dots.append(6)
-            if right_dots >= 3: active_dots.append(5)
-            if right_dots >= 4: active_dots.append(4)
+            if right_dots >= 1:
+                active_dots.append(8)
+            if right_dots >= 2:
+                active_dots.append(6)
+            if right_dots >= 3:
+                active_dots.append(5)
+            if right_dots >= 4:
+                active_dots.append(4)
+        else:
+            # Negative: fill from TOP DOWN (like a bar chart going down)
+            # Left column: dots 1,2,3,7 (top to bottom)
+            if left_dots >= 1:
+                active_dots.append(1)
+            if left_dots >= 2:
+                active_dots.append(2)
+            if left_dots >= 3:
+                active_dots.append(3)
+            if left_dots >= 4:
+                active_dots.append(7)
+
+            # Right column: dots 4,5,6,8 (top to bottom)
+            if right_dots >= 1:
+                active_dots.append(4)
+            if right_dots >= 2:
+                active_dots.append(5)
+            if right_dots >= 3:
+                active_dots.append(6)
+            if right_dots >= 4:
+                active_dots.append(8)
 
         # Calculate Unicode value
         for dot in active_dots:
@@ -205,7 +222,7 @@ class BrailleBackend:
         """
         if not self.data_buffers or self.y_min is None or self.y_max is None:
             # Return empty plot
-            return ['⠀' * self.width for _ in range(self.height)]
+            return ["⠀" * self.width for _ in range(self.height)]
 
         # For now, render only the first data buffer
         buffer = self.data_buffers[0]
@@ -216,41 +233,63 @@ class BrailleBackend:
         # Apply backend-aware decimation (2x points for Braille)
         decimated_data = SmartDecimation.decimate(raw_data, Backend.BRAILLE, self.width, self.height)
 
-        # Render single row (can be extended to multi-row)
-        row_chars = []
-        for col in range(self.width):
-            # Get two data points for this character
-            left_idx = col * 2
-            right_idx = col * 2 + 1
+        # Multi-row Braille rendering
+        rows = []
+        total_levels = self.height * 4  # Each Braille char has 4 dot levels per column
 
-            left_value = decimated_data[left_idx] if left_idx < len(decimated_data) else 0.0
-            right_value = decimated_data[right_idx] if right_idx < len(decimated_data) else 0.0
+        for row in range(self.height):
+            row_chars = []
+            for col in range(self.width):
+                # Get two data points for this character
+                left_idx = col * 2
+                right_idx = col * 2 + 1
 
-            # Normalize values to [0, 1] range
-            y_range = self.y_max - self.y_min
-            if y_range == 0:
-                left_norm = 0.5
-                right_norm = 0.5
-            else:
-                left_norm = abs(left_value - self.y_min) / y_range
-                right_norm = abs(right_value - self.y_min) / y_range
+                left_value = decimated_data[left_idx] if left_idx < len(decimated_data) else 0.0
+                right_value = decimated_data[right_idx] if right_idx < len(decimated_data) else 0.0
 
-            # Convert to dot counts
-            left_dots = self._value_to_dots(left_norm)
-            right_dots = self._value_to_dots(right_norm)
+                # Normalize values to [0, total_levels-1] range
+                y_range = self.y_max - self.y_min
+                if y_range == 0:
+                    left_level = total_levels // 2
+                    right_level = total_levels // 2
+                else:
+                    left_norm = (left_value - self.y_min) / y_range
+                    right_norm = (right_value - self.y_min) / y_range
+                    left_level = int(left_norm * (total_levels - 1))
+                    right_level = int(right_norm * (total_levels - 1))
 
-            # Handle positive/negative for each column separately
-            if left_value >= 0 and right_value >= 0:
-                char = self._positive_lookup.get((left_dots, right_dots), '⠿')
-            elif left_value < 0 and right_value < 0:
-                char = self._negative_lookup.get((left_dots, right_dots), '⠿')
-            else:
-                # Mixed case - use positive lookup as fallback for now
-                char = self._positive_lookup.get((left_dots, right_dots), '⠿')
+                # Clamp levels
+                left_level = max(0, min(total_levels - 1, left_level))
+                right_level = max(0, min(total_levels - 1, right_level))
 
-            row_chars.append(char)
+                # Determine which row each level belongs to (bottom-up)
+                left_target_row = self.height - 1 - (left_level // 4)
+                right_target_row = self.height - 1 - (right_level // 4)
+                left_dots_in_row = left_level % 4
+                right_dots_in_row = right_level % 4
 
-        return [''.join(row_chars)]
+                # Calculate dots for this specific row
+                if row == left_target_row:
+                    left_dots = left_dots_in_row + 1  # +1 because we need 1-4, not 0-3
+                elif row > left_target_row:
+                    left_dots = 4  # Below target = full
+                else:
+                    left_dots = 0  # Above target = empty
+
+                if row == right_target_row:
+                    right_dots = right_dots_in_row + 1
+                elif row > right_target_row:
+                    right_dots = 4  # Below target = full
+                else:
+                    right_dots = 0  # Above target = empty
+
+                # Get Braille character for this row
+                char = self._positive_lookup.get((left_dots, right_dots), "⠀")
+                row_chars.append(char)
+
+            rows.append("".join(row_chars))
+
+        return rows
 
     def get_performance_info(self) -> dict:
         """Get performance information about current data buffers."""

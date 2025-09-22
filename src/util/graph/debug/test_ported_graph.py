@@ -2,20 +2,20 @@
 """Test the ported util/graph library with corrected Braille functionality."""
 
 import math
-import sys
 import os
+import sys
 
 # Add src to path so we can import util
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from util.graph import (
-    plot_signal_ascii,
-    plot_signal_braille,
-    compare_backends,
     ASCIIBackend,
+    Backend,
     BrailleBackend,
     SmartDecimation,
-    Backend
+    compare_backends,
+    plot_signal_ascii,
+    plot_signal_braille,
 )
 
 
@@ -45,7 +45,7 @@ def test_backend_comparison():
     print("\n🔍 Backend Comparison Test:")
 
     # Create ramp data for clear comparison
-    ramp_data = [i/10 for i in range(21)]  # 0.0 to 2.0
+    ramp_data = [i / 10 for i in range(21)]  # 0.0 to 2.0
     print(f"Ramp data: {[f'{x:.1f}' for x in ramp_data[:11]]}...")
 
     comparison_lines = compare_backends(ramp_data, sample_rate_hz=50.0, width=30, height=3)
@@ -58,7 +58,7 @@ def test_decimation_logic():
     print("\n⚙️ Decimation Logic Test:")
 
     test_data = list(range(100))  # 0 to 99
-    print(f"Original data: 100 points")
+    print("Original data: 100 points")
 
     # Test ASCII decimation
     ascii_decimated = SmartDecimation.decimate(test_data, Backend.ASCII, width=20, height=4)

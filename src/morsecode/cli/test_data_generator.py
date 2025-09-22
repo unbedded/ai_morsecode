@@ -825,19 +825,19 @@ def main():
         epilog="""
 Examples:
   # Generate all test types
-  morsecode-test-data generate --output tests/generated_data
+  morsecode-test-data generate --output tests/data/generated_data
 
   # Generate only basic and intermediate tests
-  morsecode-test-data generate --output tests/generated_data --types basic intermediate
+  morsecode-test-data generate --output tests/data/generated_data --types basic intermediate
 
   # Generate with verbose output
-  morsecode-test-data generate --output tests/generated_data --verbose
+  morsecode-test-data generate --output tests/data/generated_data --verbose
 
   # List generated test data
-  morsecode-test-data list --data tests/generated_data
+  morsecode-test-data list --data tests/data/generated_data
 
   # Show test statistics
-  morsecode-test-data stats --data tests/generated_data
+  morsecode-test-data stats --data tests/data/generated_data
         """,
     )
 

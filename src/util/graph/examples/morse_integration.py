@@ -6,21 +6,20 @@ the morse code decoder for real-time signal analysis and debugging.
 """
 
 import math
-import sys
 import os
-import time
+import sys
 from collections import deque
-from typing import List, Dict, Tuple
 from enum import Enum
 
 # Add src to path for util imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
-from util.graph import BrailleBackend, ASCIIBackend, plot_signal_auto
+from util.graph import ASCIIBackend, BrailleBackend, plot_signal_auto
 
 
 class MorseElement(Enum):
     """Morse code elements."""
+
     DOT = "dot"
     DASH = "dash"
     GAP = "gap"
@@ -33,16 +32,46 @@ class MockMorseDecoder:
 
     # Morse code table
     MORSE_TABLE = {
-        'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.', 'F': '..-.',
-        'G': '--.', 'H': '....', 'I': '..', 'J': '.---', 'K': '-.-', 'L': '.-..',
-        'M': '--', 'N': '-.', 'O': '---', 'P': '.--.', 'Q': '--.-', 'R': '.-.',
-        'S': '...', 'T': '-', 'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-',
-        'Y': '-.--', 'Z': '--..', '1': '.----', '2': '..---', '3': '...--',
-        '4': '....-', '5': '.....', '6': '-....', '7': '--...', '8': '---..',
-        '9': '----.', '0': '-----'
+        "A": ".-",
+        "B": "-...",
+        "C": "-.-.",
+        "D": "-..",
+        "E": ".",
+        "F": "..-.",
+        "G": "--.",
+        "H": "....",
+        "I": "..",
+        "J": ".---",
+        "K": "-.-",
+        "L": ".-..",
+        "M": "--",
+        "N": "-.",
+        "O": "---",
+        "P": ".--.",
+        "Q": "--.-",
+        "R": ".-.",
+        "S": "...",
+        "T": "-",
+        "U": "..-",
+        "V": "...-",
+        "W": ".--",
+        "X": "-..-",
+        "Y": "-.--",
+        "Z": "--..",
+        "1": ".----",
+        "2": "..---",
+        "3": "...--",
+        "4": "....-",
+        "5": ".....",
+        "6": "-....",
+        "7": "--...",
+        "8": "---..",
+        "9": "----.",
+        "0": "-----",
     }
 
     def __init__(self, sample_rate_hz: float = 1000.0):
+        """Initialize morse code generator."""
         self.sample_rate_hz = sample_rate_hz
         self.wpm = 20  # Words per minute
         self.tone_freq_hz = 800.0  # Carrier frequency
@@ -58,13 +87,13 @@ class MockMorseDecoder:
         """Convert text to morse code."""
         morse = []
         for char in text.upper():
-            if char == ' ':
-                morse.append('/')  # Word separator
+            if char == " ":
+                morse.append("/")  # Word separator
             elif char in self.MORSE_TABLE:
                 morse.append(self.MORSE_TABLE[char])
-        return ' '.join(morse)
+        return " ".join(morse)
 
-    def generate_morse_signal(self, text: str, add_noise: bool = True) -> Tuple[List[float], List[Dict]]:
+    def generate_morse_signal(self, text: str, add_noise: bool = True) -> tuple[list[float], list[dict]]:
         """Generate morse code audio signal with timing annotations."""
         morse_code = self.text_to_morse(text)
         signal = []
@@ -81,7 +110,7 @@ class MockMorseDecoder:
                 if amplitude > 0:
                     # Generate tone with slight amplitude variation
                     sample = amplitude * math.sin(2 * math.pi * self.tone_freq_hz * t)
-                    sample *= (0.9 + 0.1 * math.sin(2 * math.pi * 10 * t))  # 10 Hz amplitude modulation
+                    sample *= 0.9 + 0.1 * math.sin(2 * math.pi * 10 * t)  # 10 Hz amplitude modulation
                 else:
                     sample = 0.0
 
@@ -93,30 +122,32 @@ class MockMorseDecoder:
 
                 signal.append(sample)
 
-            annotations.append({
-                'start_time': start_time,
-                'end_time': current_time + duration,
-                'duration': duration,
-                'element_type': element_type,
-                'content': content
-            })
+            annotations.append(
+                {
+                    "start_time": start_time,
+                    "end_time": current_time + duration,
+                    "duration": duration,
+                    "element_type": element_type,
+                    "content": content,
+                }
+            )
 
             current_time += duration
 
         # Process morse code
-        for word in morse_code.split(' / '):  # Split by word separators
+        for word in morse_code.split(" / "):  # Split by word separators
             if not word:
                 continue
 
-            for letter in word.split(' '):
+            for letter in word.split(" "):
                 if not letter:
                     continue
 
                 for symbol in letter:
-                    if symbol == '.':
+                    if symbol == ".":
                         add_samples(self.dot_duration_sec, 1.0, MorseElement.DOT, ".")
                         add_samples(self.element_gap_sec, 0.0, MorseElement.GAP)
-                    elif symbol == '-':
+                    elif symbol == "-":
                         add_samples(self.dash_duration_sec, 1.0, MorseElement.DASH, "-")
                         add_samples(self.element_gap_sec, 0.0, MorseElement.GAP)
 
@@ -137,6 +168,7 @@ class MorseVisualizationDebugger:
     """Real-time morse code visualization for debugging."""
 
     def __init__(self, backend_type: str = "braille", width: int = 80, height: int = 6):
+        """Initialize real-time morse visualizer."""
         self.width = width
         self.height = height
 
@@ -161,7 +193,7 @@ class MorseVisualizationDebugger:
         self.state_start_time = 0.0
         self.detected_elements = []
 
-    def add_samples(self, samples: List[float], sample_rate_hz: float):
+    def add_samples(self, samples: list[float], sample_rate_hz: float):
         """Add new samples and perform real-time analysis."""
         for sample in samples:
             self.signal_buffer.append(sample)
@@ -170,7 +202,7 @@ class MorseVisualizationDebugger:
             envelope = abs(sample)
             self.envelope_buffer.append(envelope)
 
-    def detect_morse_elements(self, current_time: float) -> List[Dict]:
+    def detect_morse_elements(self, current_time: float) -> list[dict]:
         """Simple morse element detection (for demonstration)."""
         if len(self.envelope_buffer) < 10:
             return []
@@ -192,19 +224,21 @@ class MorseVisualizationDebugger:
                 else:
                     element_type = "DASH"
 
-                detections.append({
-                    'type': element_type,
-                    'duration': duration,
-                    'start_time': self.state_start_time,
-                    'end_time': current_time
-                })
+                detections.append(
+                    {
+                        "type": element_type,
+                        "duration": duration,
+                        "start_time": self.state_start_time,
+                        "end_time": current_time,
+                    }
+                )
 
             self.current_state = new_state
             self.state_start_time = current_time
 
         return detections
 
-    def render_analysis(self, annotations: List[Dict] = None) -> List[str]:
+    def render_analysis(self, annotations: list[dict] = None) -> list[str]:
         """Render current signal analysis."""
         # Update backend with current signal
         self.backend.clear()
@@ -214,7 +248,7 @@ class MorseVisualizationDebugger:
         # Render visualization
         return self.render_method()
 
-    def display_timing_info(self, annotations: List[Dict]):
+    def display_timing_info(self, annotations: list[dict]):
         """Display timing information for morse elements."""
         if not annotations:
             return
@@ -226,21 +260,21 @@ class MorseVisualizationDebugger:
         dash_durations = []
 
         for ann in annotations:
-            if ann['element_type'] == MorseElement.DOT:
-                dot_durations.append(ann['duration'])
-                print(f"DOT:  {ann['duration']*1000:5.1f}ms at {ann['start_time']*1000:6.1f}ms")
-            elif ann['element_type'] == MorseElement.DASH:
-                dash_durations.append(ann['duration'])
-                print(f"DASH: {ann['duration']*1000:5.1f}ms at {ann['start_time']*1000:6.1f}ms")
+            if ann["element_type"] == MorseElement.DOT:
+                dot_durations.append(ann["duration"])
+                print(f"DOT:  {ann['duration'] * 1000:5.1f}ms at {ann['start_time'] * 1000:6.1f}ms")
+            elif ann["element_type"] == MorseElement.DASH:
+                dash_durations.append(ann["duration"])
+                print(f"DASH: {ann['duration'] * 1000:5.1f}ms at {ann['start_time'] * 1000:6.1f}ms")
 
         if dot_durations and dash_durations:
             avg_dot = sum(dot_durations) / len(dot_durations)
             avg_dash = sum(dash_durations) / len(dash_durations)
             ratio = avg_dash / avg_dot
 
-            print(f"\nTiming Statistics:")
-            print(f"  Average dot:  {avg_dot*1000:.1f}ms")
-            print(f"  Average dash: {avg_dash*1000:.1f}ms")
+            print("\nTiming Statistics:")
+            print(f"  Average dot:  {avg_dot * 1000:.1f}ms")
+            print(f"  Average dash: {avg_dash * 1000:.1f}ms")
             print(f"  Dash/dot ratio: {ratio:.2f} (ideal: 3.0)")
 
 
@@ -263,7 +297,7 @@ def demonstrate_morse_visualization():
 
     morse_pattern = decoder.text_to_morse(test_message)
     print(f"Morse pattern: {morse_pattern}")
-    print(f"Signal length: {len(signal)} samples ({len(signal)/decoder.sample_rate_hz:.2f} seconds)\n")
+    print(f"Signal length: {len(signal)} samples ({len(signal) / decoder.sample_rate_hz:.2f} seconds)\n")
 
     # Add signal to visualizer
     visualizer.add_samples(signal, decoder.sample_rate_hz)
@@ -333,10 +367,10 @@ def demonstrate_real_time_debugging():
 
     # Simulate timing drift by slightly compressing some dots
     for i, ann in enumerate(annotations):
-        if ann['element_type'] == MorseElement.DOT and i % 3 == 0:
+        if ann["element_type"] == MorseElement.DOT and i % 3 == 0:
             # Simulate 20% shorter dots (timing issue)
-            start_idx = int(ann['start_time'] * decoder.sample_rate_hz)
-            end_idx = int(ann['end_time'] * decoder.sample_rate_hz)
+            start_idx = int(ann["start_time"] * decoder.sample_rate_hz)
+            end_idx = int(ann["end_time"] * decoder.sample_rate_hz)
             if end_idx < len(signal):
                 # Compress the dot by zeroing out the last 20%
                 compress_start = start_idx + int(0.8 * (end_idx - start_idx))

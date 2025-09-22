@@ -30,7 +30,8 @@ class SimpleGraphicsDisplay:
             return
 
         # Simple printf output as requested - confidence and pattern_type
-        print(f"Pattern: {event.pattern_type} | Confidence: {event.confidence:.2f}")
+        # Note: Commented out to avoid console output when debug graphics is active
+        # print(f"Pattern: {event.pattern_type} | Confidence: {event.confidence:.2f}")
 
 
 class GraphicsAutoHandler:

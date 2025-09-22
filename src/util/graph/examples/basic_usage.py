@@ -6,20 +6,20 @@ for Live Telemetry (UILT) library with both ASCII and Braille backends.
 """
 
 import math
-import sys
 import os
+import sys
 import time
 
 # Add src to path for util imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from util.graph import (
-    plot_signal_ascii,
-    plot_signal_braille,
-    plot_signal_auto,
-    compare_backends,
     ASCIIBackend,
     BrailleBackend,
+    compare_backends,
+    plot_signal_ascii,
+    plot_signal_auto,
+    plot_signal_braille,
 )
 
 
@@ -45,23 +45,13 @@ def example_1_quick_plotting():
 
     # ASCII plot
     print("ASCII Backend:")
-    ascii_lines = plot_signal_ascii(
-        signal,
-        sample_rate_hz=sample_rate_hz,
-        title="Damped Sine Wave",
-        width=60,
-        height=6
-    )
+    ascii_lines = plot_signal_ascii(signal, sample_rate_hz=sample_rate_hz, title="Damped Sine Wave", width=60, height=6)
     for line in ascii_lines:
         print(line)
 
-    print("\nBraille Backend (2x horizontal resolution):")
+    print("\nBraille Backend (2x horizontal resolution, 5 rows):")
     braille_lines = plot_signal_braille(
-        signal,
-        sample_rate_hz=sample_rate_hz,
-        title="Damped Sine Wave",
-        width=60,
-        height=4
+        signal, sample_rate_hz=sample_rate_hz, title="Damped Sine Wave", width=60, height=5
     )
     for line in braille_lines:
         print(line)
@@ -85,12 +75,7 @@ def example_2_auto_backend_selection():
 
     # Auto-select best backend
     lines, backend_used = plot_signal_auto(
-        sweep_signal,
-        sample_rate_hz=sample_rate_hz,
-        title="Frequency Sweep",
-        width=50,
-        height=5,
-        prefer_braille=True
+        sweep_signal, sample_rate_hz=sample_rate_hz, title="Frequency Sweep", width=50, height=5, prefer_braille=True
     )
 
     print(f"Auto-selected backend: {backend_used}")
@@ -118,11 +103,7 @@ def example_3_backend_comparison():
         high_freq_signal.append(fundamental + harmonic1 + harmonic2)
 
     comparison_lines = compare_backends(
-        high_freq_signal,
-        sample_rate_hz=sample_rate_hz,
-        title="High-Frequency Signal Comparison",
-        width=35,
-        height=4
+        high_freq_signal, sample_rate_hz=sample_rate_hz, title="High-Frequency Signal Comparison", width=35, height=4
     )
 
     for line in comparison_lines:
@@ -137,7 +118,8 @@ def example_4_direct_backend_usage():
 
     # Generate step signal to test different configurations
     step_signal = []
-    steps = [0.0, 0.2, 0.8, 1.0, 0.6, -0.2, -0.8, -0.5, 0.1, 0.9]
+    # Use cleaner positive progression to better show Braille capabilities
+    steps = [0.0, 0.1, 0.3, 0.6, 1.0, 0.8, 0.5, 0.2, 0.0, 0.4]
     for step_value in steps:
         step_signal.extend([step_value] * 10)  # Hold each step for 10 samples
 
@@ -167,7 +149,7 @@ def example_4_direct_backend_usage():
     ascii_perf = ascii_backend.get_performance_info()
     braille_perf = braille_backend.get_performance_info()
 
-    print(f"\nPerformance Info:")
+    print("\nPerformance Info:")
     print(f"ASCII effective resolution: {ascii_perf['effective_resolution']} points")
     print(f"Braille effective resolution: {braille_perf['effective_resolution']} points")
     print(f"Braille advantage: {braille_perf['effective_resolution'] / ascii_perf['effective_resolution']:.1f}x")
@@ -196,18 +178,13 @@ def example_5_signal_analysis():
     print("ASCII representation:")
 
     # Use ASCII for universal compatibility
-    spectrum_lines = plot_signal_ascii(
-        magnitudes,
-        title="FFT Magnitude Spectrum",
-        width=60,
-        height=6
-    )
+    spectrum_lines = plot_signal_ascii(magnitudes, title="FFT Magnitude Spectrum", width=60, height=6)
 
     for line in spectrum_lines:
         print(line)
 
     print(f"\nFrequency range: {frequencies[0]} - {frequencies[-1]} Hz")
-    print(f"Peak frequencies: 50, 100, 150 Hz")
+    print("Peak frequencies: 50, 100, 150 Hz")
 
 
 def main():

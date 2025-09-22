@@ -8,21 +8,22 @@ for real-time audio analysis.
 
 import asyncio
 import math
-import sys
 import os
+import sys
 import time
 from collections import deque
 
 # Add src to path for util imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
-from util.graph import BrailleBackend, ASCIIBackend
+from util.graph import ASCIIBackend, BrailleBackend
 
 
 class RealTimeSignalGenerator:
     """Simulates real-time signal generation (like audio input)."""
 
     def __init__(self, sample_rate_hz: float = 1000.0):
+        """Initialize signal generator."""
         self.sample_rate_hz = sample_rate_hz
         self.time_offset = 0.0
         self.signal_type = "sine"
@@ -68,6 +69,7 @@ class RealTimePlotter:
     """Real-time plotter using UILT backends."""
 
     def __init__(self, backend_type: str = "braille", width: int = 60, height: int = 6, buffer_size: int = 1000):
+        """Initialize real-time plotter."""
         self.width = width
         self.height = height
         self.buffer_size = buffer_size
@@ -115,7 +117,7 @@ async def realtime_visualization_demo():
 
     # Setup
     signal_generator = RealTimeSignalGenerator(sample_rate_hz=500.0)
-    plotter = RealTimePlotter(backend_type="braille", width=50, height=4, buffer_size=200)
+    plotter = RealTimePlotter(backend_type="braille", width=80, height=4, buffer_size=200)
 
     # Demo sequence
     demo_sequence = [
@@ -180,7 +182,7 @@ async def realtime_visualization_demo():
         print("\n\n⏹️  Demo stopped by user")
 
     final_fps = plotter.get_fps()
-    print(f"\n📊 Performance Summary:")
+    print("\n📊 Performance Summary:")
     print(f"   Average FPS: {final_fps:.1f}")
     print(f"   Total frames rendered: {plotter.frame_count}")
     print(f"   Backend: {'Braille (2x resolution)' if isinstance(plotter.backend, BrailleBackend) else 'ASCII'}")
@@ -233,14 +235,14 @@ async def morse_code_simulation_demo():
 
     # Display with both backends for comparison
     print("\nASCII Backend:")
-    ascii_plotter = RealTimePlotter(backend_type="ascii", width=60, height=4)
+    ascii_plotter = RealTimePlotter(backend_type="ascii", width=80, height=4)
     ascii_plotter.add_samples(morse_pattern)
     ascii_frame = ascii_plotter.render_frame()
     for line in ascii_frame:
         print(line)
 
     print("\nBraille Backend (2x resolution):")
-    braille_plotter = RealTimePlotter(backend_type="braille", width=60, height=3)
+    braille_plotter = RealTimePlotter(backend_type="braille", width=80, height=3)
     braille_plotter.add_samples(morse_pattern)
     braille_frame = braille_plotter.render_frame()
     for line in braille_frame:

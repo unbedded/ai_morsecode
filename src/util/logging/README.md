@@ -2,14 +2,16 @@
 
 This is the **canonical reference** for using the `util/logging` system in any Python project.
 
-## 📖 Human Developer Documentation
+## 📖 Quick Reference for Developers
 
 ComponentLogger provides CLAUDE.md-compliant logging with automatic security filtering, lazy % formatting, thread safety, and config-driven log levels. Application-agnostic design works across any Python project.
+
+> 📄 **For design philosophy and engineering details**, see [`../docs/article_log.md`](../docs/article_log.md)
 
 ## 🚀 Quick Demo
 
 ```bash
-cd src/util/examples
+cd src/util/config/examples
 python enum_config_demo.py
 ```
 
@@ -448,56 +450,4 @@ src/util/logging/
 
 ---
 
-## 🏆 Design Philosophy & Engineering Achievements
-
-### Core Value Propositions
-
-• **AI OBSERVABILITY PATTERN - The Future of Software Health** - ComponentLogger is designed as the foundation for AI-driven system health monitoring and automated diagnosis. Traditional logging is passive - developers manually add log statements and manually review logs when problems occur. Our AI Observability Pattern flips this model: AI assistants can inject strategic logging at critical decision points, then automatically analyze log patterns to diagnose system health, predict failures, and generate diagnostic reports. The logs become a persistent diagnostic dashboard that survives system crashes and provides forensic analysis capabilities that traditional monitoring systems cannot match.
-
-• **Security-First Logging Architecture** - Automatic secret redaction prevents the security disasters that plague traditional logging systems. Too many production systems leak passwords, API keys, and sensitive data through log files that end up in centralized logging systems, support tickets, or version control. Our pattern-based redaction (`password`, `token`, `api_key`, `bearer`, `secret`) automatically sanitizes all log output without developer intervention. This security-by-default approach eliminates an entire class of data breach vulnerabilities where sensitive information accidentally appears in log files.
-
-• **Performance-Conscious Lazy Evaluation** - The `isEnabledFor()` pattern prevents expensive operations from executing when logs won't be output. Traditional logging systems evaluate all arguments before checking log levels, causing performance degradation even when logging is disabled. Our lazy evaluation approach only calls expensive functions (`expensive_calculation()`, `cfg.get_string()`) when the log level actually allows output. This architectural decision enables comprehensive DEBUG logging without performance impact in production environments.
-
-• **Thread-Safe by Design** - Built-in locking prevents the race conditions and garbled output that plague concurrent logging systems. Multi-threaded applications often suffer from interleaved log messages that make debugging nearly impossible. ComponentLogger uses proper synchronization primitives to ensure log messages appear atomically, making concurrent system behavior comprehensible. This thread safety extends to initialization, configuration updates, and message formatting without performance penalties.
-
-• **Configuration-Driven Observability** - Log levels controlled through configuration files enable runtime behavior modification without code changes. Traditional systems hardcode log levels or require application restarts to change verbosity. Our YAML-driven approach allows operations teams to increase debugging verbosity for specific modules (`application.logging.problematic_module: "DEBUG"`) without touching source code or restarting services. This capability is essential for production troubleshooting where system restarts aren't feasible.
-
-### AI-Driven System Health Innovation
-
-• **Instrumentation Injection Pattern** - AI assistants can automatically identify critical decision points in code and inject comprehensive logging without developer oversight. Traditional instrumentation requires developers to manually identify what to log and where. The AI Observability Pattern enables AI assistants to analyze code flow, identify error conditions, performance bottlenecks, and state transitions, then automatically inject appropriate logging statements. This AI-driven instrumentation provides complete system visibility without the human effort typically required for comprehensive logging.
-
-• **Persistent Diagnostic Dashboard** - Log files serve as crash-resistant system health records that enable post-mortem analysis even when monitoring systems fail. Traditional monitoring solutions depend on external systems that may be unavailable during system failures. ComponentLogger creates persistent text logs that survive system crashes, network outages, and infrastructure failures. These logs become a permanent diagnostic record that AI can analyze to identify failure patterns, performance degradation trends, and system behavior anomalies.
-
-• **Pattern Recognition and Anomaly Detection** - AI analysis of log patterns can identify system health issues before they become critical failures. Traditional monitoring systems alert on threshold violations but miss subtle patterns that indicate emerging problems. AI analysis of ComponentLogger output can detect unusual error message frequencies, performance degradation patterns, configuration drift, and behavioral anomalies that predict system failures. This predictive capability transforms reactive operations into proactive system maintenance.
-
-• **Automated Diagnostic Report Generation** - AI can process log files to generate comprehensive system health reports with root cause analysis and remediation suggestions. Manual log analysis is time-consuming and error-prone, especially for complex systems with multiple interacting components. AI-powered log analysis can correlate events across components, identify causal relationships, and generate diagnostic reports that include timeline analysis, failure correlation, and suggested remediation steps. This automation dramatically reduces mean time to resolution for system issues.
-
-### Developer Experience Engineering
-
-• **Zero-Configuration Security** - Secret redaction works automatically without developer configuration or awareness. Security vulnerabilities often result from developers forgetting to sanitize sensitive data before logging. ComponentLogger eliminates this human error factor by automatically detecting and redacting common secret patterns. Developers can log freely without security concerns, knowing that passwords, tokens, and API keys will never appear in log output.
-
-• **CLAUDE.md Policy Enforcement** - Built-in patterns enforce logging best practices automatically rather than relying on developer discipline. Code review processes often miss logging anti-patterns like f-string usage that degrades performance. ComponentLogger documentation and examples consistently demonstrate proper lazy evaluation patterns, making correct usage the natural choice. This approach scales logging best practices across teams without requiring extensive training or code review oversight.
-
-• **Component Isolation with Global Coordination** - Each component controls its own logging verbosity while participating in system-wide debugging strategies. Traditional logging systems either use global log levels (affecting all components) or require complex configuration management. ComponentLogger enables granular control (`cfg_mgr.register_logging_config(__name__)`) that allows debugging specific components without flooding logs with irrelevant information from other modules.
-
-• **IDE Integration and Auto-Complete** - ComponentLogger usage patterns integrate naturally with development tooling to reduce logging errors. Modern IDEs provide auto-completion and static analysis for ComponentLogger method calls, helping developers choose appropriate log levels and catch formatting errors before runtime. This tooling integration reduces the friction of adding comprehensive logging to applications.
-
-### Future AI Observability Capabilities
-
-• **Intelligent Log Level Management** - AI can automatically adjust log verbosity based on system health indicators and operational requirements. Instead of static configuration, AI monitoring could increase DEBUG logging when error rates rise, reduce verbosity during high-traffic periods, and focus logging on components showing anomalous behavior. This dynamic approach optimizes log utility while managing storage and performance costs.
-
-• **Contextual Log Enhancement** - AI can automatically enrich log messages with relevant system context (memory usage, CPU load, network conditions) without developer intervention. Traditional logging captures only explicitly programmed information, missing important environmental context that aids diagnosis. AI-enhanced logging could automatically include system metrics, dependency health, and operational context that improves diagnostic value.
-
-• **Cross-System Correlation** - AI analysis can correlate ComponentLogger output across multiple services and systems to identify distributed system issues. Modern applications span multiple services, making root cause analysis difficult when problems cross system boundaries. AI correlation of ComponentLogger output from multiple systems can identify cascading failures, performance bottlenecks, and configuration inconsistencies that affect distributed system behavior.
-
-• **Predictive Maintenance Alerts** - AI analysis of logging patterns can predict system maintenance needs before failures occur. By analyzing historical log patterns, AI can identify early warning signs of disk exhaustion, memory leaks, performance degradation, and component failures. This predictive capability enables proactive maintenance that prevents downtime and improves system reliability.
-
-### System Reliability Engineering
-
-• **Fail-Safe Logging Architecture** - Logging errors never break application functionality, ensuring system resilience even when logging infrastructure fails. Traditional logging systems can cause application failures when log destinations become unavailable or logging configuration is invalid. ComponentLogger uses graceful error handling that allows applications to continue operating even when logging fails. This resilience is essential for production systems where logging problems shouldn't affect core functionality.
-
-• **Minimal Performance Impact** - Lazy evaluation and efficient formatting ensure logging doesn't degrade application performance. High-performance applications cannot tolerate logging overhead that affects user experience. ComponentLogger's lazy evaluation pattern ensures that disabled log statements have minimal CPU impact, while efficient string formatting and I/O handling minimize the cost of enabled logging. This performance-conscious design enables comprehensive logging in performance-critical applications.
-
-• **Storage-Efficient Output** - Structured logging patterns and automatic compression capabilities optimize log storage costs without sacrificing diagnostic value. Log storage becomes expensive in high-volume applications, forcing difficult trade-offs between diagnostic capability and operational costs. ComponentLogger provides structured output that compresses efficiently and supports intelligent log rotation strategies that preserve diagnostic value while managing storage requirements.
-
-*This logging system represents the foundation for **AI-driven observability** - transforming passive logging into an active diagnostic and predictive maintenance platform that survives system failures and enables automated health management.*
+*For comprehensive design philosophy, engineering innovations, and AI observability patterns, see [`../docs/article_log.md`](../docs/article_log.md)*

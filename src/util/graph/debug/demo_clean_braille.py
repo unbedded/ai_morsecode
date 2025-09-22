@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Clean Braille demo with lookup table approach."""
 
-from typing import List
-
 
 def make_braille_char(left_dots: int, right_dots: int, positive: bool = True) -> str:
     """Create correct Braille character from dot counts.
@@ -25,31 +23,47 @@ def make_braille_char(left_dots: int, right_dots: int, positive: bool = True) ->
     active_dots = []
 
     if positive:
-        # Positive: fill from top down
-        # Left column: dots 1,2,3,7 (top to bottom)
-        if left_dots >= 1: active_dots.append(1)
-        if left_dots >= 2: active_dots.append(2)
-        if left_dots >= 3: active_dots.append(3)
-        if left_dots >= 4: active_dots.append(7)
-
-        # Right column: dots 4,5,6,8 (top to bottom)
-        if right_dots >= 1: active_dots.append(4)
-        if right_dots >= 2: active_dots.append(5)
-        if right_dots >= 3: active_dots.append(6)
-        if right_dots >= 4: active_dots.append(8)
-    else:
-        # Negative: fill from bottom up
+        # Positive: fill from BOTTOM UP (like a bar chart going up)
         # Left column: dots 7,3,2,1 (bottom to top)
-        if left_dots >= 1: active_dots.append(7)
-        if left_dots >= 2: active_dots.append(3)
-        if left_dots >= 3: active_dots.append(2)
-        if left_dots >= 4: active_dots.append(1)
+        if left_dots >= 1:
+            active_dots.append(7)
+        if left_dots >= 2:
+            active_dots.append(3)
+        if left_dots >= 3:
+            active_dots.append(2)
+        if left_dots >= 4:
+            active_dots.append(1)
 
         # Right column: dots 8,6,5,4 (bottom to top)
-        if right_dots >= 1: active_dots.append(8)
-        if right_dots >= 2: active_dots.append(6)
-        if right_dots >= 3: active_dots.append(5)
-        if right_dots >= 4: active_dots.append(4)
+        if right_dots >= 1:
+            active_dots.append(8)
+        if right_dots >= 2:
+            active_dots.append(6)
+        if right_dots >= 3:
+            active_dots.append(5)
+        if right_dots >= 4:
+            active_dots.append(4)
+    else:
+        # Negative: fill from TOP DOWN (like a bar chart going down)
+        # Left column: dots 1,2,3,7 (top to bottom)
+        if left_dots >= 1:
+            active_dots.append(1)
+        if left_dots >= 2:
+            active_dots.append(2)
+        if left_dots >= 3:
+            active_dots.append(3)
+        if left_dots >= 4:
+            active_dots.append(7)
+
+        # Right column: dots 4,5,6,8 (top to bottom)
+        if right_dots >= 1:
+            active_dots.append(4)
+        if right_dots >= 2:
+            active_dots.append(5)
+        if right_dots >= 3:
+            active_dots.append(6)
+        if right_dots >= 4:
+            active_dots.append(8)
 
     # Calculate Unicode value
     for dot in active_dots:
@@ -86,10 +100,10 @@ def value_to_dots(value: float, max_dots: int = 4) -> int:
         return int(value * max_dots)
 
 
-def render_clean_braille(data: List[float], width: int = 20) -> List[str]:
+def render_clean_braille(data: list[float], width: int = 20) -> list[str]:
     """Render data using clean Braille lookup approach with pos/neg handling."""
     if not data:
-        return ['⠀' * width]
+        return ["⠀" * width]
 
     # Get 2x data points (Braille advantage)
     effective_width = width * 2
@@ -118,31 +132,27 @@ def render_clean_braille(data: List[float], width: int = 20) -> List[str]:
         # Handle positive/negative for each column separately
         if left_value >= 0:
             left_dots = value_to_dots(left_value)
-            left_lookup = positive_lookup
         else:
             left_dots = value_to_dots(abs(left_value))
-            left_lookup = negative_lookup
 
         if right_value >= 0:
             right_dots = value_to_dots(right_value)
-            right_lookup = positive_lookup
         else:
             right_dots = value_to_dots(abs(right_value))
-            right_lookup = negative_lookup
 
         # For simplicity, use positive lookup if both positive, negative if both negative
         # In full implementation, we'd need mixed lookup tables
         if left_value >= 0 and right_value >= 0:
-            char = positive_lookup.get((left_dots, right_dots), '⠿')
+            char = positive_lookup.get((left_dots, right_dots), "⠿")
         elif left_value < 0 and right_value < 0:
-            char = negative_lookup.get((left_dots, right_dots), '⠿')
+            char = negative_lookup.get((left_dots, right_dots), "⠿")
         else:
             # Mixed case - use positive lookup as fallback for now
-            char = positive_lookup.get((left_dots, right_dots), '⠿')
+            char = positive_lookup.get((left_dots, right_dots), "⠿")
 
         row_chars.append(char)
 
-    return [''.join(row_chars)]
+    return ["".join(row_chars)]
 
 
 def main():
@@ -151,7 +161,7 @@ def main():
 
     # Test positive ramp
     print("📊 Test 1: Positive ramp (0.0 → 1.0)")
-    pos_ramp = [i/10 for i in range(11)]  # 0.0, 0.1, 0.2, ..., 1.0
+    pos_ramp = [i / 10 for i in range(11)]  # 0.0, 0.1, 0.2, ..., 1.0
     print(f"Data: {pos_ramp}")
 
     result = render_clean_braille(pos_ramp, width=10)
@@ -160,7 +170,7 @@ def main():
 
     # Test negative ramp
     print("📊 Test 2: Negative ramp (0.0 → -1.0)")
-    neg_ramp = [-i/10 for i in range(11)]  # 0.0, -0.1, -0.2, ..., -1.0
+    neg_ramp = [-i / 10 for i in range(11)]  # 0.0, -0.1, -0.2, ..., -1.0
     print(f"Data: {neg_ramp}")
 
     result = render_clean_braille(neg_ramp, width=10)
@@ -170,6 +180,7 @@ def main():
     # Test sine wave (positive and negative)
     print("📊 Test 3: Sine wave (-1.0 to +1.0)")
     import math
+
     sine_data = [math.sin(i * math.pi / 6) for i in range(13)]  # 0 to 2π
     print(f"Data: {[f'{x:.2f}' for x in sine_data]}")
 
@@ -182,17 +193,17 @@ def main():
     positive_lookup = create_positive_braille_lookup()
     print("Positive patterns (left column only):")
     for dots in range(5):
-        char = positive_lookup.get((dots, 0), '?')
+        char = positive_lookup.get((dots, 0), "?")
         print(f"  {dots} dots: {char}")
 
     print("\n📊 Test 5: Negative dot patterns (should fill from BOTTOM)")
     negative_lookup = create_negative_braille_lookup()
     print("Negative patterns (left column only):")
     for dots in range(5):
-        char = negative_lookup.get((dots, 0), '?')
+        char = negative_lookup.get((dots, 0), "?")
         print(f"  {dots} dots: {char}")
 
-    print(f"\n✅ Concept proven! Positive/negative orientation works correctly.")
+    print("\n✅ Concept proven! Positive/negative orientation works correctly.")
     print("📝 Ready for full multi-row implementation!")
 
 

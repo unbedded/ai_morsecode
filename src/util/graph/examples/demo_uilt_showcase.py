@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""UILT Library Showcase - Best Features Demo
+"""UILT Library Showcase - Best Features Demo.
 
 This script demonstrates the most impressive capabilities of the
 Universal Interface for Live Telemetry (UILT) library in a quick,
@@ -7,20 +7,18 @@ visually appealing demonstration.
 """
 
 import math
-import sys
 import os
+import sys
 import time
 
 # Add src to path for util imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from util.graph import (
-    plot_signal_ascii,
-    plot_signal_braille,
-    compare_backends,
-    BrailleBackend,
-    SmartDecimation,
     Backend,
+    SmartDecimation,
+    compare_backends,
+    plot_signal_braille,
 )
 
 
@@ -46,10 +44,10 @@ def demo_resolution_advantage():
         t = i / sample_rate
         # Complex signal with multiple frequency components
         signal = (
-            math.sin(2 * math.pi * 50 * t) +           # 50 Hz fundamental
-            0.6 * math.sin(2 * math.pi * 150 * t) +    # 150 Hz harmonic
-            0.4 * math.sin(2 * math.pi * 300 * t) +    # 300 Hz high freq
-            0.2 * (1 if math.sin(2 * math.pi * 25 * t) > 0 else -1)  # 25 Hz square
+            math.sin(2 * math.pi * 50 * t)  # 50 Hz fundamental
+            + 0.6 * math.sin(2 * math.pi * 150 * t)  # 150 Hz harmonic
+            + 0.4 * math.sin(2 * math.pi * 300 * t)  # 300 Hz high freq
+            + 0.2 * (1 if math.sin(2 * math.pi * 25 * t) > 0 else -1)  # 25 Hz square
         )
         samples.append(signal)
 
@@ -62,9 +60,9 @@ def demo_resolution_advantage():
     braille_res = SmartDecimation.calculate_effective_resolution(Backend.BRAILLE, width, 4)
 
     print(f"Display width: {width} characters")
-    print(f"ASCII resolution:   {ascii_res:2d} data points ({len(samples)/ascii_res:4.1f}:1 decimation)")
-    print(f"Braille resolution: {braille_res:2d} data points ({len(samples)/braille_res:4.1f}:1 decimation)")
-    print(f"Braille advantage:  {braille_res/ascii_res:.1f}x MORE detail\n")
+    print(f"ASCII resolution:   {ascii_res:2d} data points ({len(samples) / ascii_res:4.1f}:1 decimation)")
+    print(f"Braille resolution: {braille_res:2d} data points ({len(samples) / braille_res:4.1f}:1 decimation)")
+    print(f"Braille advantage:  {braille_res / ascii_res:.1f}x MORE detail\n")
 
     comparison = compare_backends(samples, sample_rate_hz=sample_rate, width=width, height=4)
     for line in comparison:
@@ -82,8 +80,8 @@ def demo_morse_code_analysis():
     sample_rate = 1000
     dot_duration = 0.06  # 60ms dots
     dash_duration = 0.18  # 180ms dashes
-    gap_duration = 0.06   # 60ms gaps
-    letter_gap = 0.18     # 180ms letter gaps
+    gap_duration = 0.06  # 60ms gaps
+    letter_gap = 0.18  # 180ms letter gaps
 
     signal = []
     current_time = 0
@@ -104,7 +102,7 @@ def demo_morse_code_analysis():
 
         current_time += duration
         end_sample = len(signal)
-        print(f"{name:12} {duration*1000:5.0f}ms  samples {start_sample:3d}-{end_sample:3d}")
+        print(f"{name:12} {duration * 1000:5.0f}ms  samples {start_sample:3d}-{end_sample:3d}")
 
     print("SOS Pattern Generation:")
     print(f"{'Element':<12} {'Duration':<7} {'Samples'}")
@@ -133,10 +131,10 @@ def demo_morse_code_analysis():
     add_element(gap_duration, 0.0, "gap")
     add_element(dot_duration, 1.0, "dot")
 
-    print(f"\nTotal signal: {len(signal)} samples ({len(signal)/sample_rate:.2f} seconds)")
+    print(f"\nTotal signal: {len(signal)} samples ({len(signal) / sample_rate:.2f} seconds)")
 
     # High-resolution Braille visualization
-    print(f"\nHigh-Resolution Braille Visualization (2x detail):")
+    print("\nHigh-Resolution Braille Visualization (2x detail):")
     braille_lines = plot_signal_braille(signal, sample_rate_hz=sample_rate, width=50, height=3)
     for line in braille_lines:
         print(line)
@@ -156,7 +154,7 @@ def demo_performance_characteristics():
     data_sizes = [100, 500, 1000, 5000]
     display_width = 60
 
-    print(f"Backend-aware decimation performance:")
+    print("Backend-aware decimation performance:")
     print(f"{'Data Size':<10} {'ASCII Pts':<10} {'Braille Pts':<12} {'Advantage'}")
     print("-" * 45)
 
@@ -167,8 +165,8 @@ def demo_performance_characteristics():
 
         print(f"{size:<10} {ascii_pts:<10} {braille_pts:<12} {advantage:.1f}x")
 
-    print(f"\n💡 Braille consistently provides 2x resolution advantage")
-    print(f"   Perfect for high-frequency signal analysis")
+    print("\n💡 Braille consistently provides 2x resolution advantage")
+    print("   Perfect for high-frequency signal analysis")
 
 
 def demo_ssh_compatibility():
@@ -190,7 +188,7 @@ def demo_ssh_compatibility():
     for scenario, terminal, backend, result in scenarios:
         print(f"{scenario:<15} {terminal:<12} {backend:<10} {result}")
 
-    print(f"\n🎯 Universal compatibility with automatic fallback")
+    print("\n🎯 Universal compatibility with automatic fallback")
 
 
 def demo_real_world_integration():
@@ -221,7 +219,7 @@ def demo_real_world_integration():
     print("                logger.debug(line)")
     print("```")
 
-    print(f"\n🚀 Ready for immediate integration!")
+    print("\n🚀 Ready for immediate integration!")
 
 
 def main():

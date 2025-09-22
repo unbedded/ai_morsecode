@@ -19,6 +19,7 @@ from .time_axis import TimeAxis
 
 try:
     import numpy as np
+
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False

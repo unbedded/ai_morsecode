@@ -1,13 +1,13 @@
-# Examples Directory
+# Configuration System Examples
 
-This directory contains example scripts demonstrating the enum-based configuration system and debugging utilities for the Morse Code Decoder project.
+This directory contains example scripts demonstrating the enum-based configuration system.
 
 ## Available Examples
 
 ### `enum_config_demo.py` ✅ **Recommended**
 **Purpose**: Demonstrates the new enum-based configuration pattern
 **Status**: ✅ Working and up-to-date
-**Usage**: `python examples/enum_config_demo.py`
+**Usage**: `python src/util/config/examples/enum_config_demo.py`
 
 **What it shows**:
 - Type-safe configuration access using enum keys

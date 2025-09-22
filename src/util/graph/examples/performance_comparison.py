@@ -6,25 +6,24 @@ of backend-aware decimation in the UILT library.
 """
 
 import math
-import sys
 import os
+import sys
 import time
-from typing import List
 
 # Add src to path for util imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 from util.graph import (
     ASCIIBackend,
+    Backend,
     BrailleBackend,
     SmartDecimation,
-    Backend,
     plot_signal_ascii,
     plot_signal_braille,
 )
 
 
-def generate_test_signal(num_samples: int, signal_type: str = "mixed") -> List[float]:
+def generate_test_signal(num_samples: int, signal_type: str = "mixed") -> list[float]:
     """Generate test signals of various types for performance testing."""
     signal = []
 
@@ -36,10 +35,10 @@ def generate_test_signal(num_samples: int, signal_type: str = "mixed") -> List[f
         elif signal_type == "mixed":
             # Mixed frequency content
             sample = (
-                math.sin(2 * math.pi * 25 * t) +
-                0.5 * math.sin(2 * math.pi * 75 * t) +
-                0.3 * math.sin(2 * math.pi * 150 * t) +
-                0.1 * math.sin(2 * math.pi * 300 * t)
+                math.sin(2 * math.pi * 25 * t)
+                + 0.5 * math.sin(2 * math.pi * 75 * t)
+                + 0.3 * math.sin(2 * math.pi * 150 * t)
+                + 0.1 * math.sin(2 * math.pi * 300 * t)
             )
         elif signal_type == "impulse":
             # Impulse train
@@ -82,9 +81,9 @@ def benchmark_decimation_performance():
             SmartDecimation.decimate(test_data, Backend.BRAILLE, display_width, display_height)
         braille_time = (time.perf_counter() - start_time) / 100
 
-        speedup = ascii_time / braille_time if braille_time > 0 else float('inf')
+        speedup = ascii_time / braille_time if braille_time > 0 else float("inf")
 
-        print(f"{size:<10} {ascii_time*1000:<8.3f} ms  {braille_time*1000:<10.3f} ms  {speedup:<6.2f}x")
+        print(f"{size:<10} {ascii_time * 1000:<8.3f} ms  {braille_time * 1000:<10.3f} ms  {speedup:<6.2f}x")
 
     print("\n💡 Note: Times may vary based on data characteristics and hardware")
 
@@ -108,7 +107,7 @@ def demonstrate_resolution_advantage():
         high_freq_signal.append(fundamental + noise)
 
     print(f"Test signal: {num_samples} samples at {sample_rate} Hz")
-    print(f"Contains: 25 Hz square wave + 200 Hz noise component\n")
+    print("Contains: 25 Hz square wave + 200 Hz noise component\n")
 
     display_width = 40
 
@@ -174,7 +173,7 @@ def analyze_decimation_quality():
 
         # Calculate signal preservation metrics
         def signal_energy(data):
-            return sum(x*x for x in data) / len(data)
+            return sum(x * x for x in data) / len(data)
 
         def peak_preservation(original, decimated):
             orig_max = max(abs(x) for x in original)
@@ -188,7 +187,10 @@ def analyze_decimation_quality():
         ascii_peak = peak_preservation(original_data, ascii_decimated)
         braille_peak = peak_preservation(original_data, braille_decimated)
 
-        print(f"Energy preservation - ASCII: {ascii_energy/original_energy:.3f}, Braille: {braille_energy/original_energy:.3f}")
+        print(
+            f"Energy preservation - ASCII: {ascii_energy / original_energy:.3f}, "
+            f"Braille: {braille_energy / original_energy:.3f}"
+        )
         print(f"Peak preservation - ASCII: {ascii_peak:.3f}, Braille: {braille_peak:.3f}")
 
 
@@ -223,11 +225,11 @@ def demonstrate_ssh_use_case():
 
         morse_signal.append(envelope * carrier + noise + high_freq)
 
-    print(f"Signal characteristics:")
+    print("Signal characteristics:")
     print(f"  • Sample rate: {sample_rate} Hz")
-    print(f"  • Duration: {duration*1000} ms")
+    print(f"  • Duration: {duration * 1000} ms")
     print(f"  • Samples: {num_samples}")
-    print(f"  • Contains: Morse code + noise + artifacts\n")
+    print("  • Contains: Morse code + noise + artifacts\n")
 
     # Show terminal compatibility
     terminal_width = 60
@@ -236,9 +238,9 @@ def demonstrate_ssh_use_case():
     ascii_res = SmartDecimation.calculate_effective_resolution(Backend.ASCII, terminal_width, 5)
     braille_res = SmartDecimation.calculate_effective_resolution(Backend.BRAILLE, terminal_width, 5)
 
-    print(f"ASCII mode: {ascii_res} time points ({sample_rate/ascii_res:.1f} samples per point)")
-    print(f"Braille mode: {braille_res} time points ({sample_rate/braille_res:.1f} samples per point)")
-    print(f"Time resolution improvement: {braille_res/ascii_res:.1f}x\n")
+    print(f"ASCII mode: {ascii_res} time points ({sample_rate / ascii_res:.1f} samples per point)")
+    print(f"Braille mode: {braille_res} time points ({sample_rate / braille_res:.1f} samples per point)")
+    print(f"Time resolution improvement: {braille_res / ascii_res:.1f}x\n")
 
     # ASCII display
     print("ASCII mode (standard SSH compatibility):")
