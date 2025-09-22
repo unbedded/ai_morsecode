@@ -22,6 +22,39 @@ class ConfigSchema:
         description="Words per minute for timing calculations",
     )
 
+    wpm_range_min = CfgField(
+        type=CfgType.INT,
+        default=12,
+        min=1,
+        max=25,
+        unit="wpm",
+        description="Minimum supported WPM for auto-detection and validation",
+    )
+
+    wpm_range_max = CfgField(
+        type=CfgType.INT,
+        default=50,
+        min=25,
+        max=100,
+        unit="wpm",
+        description="Maximum supported WPM for auto-detection and validation",
+    )
+
+    auto_detect_wpm = CfgField(
+        type=CfgType.BOOL,
+        default=True,
+        description="Automatically detect WPM from audio timing patterns",
+    )
+
+    auto_detect_min_samples = CfgField(
+        type=CfgType.INT,
+        default=10,
+        min=5,
+        max=50,
+        unit="samples",
+        description="Minimum timing samples needed for auto WPM detection",
+    )
+
     dot_duration_ms = CfgField(
         type=CfgType.DOUBLE,
         default=80.0,

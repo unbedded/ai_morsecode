@@ -145,6 +145,11 @@ class MorseDecoder(ConfigurableBase):
         self._total_characters_decoded: int = 0
         self._chunk_counter: int = 0
 
+        # Auto WPM detection timing samples
+        self._dot_timing_samples: list[float] = []
+        self._dash_timing_samples: list[float] = []
+        self._wpm_auto_detected = False
+
         # Get global event bus for publishing events
         self._event_bus = get_global_event_bus()
 
@@ -164,6 +169,10 @@ class MorseDecoder(ConfigurableBase):
         """
         # STEP 1: Load core configuration with type safety
         self.wpm_estimate: int = self._cfg_section.get_int(CfgKey.WPM)
+        self.wpm_range_min: int = self._cfg_section.get_int(CfgKey.WPM_RANGE_MIN)
+        self.wpm_range_max: int = self._cfg_section.get_int(CfgKey.WPM_RANGE_MAX)
+        self.auto_detect_wpm: bool = self._cfg_section.get_bool(CfgKey.AUTO_DETECT_WPM)
+        self.auto_detect_min_samples: int = self._cfg_section.get_int(CfgKey.AUTO_DETECT_MIN_SAMPLES)
         self.dot_duration_ms: float = self._cfg_section.get_double(CfgKey.DOT_DURATION_MS)
         self.detection_tolerance: float = self._cfg_section.get_double(CfgKey.TIMING_TOLERANCE_NORM)
 
@@ -241,6 +250,19 @@ class MorseDecoder(ConfigurableBase):
         """Validate decoder configuration parameters."""
         if self.wpm_estimate <= 0:
             raise ValueError(f"WPM estimate must be positive: {self.wpm_estimate}")
+
+        # Validate WPM range configuration
+        if self.wpm_range_min >= self.wpm_range_max:
+            raise ValueError(f"WPM range invalid: min={self.wpm_range_min} >= max={self.wpm_range_max}")
+
+        # Validate WPM is within supported range
+        if not (self.wpm_range_min <= self.wpm_estimate <= self.wpm_range_max):
+            self.logger.warning(
+                "Initial WPM %d outside supported range [%d, %d] - auto-detection may correct this",
+                self.wpm_estimate,
+                self.wpm_range_min,
+                self.wpm_range_max,
+            )
 
         if self.dot_duration_ms <= 0:
             raise ValueError(f"Dot duration must be positive: {self.dot_duration_ms}")
@@ -331,6 +353,11 @@ class MorseDecoder(ConfigurableBase):
                 self._total_dots_decoded += 1
                 confidence = 1.0 - abs(duration_ms - self.dot_duration_ms) / self.dot_duration_ms
                 self.logger.debug("Decoded DOT (%.1fms)", duration_ms)
+
+                # Collect timing sample for auto WPM detection
+                if self.auto_detect_wpm and not self._wpm_auto_detected:
+                    self._dot_timing_samples.append(duration_ms)
+
             elif duration_ms >= dash_threshold:
                 # This is a dash
                 element_type = "-"
@@ -338,6 +365,10 @@ class MorseDecoder(ConfigurableBase):
                 self._total_dashes_decoded += 1
                 confidence = 1.0 - abs(duration_ms - self.dash_duration_ms) / self.dash_duration_ms
                 self.logger.debug("Decoded DASH (%.1fms)", duration_ms)
+
+                # Collect timing sample for auto WPM detection
+                if self.auto_detect_wpm and not self._wpm_auto_detected:
+                    self._dash_timing_samples.append(duration_ms)
             else:
                 # Ambiguous duration - use closest match
                 dot_diff = abs(duration_ms - self.dot_duration_ms)
@@ -365,6 +396,14 @@ class MorseDecoder(ConfigurableBase):
                 confidence=min(1.0, max(0.0, confidence)),
             )
             self._event_bus.publish(pattern_event)
+
+            # Check if we should trigger auto WPM detection
+            if (
+                self.auto_detect_wpm
+                and not self._wpm_auto_detected
+                and len(self._dot_timing_samples) >= self.auto_detect_min_samples
+            ):
+                self._trigger_auto_wpm_detection()
 
         except Exception as e:
             self.logger.exception("Error processing tone element: %s", str(e))
@@ -491,10 +530,86 @@ class MorseDecoder(ConfigurableBase):
             self._total_dashes_decoded = 0
             self._total_characters_decoded = 0
 
+            # Reset auto WPM detection state
+            self._dot_timing_samples.clear()
+            self._dash_timing_samples.clear()
+            self._wpm_auto_detected = False
+
             self.logger.info("Decoder state reset")
 
         except Exception as e:
             self.logger.exception("Error resetting decoder: %s", str(e))
+
+    def _trigger_auto_wpm_detection(self) -> None:
+        """Trigger automatic WPM detection and reconfiguration if enough samples collected."""
+        try:
+            # Estimate WPM from collected timing samples
+            estimated_wpm = self.estimate_wpm_from_timing(self._dot_timing_samples, self._dash_timing_samples)
+
+            # Clamp estimated WPM to supported range
+            clamped_wpm = max(self.wpm_range_min, min(self.wpm_range_max, estimated_wpm))
+            if clamped_wpm != estimated_wpm:
+                self.logger.info(
+                    "Auto-detected WPM %.1f clamped to supported range [%d, %d] -> %d",
+                    estimated_wpm,
+                    self.wpm_range_min,
+                    self.wpm_range_max,
+                    int(clamped_wpm),
+                )
+
+            # Only reconfigure if the estimate is significantly different
+            wpm_difference = abs(clamped_wpm - self.wpm_estimate)
+            if wpm_difference >= 2.0:  # At least 2 WPM difference to avoid minor fluctuations
+                self.logger.info(
+                    "Auto-detected WPM: %.1f (was %d) - reconfiguring decoder timing", clamped_wpm, self.wpm_estimate
+                )
+
+                # Update WPM and recalculate timing parameters
+                self.wpm_estimate = int(round(clamped_wpm))
+                self._recalculate_timing_parameters()
+
+                # Mark as auto-detected to prevent repeated adjustments
+                self._wpm_auto_detected = True
+
+                self.logger.info("Decoder reconfigured with auto-detected %d WPM", self.wpm_estimate)
+            else:
+                self.logger.debug(
+                    "Auto-detected WPM %.1f is close to configured %d WPM - no change needed",
+                    estimated_wpm,
+                    self.wpm_estimate,
+                )
+                self._wpm_auto_detected = True  # Still mark as detected to avoid re-checking
+
+        except Exception as e:
+            self.logger.exception("Error during auto WPM detection: %s", str(e))
+            self._wpm_auto_detected = True  # Prevent repeated failures
+
+    def _recalculate_timing_parameters(self) -> None:
+        """Recalculate all timing parameters based on current WPM estimate."""
+        try:
+            # Recalculate dot duration from WPM using standard PARIS formula
+            self.dot_duration_ms = 1200.0 / self.wpm_estimate
+
+            # Recalculate all derived timing parameters
+            dash_ratio = 3.0
+            character_spacing_ratio = 3.0
+            word_spacing_ratio = 7.0
+
+            self.dash_duration_ms = self.dot_duration_ms * dash_ratio
+            self.element_spacing_ms = self.dot_duration_ms * DEFAULT_ELEMENT_SPACING_RATIO
+            self.character_spacing_ms = self.dot_duration_ms * character_spacing_ratio
+            self.word_spacing_ms = self.dot_duration_ms * word_spacing_ratio
+
+            self.logger.debug(
+                "Recalculated timing: dot=%.1fms, dash=%.1fms, char_spacing=%.1fms, word_spacing=%.1fms",
+                self.dot_duration_ms,
+                self.dash_duration_ms,
+                self.character_spacing_ms,
+                self.word_spacing_ms,
+            )
+
+        except Exception as e:
+            self.logger.exception("Error recalculating timing parameters: %s", str(e))
 
     def estimate_wpm_from_timing(self, sample_dots: list[float], sample_dashes: list[float]) -> float:
         """Estimate WPM from sample dot and dash durations.
@@ -556,24 +671,38 @@ class MorseDecoder(ConfigurableBase):
             self.logger.debug("Error publishing probability event: %s", str(e))
 
     def _calculate_dit_probability(self, tone_detected: bool) -> float:
-        """Calculate probability that current state represents a dit (dot)."""
+        """Calculate probability that current state represents a dit (dot).
+
+        This function implements a matched filter approach for maximum signal extraction.
+        High early confidence is CORRECT for signal processing - creates strong correlation
+        peaks for reliable detection in noisy RF environments. Decision logic happens
+        later via peak detection and trumping rules, not real-time thresholds.
+        """
         if not tone_detected:
             return 0.0
 
         if self._tone_start_time is None:
-            return 0.1  # Low probability at start of tone
+            return 0.0  # No probability at start of tone
 
         # Calculate current tone duration
         current_duration = self._current_time - self._tone_start_time
         expected_dot = self.dot_duration_ms
-        tolerance = self.detection_tolerance
+        expected_dash = self.dash_duration_ms
 
-        # Gaussian-like probability centered on expected dot duration
-        deviation = abs(current_duration - expected_dot) / expected_dot
-        if deviation <= tolerance:
-            return max(0.1, 1.0 - (deviation / tolerance) * 0.8)
-        else:
-            return 0.1
+        # Use relative probabilities - closer to dot duration = higher dit probability
+        distance_to_dot = abs(current_duration - expected_dot)
+        distance_to_dash = abs(current_duration - expected_dash)
+
+        # Avoid division by zero
+        if distance_to_dot + distance_to_dash < 1.0:
+            return 0.5
+
+        # Relative probability: favor whichever is closer
+        # This creates STRONG early signal for matched filtering - exactly what we want!
+        dit_prob = distance_to_dash / (distance_to_dot + distance_to_dash)
+
+        # Scale to 0.1-0.9 range for maximum signal strength
+        return 0.1 + 0.8 * dit_prob
 
     def _calculate_dash_probability(self, tone_detected: bool) -> float:
         """Calculate probability that current state represents a dash."""
@@ -581,19 +710,26 @@ class MorseDecoder(ConfigurableBase):
             return 0.0
 
         if self._tone_start_time is None:
-            return 0.1  # Low probability at start of tone
+            return 0.0  # No probability at start of tone
 
         # Calculate current tone duration
         current_duration = self._current_time - self._tone_start_time
+        expected_dot = self.dot_duration_ms
         expected_dash = self.dash_duration_ms
-        tolerance = self.detection_tolerance
 
-        # Gaussian-like probability centered on expected dash duration
-        deviation = abs(current_duration - expected_dash) / expected_dash
-        if deviation <= tolerance:
-            return max(0.1, 1.0 - (deviation / tolerance) * 0.8)
-        else:
-            return 0.1
+        # Use relative probabilities - closer to dash duration = higher dash probability
+        distance_to_dot = abs(current_duration - expected_dot)
+        distance_to_dash = abs(current_duration - expected_dash)
+
+        # Avoid division by zero
+        if distance_to_dot + distance_to_dash < 1.0:
+            return 0.5
+
+        # Relative probability: favor whichever is closer
+        dash_prob = distance_to_dot / (distance_to_dot + distance_to_dash)
+
+        # Scale to 0.1-0.9 range for better visualization
+        return 0.1 + 0.8 * dash_prob
 
     def _calculate_letter_space_probability(self) -> float:
         """Calculate probability that we're in a letter space (between characters)."""

@@ -248,7 +248,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
         # Use a smaller chart area for time series - leave room for headers and status
         chart_width = ChartCalculations.main_chart_width(self.display_width_chars)
         chart_height = ChartCalculations.main_chart_height(self.display_height_chars)
-        prob_chart_height = 2  # Fixed height for probability charts
+        prob_chart_height = SignalConstants.PROBABILITY_CHART_ROWS  # Unified config source
 
         if self.backend_type == "ascii":
             self._magnitude_backend = ASCIIBackend(chart_width, chart_height, "Magnitude")
@@ -359,15 +359,16 @@ class ASCIIDebugDisplay(ConfigurableBase):
             layout = Layout()
 
             # Create main sections - FFT, magnitude, 4 individual probability charts, status
-            # Each probability chart gets 3 rows (2 for content + 1 for Panel borders, total: ~30 rows)
+            # Each probability chart gets content rows + 2 for Panel borders
+            prob_layout_size = SignalConstants.PROBABILITY_CHART_ROWS + 2
             layout.split_column(
                 Layout(name="header", size=2),
                 Layout(name="fft_chart", size=6),
                 Layout(name="magnitude_chart", size=6),
-                Layout(name="prob_dit", size=3),
-                Layout(name="prob_dash", size=3),
-                Layout(name="prob_letter", size=3),
-                Layout(name="prob_word", size=3),
+                Layout(name="prob_dit", size=prob_layout_size),
+                Layout(name="prob_dash", size=prob_layout_size),
+                Layout(name="prob_letter", size=prob_layout_size),
+                Layout(name="prob_word", size=prob_layout_size),
                 Layout(name="status", size=6),
             )
 
@@ -399,28 +400,36 @@ class ASCIIDebugDisplay(ConfigurableBase):
             layout["magnitude_chart"].update(Panel(chart_content, title=magnitude_title, style="green"))
 
             # Individual probability charts - full width, 2 rows each, same timescale as main charts
-            dit_chart = self._render_full_width_probability_chart("dit", self._prob_dit_buffer, 2)
+            dit_chart = self._render_full_width_probability_chart(
+                "dit", self._prob_dit_buffer, SignalConstants.PROBABILITY_CHART_ROWS
+            )
             dit_title = (
                 f"Dit Probability (0-1) | Data Points: {len(self._prob_dit_buffer)} | "
                 f"Current: {self._current_prob_dit:.2f}"
             )
             layout["prob_dit"].update(Panel(dit_chart, title=dit_title, style="bright_blue"))
 
-            dash_chart = self._render_full_width_probability_chart("dash", self._prob_dash_buffer, 2)
+            dash_chart = self._render_full_width_probability_chart(
+                "dash", self._prob_dash_buffer, SignalConstants.PROBABILITY_CHART_ROWS
+            )
             dash_title = (
                 f"Dash Probability (0-1) | Data Points: {len(self._prob_dash_buffer)} | "
                 f"Current: {self._current_prob_dash:.2f}"
             )
             layout["prob_dash"].update(Panel(dash_chart, title=dash_title, style="bright_red"))
 
-            letter_chart = self._render_full_width_probability_chart("letter", self._prob_letter_buffer, 2)
+            letter_chart = self._render_full_width_probability_chart(
+                "letter", self._prob_letter_buffer, SignalConstants.PROBABILITY_CHART_ROWS
+            )
             letter_title = (
                 f"Letter Space Probability (0-1) | Data Points: {len(self._prob_letter_buffer)} | "
                 f"Current: {self._current_prob_letter:.2f}"
             )
             layout["prob_letter"].update(Panel(letter_chart, title=letter_title, style="bright_magenta"))
 
-            word_chart = self._render_full_width_probability_chart("word", self._prob_word_buffer, 2)
+            word_chart = self._render_full_width_probability_chart(
+                "word", self._prob_word_buffer, SignalConstants.PROBABILITY_CHART_ROWS
+            )
             word_title = (
                 f"Word Space Probability (0-1) | Data Points: {len(self._prob_word_buffer)} | "
                 f"Current: {self._current_prob_word:.2f}"
@@ -493,7 +502,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
                 lines, backend_used = plot_signal_auto(
                     signal_data,
                     width=60,
-                    height=6,
+                    height=24,
                     title="Magnitude",
                     sample_rate_hz=100.0,
                     prefer_braille=True,
@@ -594,7 +603,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
                 lines, backend_used = plot_signal_auto(
                     fft_data,
                     width=60,
-                    height=6,
+                    height=24,
                     title="FFT",
                     sample_rate_hz=100.0,
                     prefer_braille=True,
@@ -617,148 +626,9 @@ class ASCIIDebugDisplay(ConfigurableBase):
 
         return chart_text
 
-    def _render_probability_chart(self, prob_type: str, prob_buffer: deque[float]) -> Text:
-        """Render 4-row probability chart for a specific Morse element (0.0 to 1.0)."""
-        chart_text = Text()
+    # REMOVED: _render_probability_chart() - Dead code (side-by-side charts never used)
 
-        # Chart dimensions - narrower than main charts since we have 4 side by side
-        chart_width = ChartCalculations.probability_chart_width(self.display_width_chars)
-        chart_rows = SignalConstants.PROBABILITY_CHART_ROWS
-
-        if len(prob_buffer) < 1:
-            # Not enough data yet - show simplified test pattern
-            chart_text.append(f"{prob_type[:3].upper()}\n", style="white")
-            chart_text.append("████\n", style="white")
-            chart_text.append("▇▅▃▁\n", style="white")
-            chart_text.append("TEST", style="dim white")
-            return chart_text
-
-        # Get probability data (0.0 to 1.0 range)
-        prob_data = list(prob_buffer)[-chart_width:]
-
-        # Sparkline characters are now defined in SignalConstants.SPARKLINE_CHARS
-
-        # Simple white color for now
-        def get_prob_color(value):
-            return "white"
-
-        # Build 4-row display: 0.0 to 1.0
-        for row in range(chart_rows):
-            row_text = Text()
-
-            # Row labels for probability range (4 levels from 0.0 to 1.0)
-            if row == 0:  # Top row (1.0)
-                row_text.append("1.0", style="white")
-            elif row == 1:  # 0.75
-                row_text.append("0.7", style="white")
-            elif row == 2:  # 0.5
-                row_text.append("0.5", style="white")
-            else:  # Bottom row (0.0)
-                row_text.append("0.0", style="white")
-
-            for _col, prob_value in enumerate(prob_data):
-                # Clamp probability to 0-1 range
-                prob_value = max(0.0, min(1.0, prob_value))
-
-                # Map probability 0.0 to 1.0 to 32 levels (4 rows × 8 sparklines)
-                level_32 = int(prob_value * 31.99)  # 0-31 range
-                level_32 = max(0, min(31, level_32))
-
-                target_row = 3 - (level_32 // 8)  # Which row (3=bottom, 0=top)
-                sparkline_level = level_32 % 8  # Which sparkline within row
-
-                color = get_prob_color(prob_value)
-
-                if row < target_row:
-                    # Above the signal - empty
-                    row_text.append(" ")
-                elif row == target_row:
-                    # Signal row - show appropriate sparkline
-                    row_text.append(SignalConstants.SPARKLINE_CHARS[sparkline_level], style=color)
-                else:
-                    # Below signal - filled blocks (building up from bottom)
-                    row_text.append("█", style=color)
-
-            chart_text.append(row_text)
-
-            # Add newline except for last row
-            if row < SignalConstants.FFT_CHART_ROWS - 1:
-                chart_text.append("\n")
-
-        return chart_text
-
-    def _render_probability_section(self) -> Text:
-        """Render all 4 probability charts side-by-side in a single section."""
-        prob_types = [
-            ("DIT", self._prob_dit_buffer, "bright_blue"),
-            ("DASH", self._prob_dash_buffer, "bright_red"),
-            ("LTR", self._prob_letter_buffer, "bright_magenta"),
-            ("WORD", self._prob_word_buffer, "bright_yellow"),
-        ]
-
-        section_text = Text()
-        chart_width = ChartCalculations.probability_chart_width(self.display_width_chars)
-        chart_rows = SignalConstants.PROBABILITY_CHART_ROWS
-
-        # Build each row across all 4 charts
-        for row in range(chart_rows):
-            row_text = Text()
-
-            for i, (prob_type, prob_buffer, color) in enumerate(prob_types):
-                if i > 0:
-                    row_text.append(" │ ", style="dim white")  # Separator between charts
-
-                # Add row label on first chart only
-                if i == 0:
-                    if row == 0:
-                        row_text.append("1.0 ", style="white")
-                    elif row == 1:
-                        row_text.append("0.7 ", style="white")
-                    elif row == 2:
-                        row_text.append("0.5 ", style="white")
-                    else:
-                        row_text.append("0.0 ", style="white")
-                else:
-                    row_text.append("    ", style="white")  # Padding for other charts
-
-                # Chart title on top row
-                if row == 0:
-                    title_text = f"{prob_type[:4]:^{chart_width}}"[:chart_width]
-                    row_text.append(title_text, style=color)
-                else:
-                    # Chart content
-                    if len(prob_buffer) < 1:
-                        # Fallback content
-                        content = "█▇▅▃"[:chart_width].ljust(chart_width)
-                        row_text.append(content, style=color)
-                    else:
-                        # Actual probability chart data
-                        prob_data = list(prob_buffer)[-chart_width:]
-                        # Using SignalConstants.SPARKLINE_CHARS instead
-
-                        chart_content = ""
-                        for prob_value in prob_data:
-                            prob_value = max(0.0, min(1.0, prob_value))
-                            level_32 = int(prob_value * 31.99)
-                            level_32 = max(0, min(31, level_32))
-                            target_row = 3 - (level_32 // 8)
-                            sparkline_level = level_32 % 8
-
-                            if row < target_row:
-                                chart_content += " "
-                            elif row == target_row:
-                                chart_content += SignalConstants.SPARKLINE_CHARS[sparkline_level]
-                            else:
-                                chart_content += "█"
-
-                        chart_content = chart_content.ljust(chart_width)[:chart_width]
-                        row_text.append(chart_content, style=color)
-
-            section_text.append(row_text)
-            if row < SignalConstants.FFT_CHART_ROWS - 1:
-                section_text.append("\n")
-
-        return section_text
+    # REMOVED: _render_probability_section() - Dead code (side-by-side section never used)
 
     def _render_full_width_probability_chart(self, prob_type: str, prob_buffer: deque[float], chart_rows: int) -> Text:
         """Render full-width probability chart using same core logic as magnitude chart.

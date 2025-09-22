@@ -31,6 +31,8 @@ class TestMorseCodeIntegration:
         """Create mock config manager for decoder component."""
         config_values = {
             DecoderCfgKey.WPM: 15,
+            DecoderCfgKey.WPM_RANGE_MIN: 5,
+            DecoderCfgKey.WPM_RANGE_MAX: 50,
             DecoderCfgKey.DOT_DURATION_MS: 80.0,
             DecoderCfgKey.TIMING_TOLERANCE_NORM: 0.3,
         }

@@ -58,8 +58,8 @@ class SignalConstants:
 
     # Chart rendering levels
     SPARKLINE_LEVELS_PER_ROW: Final[int] = 8
-    FFT_CHART_ROWS: Final[int] = 5  # 5 rows × 8 levels = 40 total levels
-    PROBABILITY_CHART_ROWS: Final[int] = 4  # 4 rows × 8 levels = 32 total levels
+    FFT_CHART_ROWS: Final[int] = 20  # 20 rows × 8 levels = 160 total levels (4x taller)
+    PROBABILITY_CHART_ROWS: Final[int] = 3  # 3 rows × 8 levels = 24 total levels (3x char tall)
 
     # Sparkline characters (8 levels of block height)
     SPARKLINE_CHARS: Final[str] = "▁▂▃▄▅▆▇█"

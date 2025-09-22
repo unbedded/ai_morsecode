@@ -379,6 +379,78 @@ morsecode/
 └── README.md                       # This file
 ```
 
+## Theory of Operation
+
+### Signal Processing Philosophy: Maximum Likelihood Signal Extraction
+
+This Morse code decoder is designed around a **maximum likelihood signal extraction** approach, optimized for pulling weak CW signals out of noisy RF environments. The core principle is to use **maximum a-priori information** to create the strongest possible signal signatures for pattern matching.
+
+#### Synthetic Pattern Design: Matched Filters for Signal Detection
+
+The decoder uses **synthetic probability patterns** that function as matched filters, each designed to correlate strongly with expected Morse code elements:
+
+```
+SYNTHETIC PATTERN THEORY
+=======================
+
+Purpose: Create STRONG correlation peaks for reliable detection in noise
+Method: Aggressive pattern matching using maximum a-priori knowledge
+
+DIT PATTERN (during 180ms dash @ 20 WPM):
+1.0 ┤ ████████▄▄▄▄    ← High early confidence for quick detection
+0.5 ┤ ████████████▄▄  ← Strong signal energy
+0.0 ┴─────────────────
+    0   60  120  180ms
+
+DASH PATTERN (during same 180ms dash):
+1.0 ┤       ▄▄████████ ← Strong late confirmation
+0.5 ┤     ▄████████████ ← Clear dash signature
+0.0 ┴─────────────────
+    0   60  120  180ms
+
+WHY HIGH EARLY CONFIDENCE IS CORRECT:
+• More signal energy available for pattern matching
+• Better Signal-to-Noise Ratio in weak signal conditions
+• Faster detection capability for real-time operation
+• Multiple competing hypotheses = robust final decision
+```
+
+#### Decision Algorithm: Peak Detection with Trumping Logic
+
+The system does **NOT** make real-time element decisions. Instead, it:
+
+1. **Collects all probability curves** during signal processing
+2. **Finds peaks using 2nd derivative analysis** to locate maximum correlation points
+3. **Applies trumping rules** where stronger/longer patterns override shorter ones:
+   - Word space trumps letter space (similar timing, different confidence)
+   - Dash trumps dit when both show peaks (stronger evidence wins)
+   - Latest/strongest peak wins in case of ties
+
+```
+PEAK DETECTION EXAMPLE
+=====================
+
+All Probability Curves for 180ms Dash:
+Dit:  ████▄▄▄▄         Peak @ 40ms, confidence 0.8
+Dash: ▄▄▄▄████████     Peak @ 150ms, confidence 0.9  ← WINNER
+Lett: ▄▄▄▄▄▄▄▄████     Peak @ 180ms+, confidence 0.6
+Word: ▄▄▄▄▄▄▄▄▄▄██     Peak @ 400ms+, confidence 0.3
+
+Decision: DASH (strongest peak at 150ms)
+Timing: Element ends at 150ms (peak location)
+```
+
+#### RF/Amateur Radio Heritage
+
+This approach mirrors techniques used in weak-signal amateur radio communication:
+
+- **Matched filtering** for optimal signal extraction from noise
+- **Multiple hypothesis testing** for robust decisions under uncertainty
+- **A-priori timing knowledge** leveraged for maximum gain
+- **Post-processing analysis** rather than real-time threshold decisions
+
+The synthetic patterns are intentionally "aggressive" in their confidence levels because they're designed as **signal processing tools**, not realistic real-time decision models. The goal is maximum signal extraction, with intelligence applied in the peak detection and decision logic.
+
 ## Technical Details
 
 ### Signal Processing Pipeline
@@ -387,8 +459,10 @@ morsecode/
 2. **Chunked Processing**: 20ms audio chunks for real-time capability
 3. **FFT Analysis**: Frequency domain analysis with windowing
 4. **Tone Detection**: Energy-based detection with SNR calculation
-5. **Pattern Recognition**: Timing analysis for dot/dash classification
-6. **Character Decoding**: Morse code table lookup with error recovery
+5. **Synthetic Pattern Generation**: Matched filter correlation for each Morse element type
+6. **Peak Detection**: 2nd derivative analysis to find maximum correlation points
+7. **Decision Logic**: Trumping rules applied to select strongest evidence
+8. **Character Decoding**: Morse code table lookup with error recovery
 
 ### Event-Driven Architecture
 
