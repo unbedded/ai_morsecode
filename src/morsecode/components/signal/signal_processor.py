@@ -28,7 +28,7 @@ from scipy.fft import fft, fftfreq
 from morsecode.components.signal.signal_config_keys import SignalCfgKey, SignalCfgSection
 from morsecode.components.signal.signal_config_schema import SignalConfigSchema, SignalMode
 from morsecode.events.bus import get_global_event_bus
-from morsecode.events.types import AudioChunkEvent, ToneDetectedEvent
+from morsecode.events.types import AudioChunkEvent, FFTSpectrumEvent, FilteredMagnitudeEvent, ToneDetectedEvent
 from util.config import ConfigurableBase
 
 # All configuration values now come from schema - no hardcoded constants needed
@@ -276,6 +276,22 @@ class SignalProcessor(ConfigurableBase):
             # Compute FFT of audio data
             frequencies, magnitudes = self.compute_fft(audio_data)
 
+            # Publish FFT spectrum event for debugging and autoscaling
+            peak_idx = np.argmax(magnitudes)
+            peak_frequency_hz = frequencies[peak_idx]
+            peak_magnitude = magnitudes[peak_idx]
+            total_energy = np.sum(magnitudes)
+            noise_floor = np.mean(magnitudes) + np.std(magnitudes)  # Simple noise floor estimate
+
+            fft_event = FFTSpectrumEvent(
+                peak_frequency_hz=peak_frequency_hz,
+                peak_magnitude=peak_magnitude,
+                total_energy=total_energy,
+                noise_floor=noise_floor,
+                chunk_number=self._chunk_counter,
+            )
+            self._event_bus.publish(fft_event)
+
             # Determine actual target frequency
             if adaptive_frequency:
                 # Find the strongest frequency peak in a reasonable range (200-2000 Hz)
@@ -349,13 +365,13 @@ class SignalProcessor(ConfigurableBase):
 
             # Update energy history for adaptive normalization
             self.energy_history.append(target_energy)
-            if len(self.energy_history) > 100:  # Keep last 100 samples for adaptation
+            if len(self.energy_history) > 100:  # Keep last 100 samples for stable adaptation
                 self.energy_history.pop(0)
 
             # Calculate adaptive threshold based on recent energy levels
-            if len(self.energy_history) >= 10:
+            if len(self.energy_history) >= 10:  # Need sufficient samples for stable threshold
                 energy_array = np.array(self.energy_history)
-                # Use 75th percentile as adaptive threshold (distinguishes signal from noise)
+                # Use 75th percentile as adaptive threshold for robust detection
                 self.adaptive_threshold = np.percentile(energy_array, 75)
 
             # Calculate SNR for adaptive normalization decision (needed here!)
@@ -441,8 +457,83 @@ class SignalProcessor(ConfigurableBase):
             # 4. Duration filtering will be applied by decoder using min_tone_samples
             # (The decoder should filter out tones shorter than cw_mag_thresh_seconds)
 
-            # Final tone detection decision with smoothing and SNR filtering
-            tone_detected = preliminary_detection
+            # =====================================================================
+            # PUBLISH FILTERED MAGNITUDE EVENT FOR ASCII DEBUGGING
+            # =====================================================================
+            # Convert energy ratio to normalized magnitude (-1 to +1 scale)
+            # This replicates the PyQt graph data for ASCII visualization over SSH
+
+            # LEGACY: Keep original per-chunk switching for backward compatibility
+            final_energy_ratio = smoothed_energy_ratio if not use_raw_energy else energy_ratio
+
+            # For consistent signal processing: Use consistent energy selection to avoid switching artifacts
+            # If we've seen any high-SNR signals, prefer raw energy for the entire session
+            if not hasattr(self, "_uses_consistent_raw"):
+                self._uses_consistent_raw = False
+                self._high_snr_count = 0
+
+            # Track high-SNR periods to decide energy strategy for the session
+            if snr_db > snr_threshold_for_raw_energy:
+                self._high_snr_count += 1
+                if self._high_snr_count > 2:  # After seeing clean signal, stick with raw for consistency
+                    self._uses_consistent_raw = True
+
+            # Use consistent energy for signal processing to avoid transition artifacts
+            consistent_energy_ratio = energy_ratio if self._uses_consistent_raw else smoothed_energy_ratio
+
+            # IMPROVED: Use consistent detection logic to avoid switching artifacts in timing
+            consistent_detection = (consistent_energy_ratio > self.detection_threshold) and snr_passes
+
+            # Final tone detection decision - use consistent energy to avoid switching artifacts
+            tone_detected = consistent_detection
+
+            # Map energy ratio to normalized magnitude scale for better ASCII visualization:
+            # - energy_ratio near 0.0 -> magnitude_norm = -1.0 (clear silence/space)
+            # - energy_ratio at detection_threshold -> magnitude_norm = 0.0 (threshold line)
+            # - energy_ratio well above threshold -> magnitude_norm = +1.0 (strong signal)
+
+            # Enhanced mapping for better visual contrast in ASCII display
+            if consistent_energy_ratio < self.detection_threshold:
+                # Below threshold: map 0.0 -> -1.0, threshold -> 0.0
+                if self.detection_threshold > 0:
+                    # Use square root for better visual separation of low values
+                    ratio = consistent_energy_ratio / self.detection_threshold
+                    magnitude_norm = -1.0 + ratio
+                    # Enhance space detection: make very low values more negative
+                    if consistent_energy_ratio < self.detection_threshold * 0.1:
+                        magnitude_norm = -1.0  # Pure silence
+                else:
+                    magnitude_norm = -1.0
+            else:
+                # Above threshold: map threshold -> 0.0, 2*threshold -> +1.0
+                excess_ratio = consistent_energy_ratio - self.detection_threshold
+                if self.detection_threshold > 0:
+                    # Use square root for better signal visualization
+                    normalized_excess = excess_ratio / self.detection_threshold
+                    magnitude_norm = min(1.0, normalized_excess)
+                    # Enhance strong signals for better visual impact
+                    if final_energy_ratio > self.detection_threshold * 3.0:
+                        magnitude_norm = 1.0  # Maximum signal
+                else:
+                    magnitude_norm = 1.0
+
+            # Publish filtered magnitude event for ASCII time-series debugging
+            magnitude_event = FilteredMagnitudeEvent(
+                magnitude_norm=magnitude_norm,
+                threshold_norm=0.0,  # Threshold is at 0.0 in our normalized scale
+                binary_state=tone_detected,
+                chunk_number=self._chunk_counter,
+                frequency_hz=float(target_frequency),
+            )
+            self._event_bus.publish(magnitude_event)
+
+            self.logger.debug(
+                "Magnitude event: norm=%.3f, energy_ratio=%.3f, threshold=%.3f, binary=%s",
+                magnitude_norm,
+                final_energy_ratio,
+                self.detection_threshold,
+                tone_detected,
+            )
 
             # Publish tone detection event
             tone_event = ToneDetectedEvent(

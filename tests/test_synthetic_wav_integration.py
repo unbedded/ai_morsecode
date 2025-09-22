@@ -19,7 +19,7 @@ class TestSyntheticWavIntegration:
     @classmethod
     def setup_class(cls):
         """Set up test class by checking for synthetic test data."""
-        cls.test_data_dir = Path("tests/generated_data")
+        cls.test_data_dir = Path("tests/data/generated_data")
         cls.metadata_file = cls.test_data_dir / "test_suite_metadata.json"
 
         # Load test metadata if available

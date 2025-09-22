@@ -5,6 +5,34 @@
 - Implement Pythonic error handling and debugging techniques, ensuring clarity.
 - Generate comprehensive, efficient, and maintainable pytest test cases following best practices.
 
+## Communication Style
+- **Prefer concise, direct responses - minimize preamble and postamble**
+- **Always include file:line references when discussing code (e.g., src/file.py:123)**
+- **Focus on practical solutions over theoretical explanations**
+- **Ask clarifying questions when requirements are ambiguous**
+
+## Technical Preferences
+- **I work primarily on embedded systems and production deployments**
+- **Always consider both development and production modes in designs**
+- **Always consider SSH/remote access scenarios for debugging tools**
+- **Prefer configurable solutions over hardcoded values**
+- **Include TODO comments with detailed context for future changes**
+- **Use shell scripts for development tooling with proper error handling**
+
+## Development Workflow
+- **Typically - before writing code - we write the README.md**
+- **When dealing with detailed design issues - we create a md docs/ file**
+- **Use docs/TodoPlan.md tool proactively to track multi-step tasks**
+- **Always test solutions immediately after implementing**
+- **Provide both quick fixes and proper long-term solutions**
+- **Include color-coded output and user-friendly formatting in tools**
+- **Create development tools that work well in terminal environments**
+
+## Code Quality
+- **Follow embedded systems best practices (logging, error handling, resource management)**
+- **Implement proper logging with configurable levels and file output**
+- **Prefer simple, maintainable solutions over complex architectures**
+
 ## Coding Standards
 - Adhere to **PEP8** and use **type hints** consistently.
 - Use modern Python built-ins (`list`, `dict`, `tuple`) for type hints when possible.

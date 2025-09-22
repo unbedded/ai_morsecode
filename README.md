@@ -32,7 +32,7 @@ pip install -e ".[dev]"
 
 ```bash
 # Create sample configuration
-morsecode --create-config
+morsecode --cfg-show
 
 # Basic decoding
 morsecode audio.wav
@@ -53,10 +53,10 @@ morsecode [GLOBAL_OPTIONS] [CONFIG_OPTIONS] [QUICK_OVERRIDES] [wav_file]
 │   └── wav_file                 WAV audio file to decode
 │
 ├── Configuration Options
-│   ├── --config, -c FILE        YAML config file (default: morse.yaml)
+│   ├── --cfg-file, -c FILE        YAML config file (default: ~/.config/morsecode/config.yaml)
 │   ├── --profile, -p NAME       Profile for setting overrides
-│   ├── --create-config          Generate sample morse.yaml
-│   └── --validate-config        Validate configuration file
+│   ├── --cfg-show          Generate sample ~/.config/morsecode/config.yaml
+│   └── --cfg-validate        Validate configuration file
 │
 └── Quick Overrides
     ├── --frequency, -f HZ       Signal frequency (200-2000 Hz)
@@ -74,8 +74,8 @@ morsecode [GLOBAL_OPTIONS] [CONFIG_OPTIONS] [QUICK_OVERRIDES] [wav_file]
 morsecode audio.wav
 
 # Create and use custom configuration
-morsecode --create-config
-morsecode audio.wav --config morse.yaml
+morsecode --cfg-show
+morsecode audio.wav --cfg-file ~/.config/morsecode/config.yaml
 
 # Use profile-based settings
 morsecode audio.wav --profile debug
@@ -87,7 +87,7 @@ morsecode audio.wav --frequency 800 --wpm 20 --threshold 0.4
 morsecode audio.wav --output decoded.txt --debug --log-level INFO
 
 # Validate configuration
-morsecode --validate-config --config custom.yaml
+morsecode --cfg-validate --cfg-file custom.yaml
 ```
 
 ## Configuration System
@@ -97,7 +97,7 @@ morsecode --validate-config --config custom.yaml
 The decoder uses a clean YAML configuration with four main sections:
 
 ```yaml
-# morse.yaml
+# ~/.config/morsecode/config.yaml
 app:
   debug: false
   log_level: WARNING
@@ -127,7 +127,7 @@ decoder:
 Profiles enable environment-specific overrides using postfix naming:
 
 ```yaml
-# morse.yaml with profiles
+# ~/.config/morsecode/config.yaml with profiles
 signal:
   frequency: 600              # Default
   frequency_debug: 400        # Used with --profile debug
@@ -153,13 +153,13 @@ morsecode audio.wav --profile production
 
 ```bash
 # Generate sample configuration with documentation
-morsecode --create-config
+morsecode --cfg-show
 
 # Validate configuration file
-morsecode --validate-config --config morse.yaml
+morsecode --cfg-validate --cfg-file ~/.config/morsecode/config.yaml
 
 # Use custom configuration file
-morsecode --config custom.yaml audio.wav
+morsecode --cfg-file custom.yaml audio.wav
 
 # Override single parameters
 morsecode audio.wav --frequency 700 --wpm 25
@@ -232,7 +232,7 @@ from morsecode.config.manager import AwesomeConfigManager
 
 # Load configuration with profile support
 config_manager = AwesomeConfigManager(
-    config_file="morse.yaml",
+    config_file="~/.config/morsecode/config.yaml",
     profile="debug"
 )
 
@@ -243,7 +243,7 @@ signal_config = config_manager.get_config("signal")
 decoder_config = config_manager.get_config("decoder")
 
 # Create sample configuration
-config_manager.create_sample_config("new_morse.yaml")
+config_manager.create_sample_config("new_~/.config/morsecode/config.yaml")
 ```
 
 ## Architecture
@@ -375,9 +375,81 @@ morsecode/
 │   └── README.md                   # Testing documentation
 ├── docs/                           # Documentation
 ├── pyproject.toml                  # Project configuration
-├── morse.yaml                      # Sample configuration
+├── ~/.config/morsecode/config.yaml                      # Sample configuration
 └── README.md                       # This file
 ```
+
+## Theory of Operation
+
+### Signal Processing Philosophy: Maximum Likelihood Signal Extraction
+
+This Morse code decoder is designed around a **maximum likelihood signal extraction** approach, optimized for pulling weak CW signals out of noisy RF environments. The core principle is to use **maximum a-priori information** to create the strongest possible signal signatures for pattern matching.
+
+#### Synthetic Pattern Design: Matched Filters for Signal Detection
+
+The decoder uses **synthetic probability patterns** that function as matched filters, each designed to correlate strongly with expected Morse code elements:
+
+```
+SYNTHETIC PATTERN THEORY
+=======================
+
+Purpose: Create STRONG correlation peaks for reliable detection in noise
+Method: Aggressive pattern matching using maximum a-priori knowledge
+
+DIT PATTERN (during 180ms dash @ 20 WPM):
+1.0 ┤ ████████▄▄▄▄    ← High early confidence for quick detection
+0.5 ┤ ████████████▄▄  ← Strong signal energy
+0.0 ┴─────────────────
+    0   60  120  180ms
+
+DASH PATTERN (during same 180ms dash):
+1.0 ┤       ▄▄████████ ← Strong late confirmation
+0.5 ┤     ▄████████████ ← Clear dash signature
+0.0 ┴─────────────────
+    0   60  120  180ms
+
+WHY HIGH EARLY CONFIDENCE IS CORRECT:
+• More signal energy available for pattern matching
+• Better Signal-to-Noise Ratio in weak signal conditions
+• Faster detection capability for real-time operation
+• Multiple competing hypotheses = robust final decision
+```
+
+#### Decision Algorithm: Peak Detection with Trumping Logic
+
+The system does **NOT** make real-time element decisions. Instead, it:
+
+1. **Collects all probability curves** during signal processing
+2. **Finds peaks using 2nd derivative analysis** to locate maximum correlation points
+3. **Applies trumping rules** where stronger/longer patterns override shorter ones:
+   - Word space trumps letter space (similar timing, different confidence)
+   - Dash trumps dit when both show peaks (stronger evidence wins)
+   - Latest/strongest peak wins in case of ties
+
+```
+PEAK DETECTION EXAMPLE
+=====================
+
+All Probability Curves for 180ms Dash:
+Dit:  ████▄▄▄▄         Peak @ 40ms, confidence 0.8
+Dash: ▄▄▄▄████████     Peak @ 150ms, confidence 0.9  ← WINNER
+Lett: ▄▄▄▄▄▄▄▄████     Peak @ 180ms+, confidence 0.6
+Word: ▄▄▄▄▄▄▄▄▄▄██     Peak @ 400ms+, confidence 0.3
+
+Decision: DASH (strongest peak at 150ms)
+Timing: Element ends at 150ms (peak location)
+```
+
+#### RF/Amateur Radio Heritage
+
+This approach mirrors techniques used in weak-signal amateur radio communication:
+
+- **Matched filtering** for optimal signal extraction from noise
+- **Multiple hypothesis testing** for robust decisions under uncertainty
+- **A-priori timing knowledge** leveraged for maximum gain
+- **Post-processing analysis** rather than real-time threshold decisions
+
+The synthetic patterns are intentionally "aggressive" in their confidence levels because they're designed as **signal processing tools**, not realistic real-time decision models. The goal is maximum signal extraction, with intelligence applied in the peak detection and decision logic.
 
 ## Technical Details
 
@@ -387,8 +459,10 @@ morsecode/
 2. **Chunked Processing**: 20ms audio chunks for real-time capability
 3. **FFT Analysis**: Frequency domain analysis with windowing
 4. **Tone Detection**: Energy-based detection with SNR calculation
-5. **Pattern Recognition**: Timing analysis for dot/dash classification
-6. **Character Decoding**: Morse code table lookup with error recovery
+5. **Synthetic Pattern Generation**: Matched filter correlation for each Morse element type
+6. **Peak Detection**: 2nd derivative analysis to find maximum correlation points
+7. **Decision Logic**: Trumping rules applied to select strongest evidence
+8. **Character Decoding**: Morse code table lookup with error recovery
 
 ### Event-Driven Architecture
 
@@ -443,7 +517,7 @@ DECODER_WPM_ESTIMATE=20
 
 ### After (YAML Configuration)
 ```yaml
-# morse.yaml
+# ~/.config/morsecode/config.yaml
 app:
   debug: true
 

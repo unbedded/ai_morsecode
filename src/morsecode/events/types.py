@@ -105,6 +105,12 @@ class BaseEvent:
             return MorsePatternEvent._deserialize_payload(timestamp, payload)
         elif event_type_id == 4:  # TextDecodedEvent
             return TextDecodedEvent._deserialize_payload(timestamp, payload)
+        elif event_type_id == 5:  # FilteredMagnitudeEvent
+            return FilteredMagnitudeEvent._deserialize_payload(timestamp, payload)
+        elif event_type_id == 6:  # FFTSpectrumEvent
+            return FFTSpectrumEvent._deserialize_payload(timestamp, payload)
+        elif event_type_id == 7:  # MorseProbabilityEvent
+            return MorseProbabilityEvent._deserialize_payload(timestamp, payload)
         else:
             # BaseEvent or unknown type
             return cls._deserialize_payload(timestamp, payload)
@@ -397,6 +403,150 @@ class PipelineStateEvent(BaseEvent):
         return self.state == "processing"
 
 
+# Signal Analysis Events (for ASCII debugging)
+
+
+@dataclass(frozen=True)
+class FFTSpectrumEvent(BaseEvent):
+    """FFT spectrum data for frequency domain visualization.
+
+    This event provides FFT magnitude data at the peak frequency for debugging
+    and autoscaling the display. Essential for diagnosing real-world signal issues.
+
+    Key debugging values:
+    - peak_frequency_hz: The frequency with maximum energy
+    - peak_magnitude: FFT magnitude at peak frequency (raw, needs autoscaling)
+    - total_energy: Total signal energy for normalization
+    - noise_floor: Estimated noise floor for SNR calculation
+    """
+
+    TYPE_ID: ClassVar[int] = 6
+
+    peak_frequency_hz: float = 600.0  # Frequency with maximum energy
+    peak_magnitude: float = 0.0  # FFT magnitude at peak frequency
+    total_energy: float = 0.0  # Total signal energy
+    noise_floor: float = 0.0  # Estimated noise floor
+    chunk_number: int = 0  # Time sequence for plotting
+
+    @property
+    def snr_linear(self) -> float:
+        """Get signal-to-noise ratio as linear value."""
+        if self.noise_floor > 0:
+            return self.peak_magnitude / self.noise_floor
+        return 0.0
+
+    @property
+    def snr_db(self) -> float:
+        """Get signal-to-noise ratio in dB."""
+        snr_linear = self.snr_linear
+        if snr_linear > 0:
+            return float(20 * np.log10(snr_linear))
+        return -float("inf")
+
+    def _serialize_payload(self) -> bytes:
+        """Serialize FFT spectrum data."""
+        return struct.pack(
+            "!fffffI",
+            self.peak_frequency_hz,
+            self.peak_magnitude,
+            self.total_energy,
+            self.noise_floor,
+            float(self.chunk_number),
+        )
+
+    @classmethod
+    def _deserialize_payload(cls, timestamp: int, payload: bytes) -> "FFTSpectrumEvent":
+        """Deserialize FFT spectrum data."""
+        if len(payload) < 24:  # 5*4 + 4 bytes
+            raise ValueError("FFTSpectrumEvent payload too short")
+
+        peak_frequency_hz, peak_magnitude, total_energy, noise_floor, chunk_float = struct.unpack(
+            "!fffffI", payload[:24]
+        )
+
+        return cls(
+            timestamp=timestamp,
+            peak_frequency_hz=peak_frequency_hz,
+            peak_magnitude=peak_magnitude,
+            total_energy=total_energy,
+            noise_floor=noise_floor,
+            chunk_number=int(chunk_float),
+        )
+
+
+@dataclass(frozen=True)
+class FilteredMagnitudeEvent(BaseEvent):
+    """Real-time normalized filtered magnitude signal values.
+
+    This event provides the normalized magnitude signal (-1 to +1) that was
+    previously displayed in PyQt graphs. Essential for ASCII debugging over SSH.
+
+    Key debugging values:
+    - magnitude_norm: -1.0 = silence/space, +1.0 = strong signal
+    - binary_state: Above/below threshold detection
+    - Used for time-series ASCII oscilloscope display
+    """
+
+    TYPE_ID: ClassVar[int] = 5
+
+    magnitude_norm: float = 0.0  # -1.0 to +1.0 normalized value
+    threshold_norm: float = 0.25  # Current detection threshold
+    binary_state: bool = False  # Above/below threshold
+    chunk_number: int = 0  # Time sequence for plotting
+    frequency_hz: float = 600.0  # Target frequency being analyzed
+
+    @property
+    def signal_state(self) -> str:
+        """Get human-readable signal state."""
+        if self.magnitude_norm > self.threshold_norm:
+            return "SIGNAL"
+        elif self.magnitude_norm < -self.threshold_norm:
+            return "SPACE"
+        else:
+            return "UNKNOWN"
+
+    @property
+    def signal_strength(self) -> str:
+        """Get signal strength classification."""
+        abs_mag = abs(self.magnitude_norm)
+        if abs_mag >= 0.8:
+            return "STRONG"
+        elif abs_mag >= 0.5:
+            return "MEDIUM"
+        elif abs_mag >= 0.2:
+            return "WEAK"
+        else:
+            return "NOISE"
+
+    def _serialize_payload(self) -> bytes:
+        """Serialize filtered magnitude data."""
+        return struct.pack(
+            "!fffHf",
+            self.magnitude_norm,
+            self.threshold_norm,
+            self.frequency_hz,
+            1 if self.binary_state else 0,
+            float(self.chunk_number),
+        )
+
+    @classmethod
+    def _deserialize_payload(cls, timestamp: int, payload: bytes) -> "FilteredMagnitudeEvent":
+        """Deserialize filtered magnitude data."""
+        if len(payload) < 18:  # 3*4 + 2 + 4 bytes
+            raise ValueError("FilteredMagnitudeEvent payload too short")
+
+        magnitude_norm, threshold_norm, frequency_hz, binary_int, chunk_float = struct.unpack("!fffHf", payload[:18])
+
+        return cls(
+            timestamp=timestamp,
+            magnitude_norm=magnitude_norm,
+            threshold_norm=threshold_norm,
+            binary_state=bool(binary_int),
+            chunk_number=int(chunk_float),
+            frequency_hz=frequency_hz,
+        )
+
+
 # Error and Diagnostics Events
 
 
@@ -495,11 +645,136 @@ def create_error_event(error: Exception, component: str, recoverable: bool = Tru
     )
 
 
+# Event creation helpers for new signal analysis events
+
+
+def create_filtered_magnitude_event(
+    magnitude_norm: float,
+    threshold_norm: float = 0.25,
+    binary_state: bool = False,
+    chunk_number: int = 0,
+    frequency_hz: float = 600.0,
+) -> FilteredMagnitudeEvent:
+    """Convenience function for creating filtered magnitude events."""
+    return FilteredMagnitudeEvent(
+        magnitude_norm=magnitude_norm,
+        threshold_norm=threshold_norm,
+        binary_state=binary_state,
+        chunk_number=chunk_number,
+        frequency_hz=frequency_hz,
+    )
+
+
+def create_fft_spectrum_event(
+    peak_frequency_hz: float,
+    peak_magnitude: float,
+    total_energy: float = 0.0,
+    noise_floor: float = 0.0,
+    chunk_number: int = 0,
+) -> FFTSpectrumEvent:
+    """Convenience function for creating FFT spectrum events."""
+    return FFTSpectrumEvent(
+        peak_frequency_hz=peak_frequency_hz,
+        peak_magnitude=peak_magnitude,
+        total_energy=total_energy,
+        noise_floor=noise_floor,
+        chunk_number=chunk_number,
+    )
+
+
+@dataclass(frozen=True)
+class MorseProbabilityEvent(BaseEvent):
+    """Real-time Morse code element probabilities for pattern visualization.
+
+    This event provides probability estimates for different Morse code elements
+    (dit, dash, letter space, word space) at each time step for debugging
+    the decoder's decision-making process.
+
+    Key debugging values:
+    - prob_dit: Probability this is a dit (0.0 to 1.0)
+    - prob_dash: Probability this is a dash (0.0 to 1.0)
+    - prob_letter_space: Probability this is a letter space (0.0 to 1.0)
+    - prob_word_space: Probability this is a word space (0.0 to 1.0)
+    """
+
+    TYPE_ID: ClassVar[int] = 7
+
+    prob_dit: float = 0.0  # Probability of dit (0.0 to 1.0)
+    prob_dash: float = 0.0  # Probability of dash (0.0 to 1.0)
+    prob_letter_space: float = 0.0  # Probability of letter space (0.0 to 1.0)
+    prob_word_space: float = 0.0  # Probability of word space (0.0 to 1.0)
+    chunk_number: int = 0  # Time sequence for plotting
+
+    @property
+    def dominant_element(self) -> str:
+        """Get the most likely element based on highest probability."""
+        probs = {
+            "dit": self.prob_dit,
+            "dash": self.prob_dash,
+            "letter_space": self.prob_letter_space,
+            "word_space": self.prob_word_space,
+        }
+        return max(probs, key=lambda k: probs[k])
+
+    @property
+    def max_probability(self) -> float:
+        """Get the highest probability value."""
+        return max(self.prob_dit, self.prob_dash, self.prob_letter_space, self.prob_word_space)
+
+    def _serialize_payload(self) -> bytes:
+        """Serialize Morse probability data."""
+        return struct.pack(
+            "!fffffI",
+            self.prob_dit,
+            self.prob_dash,
+            self.prob_letter_space,
+            self.prob_word_space,
+            float(self.chunk_number),
+        )
+
+    @classmethod
+    def _deserialize_payload(cls, timestamp: int, payload: bytes) -> "MorseProbabilityEvent":
+        """Deserialize Morse probability data."""
+        if len(payload) < 24:  # 5*4 + 4 bytes
+            raise ValueError("MorseProbabilityEvent payload too short")
+
+        prob_dit, prob_dash, prob_letter_space, prob_word_space, chunk_float = struct.unpack("!fffffI", payload[:24])
+
+        return cls(
+            timestamp=timestamp,
+            prob_dit=prob_dit,
+            prob_dash=prob_dash,
+            prob_letter_space=prob_letter_space,
+            prob_word_space=prob_word_space,
+            chunk_number=int(chunk_float),
+        )
+
+
+def create_morse_probability_event(
+    prob_dit: float = 0.0,
+    prob_dash: float = 0.0,
+    prob_letter_space: float = 0.0,
+    prob_word_space: float = 0.0,
+    chunk_number: int = 0,
+) -> MorseProbabilityEvent:
+    """Convenience function for creating Morse probability events."""
+    return MorseProbabilityEvent(
+        prob_dit=prob_dit,
+        prob_dash=prob_dash,
+        prob_letter_space=prob_letter_space,
+        prob_word_space=prob_word_space,
+        chunk_number=chunk_number,
+    )
+
+
 # Register all event types for binary serialization
 register_event_type(BaseEvent, 0)
 register_event_type(AudioChunkEvent, 1)
 register_event_type(ToneDetectedEvent, 2)
 register_event_type(MorsePatternEvent, 3)
 register_event_type(TextDecodedEvent, 4)
-# Note: PipelineStateEvent, ErrorEvent, MetricsEvent would be types 5-7
+register_event_type(FilteredMagnitudeEvent, 5)
+register_event_type(FFTSpectrumEvent, 6)
+register_event_type(MorseProbabilityEvent, 7)
+# Note: PipelineStateEvent, ErrorEvent, MetricsEvent would be types 8-10
 # Keeping them simple for now since they're less performance-critical

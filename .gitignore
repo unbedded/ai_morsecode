@@ -84,4 +84,4 @@ tests/data/kph-*.wav
 # Large test data directories (excluded from git)
 tests/data/wav/
 tests/data/wav_low_snr/
-tests/generated_data/
+tests/data/generated_data/

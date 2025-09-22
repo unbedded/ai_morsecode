@@ -1,7 +1,87 @@
-# ASCII Graphics Component - Implementation Roadmap
+# MorseCode Graphics Integration - UILT Implementation Roadmap
 
 ## 🎯 **Overview**
-Design and implementation plan for real-time ASCII graphics visualization of the Morse code decoder pipeline using the existing event-driven architecture.
+Implementation plan for integrating the Universal Interface for Live Telemetry (UILT) graphics library with MorseCode signal analysis. This document outlines how `src/util/graph` UILT components will be integrated with MorseCode events to replicate PyQtGraph debugging capabilities using SSH-friendly ASCII/Braille terminal graphics.
+
+**UILT Library Integration**: Using the universal `src/util/graph` library for terminal-based signal visualization with backend-aware decimation and 2x resolution Braille mode.
+
+## 🔍 **PyQt Debugging Legacy - What We're Replacing**
+The original system used 6 real-time PyQtGraph displays for signal analysis debugging:
+
+### **PyQt Graph Analysis (What We Need to Replicate)**
+1. **Signal amplitude vs time (2 seconds)** - ⬇️ **LOW PRIORITY**
+2. **Current signal magnitude vs freq (300-900Hz)** - Peak freq, magnitude, prominence meter
+3. **Signal magnitude at peak freq vs time (2 seconds)** - With binary threshold overlay
+4. **Normalized filtered magnitude signal** - ⭐ **PRIORITY #1** Values -1 to +1 (space=-1, signal=+1)
+5. **DIT width discovery** - Current DIT_SECONDS_WIDTH plot (0.05-0.012 range)
+6. **Morse symbol probability vs time (2sec)** - Convolution probabilities + 2nd derivative peaks
+
+### **UILT Graphics Solutions Available**
+- **Terminal backend selection**: ASCII (universal) vs Braille (2x resolution) automatic detection
+- **Real-time streaming**: AsyncPlot with buffer management and decimation
+- **SSH compatibility**: Built-in terminal capability detection with safe fallbacks
+- **Backend-aware decimation**: Smart data reduction preserving signal characteristics
+- **Event integration**: Direct integration with existing MorseCode event system
+
+## 📊 **Event System Analysis - Current vs Needed**
+
+### **✅ Current Events Available (7 types)**
+1. **AudioChunkEvent** - Audio processing progress, chunk metadata
+2. **ToneDetectedEvent** - Frequency, SNR, confidence, chunk_number ⭐ **USEFUL**
+3. **MorsePatternEvent** - Dot/dash patterns, WPM estimates ⭐ **USEFUL**
+4. **TextDecodedEvent** - Final decoded text output
+5. **PipelineStateEvent** - Component state changes
+6. **ErrorEvent** - Error handling and diagnostics
+7. **MetricsEvent** - Performance monitoring data
+
+### **❌ Missing Events for PyQt Debugging**
+
+#### **Priority #1: Normalized Filtered Magnitude (-1 to +1)**
+```python
+@dataclass(frozen=True)
+class FilteredMagnitudeEvent(BaseEvent):
+    """Real-time normalized filtered magnitude signal values."""
+    magnitude_norm: float = 0.0        # -1.0 to +1.0 normalized value
+    threshold_norm: float = 0.25       # Current detection threshold
+    binary_state: bool = False         # Above/below threshold
+    chunk_number: int = 0              # Time sequence
+    frequency_hz: float = 600.0        # Target frequency
+```
+
+#### **Priority #2: Frequency Spectrum Analysis (300-900Hz)**
+```python
+@dataclass(frozen=True)
+class FrequencySpectrumEvent(BaseEvent):
+    """Current frequency analysis across target range."""
+    peak_frequency: float = 600.0      # Strongest frequency detected
+    peak_magnitude: float = 0.0        # Signal strength at peak
+    prominence_ratio: float = 0.0      # Peak vs surrounding noise
+    frequency_range: tuple[float, float] = (300.0, 900.0)
+    spectrum_data: np.ndarray = field(default_factory=lambda: np.array([]))
+```
+
+#### **Priority #3: DIT Width Discovery**
+```python
+@dataclass(frozen=True)
+class DitWidthEvent(BaseEvent):
+    """Current DIT timing analysis for WPM calculation."""
+    dit_width_sec: float = 0.08        # Current DIT duration (0.05-0.12)
+    confidence: float = 0.0            # DIT width confidence
+    wpm_calculated: float = 15.0       # WPM based on DIT width
+    sample_count: int = 0              # Number of DITs analyzed
+```
+
+#### **Priority #4: Symbol Probability Analysis**
+```python
+@dataclass(frozen=True)
+class SymbolProbabilityEvent(BaseEvent):
+    """Convolution probability analysis for DIT/DOT/Space detection."""
+    dit_probability: float = 0.0       # Probability of DIT pattern
+    dot_probability: float = 0.0       # Probability of DOT pattern
+    space_probability: float = 0.0     # Probability of space pattern
+    second_derivative: float = 0.0     # Peak detection derivative
+    max_probability_type: str = "unknown"  # "dit", "dot", "space"
+```
 
 ## 📊 **Current Status**
 - ✅ **Comprehensive Event System**: 7 event types with full pipeline coverage
@@ -134,9 +214,60 @@ class MetricsEvent:
 
 ---
 
+## 🎨 **UILT Integration Design Solutions**
+
+### **Priority #1: Real-time Magnitude Signal Visualization**
+
+#### **UILT AsyncPlot Integration with MorseCode Events**
+```python
+from util.graph import AsyncPlot, Backend
+import asyncio
+
+class MorseSignalVisualizer:
+    def __init__(self, event_bus):
+        # Auto-backend selection: ASCII or Braille based on terminal
+        self.magnitude_plot = AsyncPlot(backend=Backend.AUTO, width=80, height=20)
+        self.magnitude_plot.set_ylim(-1.0, 1.0)  # Normalized range
+        self.magnitude_plot.set_title("Normalized Magnitude Signal")
+
+        # Subscribe to signal events
+        event_bus.subscribe(FilteredMagnitudeEvent, self._on_magnitude_event)
+
+    async def _on_magnitude_event(self, event):
+        # Real-time streaming with UILT
+        await self.magnitude_plot.add_data(event.magnitude_norm)
+```
+
+#### **UILT Advantage: Automatic Resolution Optimization**
+```
+# ASCII Backend (Universal compatibility):
+┌─── Normalized Magnitude Signal ────────────────────────────────┐
+│ +1.0 ▄█▄  ▄█▄  ▄█▄  ▄█▄                                      │
+│  0.0 ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄ ← threshold                         │
+│ -1.0 ░░░▀▀░░░▀▀░░░▀▀░░░▀▀                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+# Braille Backend (2x resolution when supported):
+┌─── Normalized Magnitude Signal ────────────────────────────────┐
+│ +1.0 ⠈⠿⠿⠿⠈⠀⠀⠀⠈⠿⠿⠿⠈⠀⠀⠀⠈⠿⠿⠿⠈⠀⠀⠀⠈⠿⠿⠿⠈⠀⠀⠀⠈⠿⠿⠿⠈ │
+│  0.0 ⠿⠿⠿⠿⠿⠤⠤⠿⠿⠿⠿⠿⠤⠤⠿⠿⠿⠿⠿⠤⠤⠿⠿⠿⠿⠿⠤⠤⠿⠿⠿⠿⠿⠤⠤⠿⠿ │
+│ -1.0 ⠸⠿⠿⠿⠸⠀⠀⠀⠸⠿⠿⠿⠸⠀⠀⠀⠸⠿⠿⠿⠸⠀⠀⠀⠸⠿⠿⠿⠸⠀⠀⠀⠸⠿⠿⠿⠸ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### **UILT Backend-Aware Decimation for Signal Preservation**
+```python
+# UILT automatically preserves signal characteristics during decimation
+decimated_signal = await self.magnitude_plot.decimate_for_backend(
+    raw_signal_data,     # 1000s of samples
+    target_width=80      # Terminal characters
+)
+# Result: 9.1:1 ASCII ratio or 4.6:1 Braille ratio with peaks preserved
+```
+
 ## 🎨 **Visual Layout Designs**
 
-### **Layout 1: Signal Analysis View**
+### **Layout 1: Debug Analysis View (SSH-Optimized)**
 ```
 ┌─── Audio Pipeline Status ────────────────────────────┐
 │ ● Processing  │ Chunk: 1,234 │ Rate: 44.1kHz │ EOF │
@@ -179,284 +310,347 @@ class MetricsEvent:
 
 ## 🏗️ **Implementation Architecture**
 
-### **Graphics Component Design**
+### **UILT Graphics Component Design**
 ```python
-from rich.console import Console
-from rich.live import Live
-from rich.layout import Layout
-from rich.panel import Panel
-from rich.progress import Progress
-from rich.text import Text
-from rich.tree import Tree
+from util.graph import AsyncPlot, Backend, plot_signal_auto
+import asyncio
+from typing import Dict, List
 
-class ASCIIGraphicsComponent:
-    """Real-time ASCII graphics display component."""
+class MorseCodeUILTGraphics:
+    """Real-time UILT-based graphics display for MorseCode signal analysis."""
 
-    def __init__(self, event_bus: EventBus, layout_type: str = "signal_analysis"):
-        self.console = Console()
+    def __init__(self, event_bus: EventBus, terminal_width: int = 80):
         self.event_bus = event_bus
-        self.layout_type = layout_type
+        self.terminal_width = terminal_width
 
-        # Subscribe to all visualization events
+        # UILT plot instances for different signal types
+        self.magnitude_plot = AsyncPlot(
+            backend=Backend.AUTO,
+            width=terminal_width,
+            height=15
+        )
+        self.magnitude_plot.set_ylim(-1.0, 1.0)
+        self.magnitude_plot.set_title("Normalized Signal Magnitude")
+
+        self.frequency_plot = AsyncPlot(
+            backend=Backend.AUTO,
+            width=terminal_width // 2,
+            height=10
+        )
+        self.frequency_plot.set_xlim(300, 900)  # Frequency range
+        self.frequency_plot.set_title("Frequency Spectrum")
+
+        self.wpm_plot = AsyncPlot(
+            backend=Backend.AUTO,
+            width=terminal_width // 2,
+            height=10
+        )
+        self.wpm_plot.set_ylim(5, 30)  # WPM range
+        self.wpm_plot.set_title("WPM Estimation")
+
+        # Data buffers for streaming
+        self.magnitude_buffer = []
+        self.frequency_history = []
+        self.wpm_history = []
+        self.pattern_buffer = []
+
+        # Setup event subscriptions
         self._setup_subscriptions()
 
-        # Display state
-        self.signal_strength = 0.0
-        self.current_frequency = 0.0
-        self.decoded_text = ""
-        self.morse_buffer = []
-        self.processing_state = "idle"
-        self.error_log = []
-        self.metrics = {}
-
-        # Rich display components
-        self.layout = Layout()
-        self.live_display = None
-
     def _setup_subscriptions(self):
-        """Subscribe to all relevant events."""
-        self.event_bus.subscribe(AudioChunkEvent, self._on_audio_chunk)
+        """Subscribe to MorseCode events for real-time visualization."""
+        self.event_bus.subscribe(FilteredMagnitudeEvent, self._on_magnitude_event)
+        self.event_bus.subscribe(FrequencySpectrumEvent, self._on_frequency_event)
+        self.event_bus.subscribe(DitWidthEvent, self._on_dit_width_event)
         self.event_bus.subscribe(ToneDetectedEvent, self._on_tone_detected)
         self.event_bus.subscribe(MorsePatternEvent, self._on_morse_pattern)
         self.event_bus.subscribe(TextDecodedEvent, self._on_text_decoded)
-        self.event_bus.subscribe(PipelineStateEvent, self._on_pipeline_state)
-        self.event_bus.subscribe(ErrorEvent, self._on_error)
-        self.event_bus.subscribe(MetricsEvent, self._on_metrics)
 
-    def start_display(self):
-        """Start the live ASCII graphics display."""
-        self._build_layout()
-        self.live_display = Live(self.layout, console=self.console, refresh_per_second=10)
-        self.live_display.start()
+    async def start_visualization(self):
+        """Start all UILT plot displays."""
+        await asyncio.gather(
+            self.magnitude_plot.show_async(),
+            self.frequency_plot.show_async(),
+            self.wpm_plot.show_async()
+        )
 
-    def stop_display(self):
-        """Stop the live display."""
-        if self.live_display:
-            self.live_display.stop()
+    async def _on_magnitude_event(self, event: FilteredMagnitudeEvent):
+        """Handle real-time magnitude data with UILT streaming."""
+        await self.magnitude_plot.add_data(event.magnitude_norm)
 
-    def _build_layout(self):
-        """Build the display layout based on layout_type."""
-        if self.layout_type == "signal_analysis":
-            self._build_signal_analysis_layout()
-        elif self.layout_type == "pipeline_flow":
-            self._build_pipeline_flow_layout()
-        elif self.layout_type == "metrics_dashboard":
-            self._build_metrics_dashboard_layout()
-        elif self.layout_type == "compact":
-            self._build_compact_layout()
+        # Simple text overlay for current state
+        state_text = "SIGNAL" if event.binary_state else "SPACE"
+        print(f"Magnitude: {event.magnitude_norm:+.2f} | {state_text} | "
+              f"Threshold: {event.threshold_norm:.2f}")
 
-    # Event handlers update display state and trigger refresh
-    def _on_audio_chunk(self, event: AudioChunkEvent):
-        """Handle audio chunk events for progress updates."""
-        self.chunk_progress = event.chunk_number
-        self.sample_rate = event.sample_rate
-        self.has_more_data = event.has_more_data
-        self._update_display()
+    async def _on_frequency_event(self, event: FrequencySpectrumEvent):
+        """Handle frequency spectrum visualization."""
+        # Plot peak frequency over time
+        self.frequency_history.append(event.peak_frequency)
+        if len(self.frequency_history) > self.terminal_width:
+            self.frequency_history.pop(0)
 
-    def _on_tone_detected(self, event: ToneDetectedEvent):
-        """Handle tone detection for signal strength visualization."""
-        self.signal_strength = event.snr_db
-        self.current_frequency = event.frequency
-        self.detection_confidence = event.confidence
-        self._update_display()
+        # Use UILT for frequency spectrum display
+        plot_signal_auto(
+            self.frequency_history,
+            title=f"Peak Frequency: {event.peak_frequency:.1f}Hz "
+                  f"(Magnitude: {event.peak_magnitude:.2f})"
+        )
+
+    async def _on_dit_width_event(self, event: DitWidthEvent):
+        """Handle DIT width analysis for WPM visualization."""
+        self.wmp_history.append(event.wpm_calculated)
+        if len(self.wpm_history) > self.terminal_width:
+            self.wpm_history.pop(0)
+
+        await self.wpm_plot.add_data(event.wpm_calculated)
+
+        # Additional text summary
+        print(f"DIT: {event.dit_width_sec:.3f}s | WPM: {event.wpm_calculated:.1f} | "
+              f"Confidence: {event.confidence:.2f}")
 
     def _on_morse_pattern(self, event: MorsePatternEvent):
-        """Handle Morse patterns for real-time pattern display."""
-        self.morse_buffer.append(event.pattern_type)
-        if len(self.morse_buffer) > 20:  # Keep last 20 patterns
-            self.morse_buffer.pop(0)
-        self.current_wpm = event.wpm_estimate
-        self._update_display()
+        """Handle Morse pattern visualization with simple text display."""
+        pattern_symbols = {
+            "dot": "●",
+            "dash": "─",
+            "letter_space": " ",
+            "word_space": " / "
+        }
+
+        symbol = pattern_symbols.get(event.pattern_type, "?")
+        self.pattern_buffer.append(symbol)
+
+        # Keep last 40 symbols for pattern display
+        if len(self.pattern_buffer) > 40:
+            self.pattern_buffer.pop(0)
+
+        pattern_display = "".join(self.pattern_buffer)
+        print(f"Pattern: {pattern_display} | WPM: {event.wpm_estimate:.1f}")
 
     def _on_text_decoded(self, event: TextDecodedEvent):
-        """Handle decoded text for output display."""
-        self.decoded_text += event.text
-        if len(self.decoded_text) > 100:  # Keep last 100 characters
-            self.decoded_text = self.decoded_text[-100:]
-        self._update_display()
+        """Handle decoded text display."""
+        print(f"Decoded: {event.text} | Pattern: {event.pattern_sequence} | "
+              f"Confidence: {event.confidence:.2f}")
 
-    def _on_pipeline_state(self, event: PipelineStateEvent):
-        """Handle pipeline state changes."""
-        self.processing_state = f"{event.component}:{event.state}"
-        self._update_display()
+# Usage in CLI integration
+async def run_morse_graphics(event_bus, args):
+    """Run MorseCode with UILT graphics visualization."""
+    graphics = MorseCodeUILTGraphics(event_bus, terminal_width=args.width)
 
-    def _on_error(self, event: ErrorEvent):
-        """Handle errors for error log display."""
-        self.error_log.append(f"{event.component}: {event.message}")
-        if len(self.error_log) > 10:  # Keep last 10 errors
-            self.error_log.pop(0)
-        self._update_display()
+    # Start visualization
+    graphics_task = asyncio.create_task(graphics.start_visualization())
 
-    def _on_metrics(self, event: MetricsEvent):
-        """Handle metrics for performance dashboard."""
-        self.metrics[event.metric_name] = {
-            'value': event.value,
-            'unit': event.unit,
-            'component': event.component
-        }
-        self._update_display()
+    # Run normal MorseCode processing
+    processing_task = asyncio.create_task(run_morse_processing(args))
 
-    def _update_display(self):
-        """Update the display with current state."""
-        if self.live_display:
-            self._build_layout()  # Rebuild with new data
+    # Run both concurrently
+    await asyncio.gather(graphics_task, processing_task)
 ```
 
-### **Integration Points**
-- **CLI Integration**: `src/morsecode/cli/main.py` - Add `--graphics` flag
-- **Pipeline Integration**: `src/morsecode/pipeline/executor.py` - Optional graphics component
-- **Event Bus**: Already available globally via `get_global_event_bus()`
+### **UILT Integration Points**
+- **CLI Integration**: `src/morsecode/cli/main.py` - Add `--visualize` flag for UILT graphics
+- **Event Bus Integration**: Subscribe to MorseCode events for real-time data streaming
+- **UILT Library Usage**: Import from `src/util/graph` for universal terminal compatibility
+- **Backend Selection**: Automatic ASCII/Braille detection based on terminal capabilities
+- **Performance**: Non-blocking async visualization using UILT's streaming architecture
 
 ---
 
-## 🚀 **Implementation Phases**
+## 🚀 **UILT Implementation Phases (MorseCode Signal Analysis Focus)**
 
-### **📋 Phase 1: Basic Pipeline Status (Week 1)**
-- [ ] **Component Structure**
-  - [ ] Create `ASCIIGraphicsComponent` class
-  - [ ] Event subscription setup
-  - [ ] Basic Rich layout integration
+### **📋 Phase 1: UILT Foundation & Magnitude Visualization (Priority #1)**
+- [ ] **UILT Library Integration**
+  - [ ] Import UILT from `src/util/graph` in MorseCode project
+  - [ ] Test ASCII and Braille backend selection in SSH environments
+  - [ ] Validate backend-aware decimation with real signal data
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-- [ ] **Pipeline Status Display**
-  - [ ] Audio processing progress bar
-  - [ ] Component state indicators (Ready/Processing/Error)
-  - [ ] Basic text output display
+- [ ] **Event System Enhancement for UILT**
+  - [ ] Add `FilteredMagnitudeEvent` with normalized values (-1 to +1)
+  - [ ] Add `FrequencySpectrumEvent` for peak frequency analysis
+  - [ ] Add `DitWidthEvent` for WPM calculation visualization
+  - [ ] Add `SymbolProbabilityEvent` for convolution analysis
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-### **📋 Phase 2: Signal Visualization (Week 2)**
-- [ ] **Signal Strength Display**
-  - [ ] Real-time SNR bar graphs
-  - [ ] Frequency detection visualization
-  - [ ] Confidence meters
+- [ ] **Real-time Magnitude Streaming**
+  - [ ] Implement `AsyncPlot` for normalized magnitude display
+  - [ ] Configure 2-second time window with buffer management
+  - [ ] Add threshold overlay with binary state indication
+  - [ ] Test with real MorseCode audio files for accurate representation
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-- [ ] **Morse Pattern Display**
-  - [ ] Real-time dot/dash visualization
-  - [ ] Pattern buffer (last 20 patterns)
-  - [ ] WPM estimation display
+### **📋 Phase 2: Multi-Plot UILT Displays (Frequency & WPM Analysis)**
+- [ ] **Frequency Spectrum Visualization**
+  - [ ] Use UILT `plot_signal_auto` for frequency history over time
+  - [ ] Peak frequency meter display (300-900Hz range)
+  - [ ] Signal magnitude visualization at peak frequency
+  - [ ] Prominence ratio indicators using UILT bar charts
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-### **📋 Phase 3: Advanced Features (Week 3)**
-- [ ] **Performance Metrics Dashboard**
-  - [ ] Latency tracking
-  - [ ] Accuracy percentage
-  - [ ] Error rate monitoring
+- [ ] **DIT Width & WPM Tracking**
+  - [ ] UILT streaming plot for WPM estimation over time
+  - [ ] DIT width history using `AsyncPlot` with range 0.05-0.12 seconds
+  - [ ] Confidence indicators for WPM calculations
+  - [ ] Integration with existing DIT timing analysis
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-- [ ] **Interactive Features**
-  - [ ] Layout switching (signal/pipeline/metrics/compact)
-  - [ ] Color coding for different states
-  - [ ] Error log scrolling
+### **📋 Phase 3: Advanced UILT Signal Analysis**
+- [ ] **Symbol Probability Visualization**
+  - [ ] Convolution probability displays for DIT/DOT/Space patterns
+  - [ ] 2nd derivative peak detection using UILT sparklines
+  - [ ] Pattern confidence tracking with streaming plots
+  - [ ] Multi-plot layout for simultaneous probability analysis
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-### **📋 Phase 4: CLI Integration (Week 4)**
-- [ ] **Command Line Interface**
-  - [ ] Add `--graphics` flag to CLI
-  - [ ] Graphics layout selection option
-  - [ ] Integration with existing CLI flow
+- [ ] **Comprehensive Signal Dashboard**
+  - [ ] Multiple UILT plots running concurrently via `asyncio.gather`
+  - [ ] Synchronized time-series displays across different signal aspects
+  - [ ] Binary threshold overlay on all relevant magnitude displays
+  - [ ] Pattern sequence buffer with visual timing analysis
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
-- [ ] **Documentation & Testing**
-  - [ ] Graphics component documentation
-  - [ ] Unit tests for graphics component
-  - [ ] Integration tests with mock events
+### **📋 Phase 4: CLI Integration & Production Deployment**
+- [ ] **CLI Integration with UILT**
+  - [ ] Add `--visualize` flag for UILT-based signal analysis
+  - [ ] View mode selection: `--viz-mode magnitude|frequency|wpm|all`
+  - [ ] Terminal width detection and UILT auto-sizing
+  - [ ] SSH debugging workflow with automatic backend selection
+  - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
+
+- [ ] **Production SSH Debugging**
+  - [ ] UILT terminal capability detection for remote environments
+  - [ ] Graceful fallback from Braille to ASCII in constrained terminals
+  - [ ] Performance testing: ensure no impact on audio processing pipeline
+  - [ ] Documentation: SSH debugging guide with UILT visualization
   - [ ] **Quality Gates**: ⏳ ruff ⏳ mypy ⏳ pytest ⏳ commit ⏳ push
 
 ---
 
-## 📦 **Dependencies**
+## 📦 **UILT Dependencies & Integration**
 
-### **Required Libraries**
-```toml
-[project]
-dependencies = [
-    # ... existing deps ...
-    "rich>=13.0.0",          # ASCII graphics and layouts
-    "textual>=0.38.0",       # Future TUI applications (optional)
-]
+### **UILT Library Integration**
+```python
+# No additional dependencies required - UILT is internal
+from util.graph import AsyncPlot, Backend, plot_signal_auto
+
+# UILT provides:
+# - ASCII backend: Universal terminal compatibility
+# - Braille backend: 2x resolution for Unicode-capable terminals
+# - Auto backend: Intelligent terminal capability detection
+# - Backend-aware decimation: Smart data reduction preserving signal characteristics
 ```
 
-### **Optional Enhancements**
+### **Optional Enhancement Libraries**
 ```toml
 [project.optional-dependencies]
-graphics = [
-    "matplotlib>=3.7.0",    # For future signal analysis plots
-    "plotly>=5.15.0",       # For future web interface
+advanced_graphics = [
+    "matplotlib>=3.7.0",    # For offline signal analysis and report generation
+    "plotly>=5.15.0",       # For future web-based signal analysis dashboard
 ]
 ```
 
----
-
-## 🎯 **Success Metrics**
-
-### **Phase 1 Goals**
-- [ ] Real-time pipeline status visualization
-- [ ] Smooth integration with existing CLI
-- [ ] No performance impact on core processing
-- [ ] Clean event subscription without memory leaks
-
-### **Phase 2 Goals**
-- [ ] Informative signal strength visualization
-- [ ] Real-time Morse pattern display
-- [ ] Accurate WPM and confidence tracking
-
-### **Phase 3 Goals**
-- [ ] Comprehensive performance dashboard
-- [ ] Multiple layout options for different use cases
-- [ ] Professional appearance suitable for demonstrations
-
-### **Phase 4 Goals**
-- [ ] Seamless CLI integration with `--graphics` flag
-- [ ] Complete documentation and testing
-- [ ] Ready for production deployment
+### **UILT Architecture Benefits**
+- **Zero external graphics dependencies**: UILT uses only standard terminal output
+- **SSH compatibility**: Works perfectly over any SSH connection
+- **Performance**: Minimal overhead, non-blocking async architecture
+- **Universal deployment**: Same code works on Linux, macOS, Windows terminals
 
 ---
 
-## 🔧 **Technical Considerations**
+## 🎯 **UILT Success Metrics for MorseCode**
 
-### **Performance**
-- **Non-blocking**: Graphics updates must not impact audio processing
-- **Efficient Rendering**: 10 FPS refresh rate (100ms intervals)
-- **Memory Management**: Bounded buffers for historical data
-- **Event Filtering**: Subscribe only to needed event types
+### **Phase 1 Goals: UILT Foundation**
+- [ ] Real-time magnitude signal visualization using UILT AsyncPlot
+- [ ] Automatic backend selection (ASCII/Braille) based on terminal capabilities
+- [ ] Zero performance impact on MorseCode audio processing pipeline
+- [ ] Clean event subscription integration with existing MorseCode event bus
 
-### **Build System**
-- **Test Data**: Makefile must create `tests/generated_data/` directory if not exists (excluded from git)
-- **Large Files**: `tests/data/wav/` and `tests/data/wav_low_snr/` excluded from git (4GB+ sizes)
-- **CI/CD**: Ensure build scripts handle missing test data directories gracefully
+### **Phase 2 Goals: Multi-Signal Analysis**
+- [ ] Simultaneous visualization of magnitude, frequency, and WPM using multiple UILT plots
+- [ ] Accurate signal decimation preserving critical MorseCode timing characteristics
+- [ ] Real-time pattern recognition visualization with ●─● symbols
+- [ ] SSH debugging capability validated across different terminal environments
 
-### **Compatibility**
-- **Terminal Support**: Works in all standard terminals
-- **Color Fallback**: Graceful degradation for monochrome terminals
-- **Resize Handling**: Dynamic layout adjustment for terminal size
-- **Platform Independent**: Works on Linux, macOS, Windows
+### **Phase 3 Goals: Production Signal Analysis**
+- [ ] Comprehensive MorseCode signal dashboard suitable for debugging production issues
+- [ ] Professional visualization quality matching PyQtGraph functionality in terminal
+- [ ] Symbol probability analysis using UILT streaming displays
+- [ ] Performance benchmark: <5% overhead for visualization vs no-graphics mode
 
-### **Testing Strategy**
-- **Mock Event Bus**: Unit tests with synthetic events
-- **Visual Regression**: Screenshot comparison for layout changes
-- **Performance Tests**: Ensure no processing slowdown
-- **Integration Tests**: End-to-end graphics with real audio
-
----
-
-## 🤔 **Future Enhancements**
-
-### **Advanced Features**
-- [ ] **Configuration**: User-customizable layouts and colors
-- [ ] **Export**: Save graphics output to text files
-- [ ] **Remote Display**: Network-accessible graphics display
-- [ ] **Plugin System**: Custom visualization plugins
-
-### **Alternative Interfaces**
-- [ ] **Web Dashboard**: Browser-based real-time display
-- [ ] **TUI Application**: Full-screen terminal interface
-- [ ] **Mobile App**: Remote monitoring via mobile interface
-- [ ] **API Endpoint**: REST API for external visualization tools
+### **Phase 4 Goals: Universal Deployment**
+- [ ] Seamless CLI integration with `--visualize` flag and mode selection
+- [ ] Complete SSH debugging documentation with UILT backend capabilities
+- [ ] Cross-platform validation: Linux servers, macOS development, Windows terminals
+- [ ] Production-ready deployment for remote MorseCode signal analysis
 
 ---
 
-*Last updated: 2025-09-18*
-*Status: Ready for Phase 1 implementation*
-*Dependencies: Rich library integration*
-*Integration: Event bus subscription pattern*
+## 🔧 **UILT Technical Considerations for MorseCode**
+
+### **Performance Architecture**
+- **UILT Async Design**: Non-blocking visualization using `asyncio.gather` for concurrent plots
+- **Backend-Aware Decimation**: Smart data reduction (9.1:1 ASCII, 4.6:1 Braille) preserving signal peaks
+- **Streaming Buffers**: UILT manages bounded buffers automatically for time-series windows
+- **Event Integration**: Direct subscription to MorseCode events without additional data copying
+
+### **SSH Compatibility & Terminal Detection**
+- **UILT Backend Selection**: Automatic ASCII/Braille detection based on terminal capabilities
+- **SSH Environment Handling**: Safe fallback to ASCII when Unicode Braille is unsupported
+- **Terminal Adaptation**: Dynamic width/height detection with graceful layout adjustment
+- **Cross-Platform Validation**: Tested across SSH clients (PuTTY, Terminal.app, WSL)
+
+### **MorseCode Integration Strategy**
+- **Event Bus Compatibility**: Direct integration with existing `get_global_event_bus()`
+- **Signal Processing Pipeline**: Zero interference with HAL → SignalProcessor → MorseDecoder flow
+- **Data Format Alignment**: UILT expects numpy arrays/lists matching MorseCode signal formats
+- **Configuration Integration**: Use existing ConfigurableBase pattern for visualization settings
+
+### **Testing & Validation Approach**
+- **UILT Unit Tests**: Mock MorseCode events with synthetic signal data
+- **Signal Accuracy Tests**: Validate decimation preserves critical timing information
+- **Performance Benchmarks**: Measure visualization overhead vs core processing time
+- **SSH Environment Tests**: Validate across different terminal capabilities and SSH configurations
+- **Real Audio Integration**: End-to-end testing with actual MorseCode WAV files
+
+---
+
+## 🤔 **Future UILT Enhancements for MorseCode**
+
+### **Advanced UILT Features**
+- [ ] **Multi-Backend Configuration**: User selection of ASCII vs Braille vs Auto modes
+- [ ] **Signal Export**: Save UILT visualization output to text files for offline analysis
+- [ ] **Remote UILT Display**: Network streaming of terminal graphics for remote monitoring
+- [ ] **UILT Plugin System**: Custom MorseCode-specific visualization extensions
+
+### **Extended Signal Analysis**
+- [ ] **UILT Correlation Plots**: Cross-correlation visualization for signal timing analysis
+- [ ] **Multi-Channel UILT**: Simultaneous visualization of I/Q signal components
+- [ ] **UILT Spectrogram**: Time-frequency analysis using ASCII/Braille heatmaps
+- [ ] **Pattern Recognition Dashboard**: UILT-based visualization of ML pattern detection
+
+### **Integration Opportunities**
+- [ ] **Web UILT Gateway**: HTTP interface serving UILT terminal output as web content
+- [ ] **UILT JSON API**: RESTful endpoint providing signal visualization data
+- [ ] **Mobile UILT Viewer**: Terminal output optimized for mobile SSH clients
+- [ ] **CI/CD UILT Reports**: Automated signal analysis visualization in build pipelines
+
+---
+
+## 📋 **Implementation Summary**
+
+**UILT Integration for MorseCode** provides a comprehensive solution for SSH-friendly signal visualization by leveraging the Universal Interface for Live Telemetry from `src/util/graph`. This integration enables:
+
+- **Real-time signal analysis** over any SSH connection with automatic backend selection
+- **Professional debugging capabilities** matching PyQtGraph functionality in terminal environments
+- **Zero external dependencies** using only standard terminal output
+- **Performance-optimized streaming** with backend-aware decimation preserving signal characteristics
+
+The roadmap focuses on four phases: UILT foundation integration, multi-plot signal displays, advanced analysis dashboards, and production CLI deployment with comprehensive SSH debugging capabilities.
+
+---
+
+*Last updated: 2025-09-21*
+*Status: Ready for Phase 1 UILT integration*
+*Dependencies: Internal util/graph library*
+*Integration: MorseCode event bus + UILT AsyncPlot streaming*

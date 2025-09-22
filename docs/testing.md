@@ -2,6 +2,10 @@
 
 This document outlines the comprehensive testing strategy for the Morse code decoder project, including test data management, organization, and execution approaches.
 
+> 📁 **For practical test execution and directory info**, see [`tests/README.md`](../tests/README.md)
+
+**This document focuses on testing strategy** - methodology, metrics, architecture, and CI/CD approaches.
+
 ## 🎯 Testing Philosophy
 
 Our testing strategy employs **multiple complementary approaches** to ensure comprehensive validation:
@@ -19,12 +23,12 @@ Our testing strategy employs **multiple complementary approaches** to ensure com
 - `test_hal.py` - Audio loading and processing
 - `test_signal_processor.py` - FFT and tone detection
 - `test_morse_decoder.py` - Pattern recognition and decoding
-- `test_config_manager.py` - Configuration management
+- `test_configurable_base.py` - Configuration management
 
 #### **2. Integration Tests**
 - `test_integration.py` - End-to-end pipeline testing
 - `test_decoder_app.py` - Application integration testing
-- `test_snippets_integration.py` - Real audio snippet testing
+- `test_synthetic_wav_integration.py` - Synthetic test data integration
 
 #### **3. Performance Tests**
 - Decoding speed benchmarks
@@ -63,13 +67,13 @@ Create synthetic test WAV/TXT pairs with controlled parameters:
 
 ```bash
 # Generate all test types
-morsecode-test-data generate --output tests/generated_data
+morsecode-test-data generate --output tests/data/generated_data
 
 # Generate specific test types
-morsecode-test-data generate --output tests/generated_data --types basic reference
+morsecode-test-data generate --output tests/data/generated_data --types basic reference
 
 # Show test statistics
-morsecode-test-data stats --data tests/generated_data
+morsecode-test-data stats --data tests/data/generated_data
 ```
 
 **Generated Test Categories:**
@@ -138,7 +142,7 @@ morsecode-test-gen list-snippets --snippets tests/snippets
 # Example CI pipeline
 test:
   - run: pytest tests/ --cov=src/morsecode --cov-report=html
-  - run: pytest tests/test_snippets_integration.py --tb=short
+  - run: pytest tests/test_synthetic_wav_integration.py --tb=short
   - store: tests/htmlcov/
 ```
 

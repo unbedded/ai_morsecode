@@ -36,7 +36,7 @@ test-full: ensure-test-dirs ## Run tests with coverage
 	pytest --cov=src --cov-report=html --cov-report=term
 
 ensure-test-dirs: ## Ensure required test directories exist
-	@mkdir -p tests/generated_data
+	@mkdir -p tests/data/generated_data
 
 # Development
 install: ## Install project dependencies
