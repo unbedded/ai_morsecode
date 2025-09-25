@@ -14,11 +14,20 @@ from util.config import AwesomeConfigManager
 
 # Initialize graphics component (auto-subscribes to events)
 from .components import graphics  # noqa: F401
+
+# Concrete implementations that satisfy Protocol interfaces
 from .components.audio.hal import HardwareAbstractionLayer
-from .components.decoder.morse_decoder import MorseDecoder
+from .components.decoder.conv_adapter import ConvMorseDecoderAdapter as MorseDecoder
 from .components.signal.signal_processor import SignalProcessor
 from .events.bus import get_global_event_bus
 from .events.types import AudioChunkEvent, MorsePatternEvent, TextDecodedEvent, ToneDetectedEvent
+
+# Protocol interfaces for dependency injection (loose coupling)
+from .interfaces.audio import AudioSource
+from .interfaces.signal import SignalProcessor as SignalProcessorProtocol
+
+# Service layer using Protocol interfaces
+from .services.audio_processing_service import AudioProcessingService
 
 logger = logging.getLogger(__name__)
 
@@ -108,12 +117,61 @@ def _write_output(decoded_text: str, output_file: str | None = None) -> None:
         print(decoded_text)
 
 
+def create_audio_processing_service(
+    config_manager: AwesomeConfigManager, overrides: dict[str, Any] | None = None
+) -> AudioProcessingService:
+    """Factory function demonstrating proper Protocol-based dependency injection.
+
+    This shows how to create services using Protocol interfaces for loose coupling.
+    Concrete implementations are created here and injected into the service.
+
+    Args:
+        config_manager: Configuration manager for component initialization
+        overrides: Optional configuration overrides
+
+    Returns:
+        AudioProcessingService configured with Protocol interface dependencies
+    """
+    logger.info("Creating audio processing service with Protocol-based dependency injection...")
+
+    # Create concrete implementations that satisfy Protocol interfaces
+    signal_overrides = overrides.get("signal") if overrides else None
+    audio_overrides = overrides.get("audio") if overrides else None
+
+    # Concrete implementations (satisfy Protocol interfaces)
+    concrete_processor = SignalProcessor(cfg_mgr=config_manager, overrides=signal_overrides)
+    concrete_audio = HardwareAbstractionLayer(config_manager, overrides=audio_overrides)
+    event_bus = get_global_event_bus()
+
+    # Type annotations show Protocol interfaces, not concrete classes!
+    processor_interface: SignalProcessorProtocol = concrete_processor  # ← Protocol interface
+    audio_interface: AudioSource = concrete_audio  # ← Protocol interface
+
+    logger.info(
+        "Dependency injection: processor=%s satisfies SignalProcessorProtocol, audio=%s satisfies AudioSource",
+        type(concrete_processor).__name__,
+        type(concrete_audio).__name__,
+    )
+
+    # Service receives Protocol interfaces, not concrete implementations!
+    service = AudioProcessingService(
+        signal_processor=processor_interface,  # ← Protocol interface injected
+        audio_source=audio_interface,  # ← Protocol interface injected
+        event_bus=event_bus,
+        cfg_mgr=config_manager,
+    )
+
+    logger.info("AudioProcessingService created with Protocol-based dependency injection")
+    return service
+
+
 def run_decoder_configurable(
     config_manager: AwesomeConfigManager,
     overrides: dict[str, Any] | None = None,
     output_file: str | None = None,
     debug_graphics: bool = False,
     real_time: bool = False,
+    playback_speed: float = 1.0,
 ) -> int:
     """Run decoder with ConfigurableBase components directly.
 
@@ -126,6 +184,7 @@ def run_decoder_configurable(
         output_file: Optional output file path (None for stdout)
         debug_graphics: If True, enable ASCII debug graphics display for SSH debugging
         real_time: If True, process audio in real-time for live oscilloscope debugging
+        playback_speed: Playback speed multiplier for time synchronization
 
     Returns:
         Exit code (0 for success, 1 for error)
@@ -169,9 +228,10 @@ def run_decoder_configurable(
             from .components.graphics.debug_display import ASCIIDebugDisplay
 
             logger.info("Initializing ASCII debug display for SSH debugging")
-            debug_display = ASCIIDebugDisplay(
-                config_manager, overrides=overrides.get("debug_display") if overrides else None
-            )
+            # Pass playback_speed for time synchronization
+            debug_overrides = overrides.get("debug_display", {}) if overrides else {}
+            debug_overrides["playback_speed"] = playback_speed
+            debug_display = ASCIIDebugDisplay(config_manager, overrides=debug_overrides)
             debug_display.start_display()
             print("🔍 ASCII Debug Display started - PyQt replacement for SSH debugging")
             print("   Press Ctrl+C to stop...")
@@ -201,10 +261,17 @@ def run_decoder_configurable(
 
             # Real-time processing variables - smaller chunks for better time granularity
             chunk_duration_ms = 20  # ms per chunk (reduced from 50ms for finer granularity)
-            real_time_delay = chunk_duration_ms / 1000.0  # Convert to seconds
+            base_delay = chunk_duration_ms / 1000.0  # Convert to seconds
+            # STEP 3: Apply playback speed multiplier (0.5x = slower, 2.0x = faster)
+            real_time_delay = base_delay / playback_speed
 
             chunk_count = 0
-            logger.info("Starting audio processing loop - real_time=%s", real_time)
+            logger.info(
+                "Starting audio processing loop - real_time=%s, playback_speed=%.1fx (delay=%.3fs)",
+                real_time,
+                playback_speed,
+                real_time_delay,
+            )
 
             while hal.has_data():
                 try:
@@ -218,7 +285,7 @@ def run_decoder_configurable(
                         logger.info("Real-time chunk %d: processing with delay=%.3fs", chunk_count, real_time_delay)
 
                     # Get next audio chunk
-                    audio_data = hal.get_next_chunk(update_interval_ms=chunk_duration_ms)
+                    audio_data = hal.get_next_chunk(duration_ms=chunk_duration_ms)
 
                     # Debug: Log processing activity
                     if chunk_count % 50 == 1:  # Log every 50 chunks to avoid spam

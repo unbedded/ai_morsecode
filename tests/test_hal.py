@@ -163,10 +163,10 @@ class TestHardwareAbstractionLayer:
         mock_cfg_mgr = self.create_mock_config_manager({CfgKey.WAV_FILENAME: str(wav_file)})
         hal = HardwareAbstractionLayer(mock_cfg_mgr)
 
-        with pytest.raises(ValueError, match="update_interval_ms must be positive"):
+        with pytest.raises(ValueError, match="duration_ms must be positive"):
             hal.get_next_chunk(-100)
 
-        with pytest.raises(ValueError, match="update_interval_ms must be positive"):
+        with pytest.raises(ValueError, match="duration_ms must be positive"):
             hal.get_next_chunk(0)
 
     def test_get_next_chunk_no_data(self, tmp_path: Path) -> None:

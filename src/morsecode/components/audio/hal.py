@@ -176,26 +176,26 @@ class HardwareAbstractionLayer(ConfigurableBase):
             self.logger.exception("Error loading audio file: %s", str(e))
             raise RuntimeError(f"Failed to load audio file: {e}") from e
 
-    def get_next_chunk(self, update_interval_ms: int) -> np.ndarray:
+    def get_next_chunk(self, duration_ms: int) -> np.ndarray:
         """Retrieve the next chunk of audio data.
 
         Args:
-            update_interval_ms: Duration of the chunk in milliseconds.
+            duration_ms: Duration of the chunk in milliseconds.
 
         Returns:
             Array containing the next audio chunk. Returns zeros if no data available.
 
         Raises:
-            ValueError: If update_interval_ms is invalid.
+            ValueError: If duration_ms is invalid.
         """
         try:
-            if update_interval_ms <= 0:
-                raise ValueError("update_interval_ms must be positive")
+            if duration_ms <= 0:
+                raise ValueError("duration_ms must be positive")
 
             # Increment chunk counter
             self._chunk_counter += 1
 
-            samples_per_chunk = int((update_interval_ms / 1000) * self.audio_rate_hz)
+            samples_per_chunk = int((duration_ms / 1000) * self.audio_rate_hz)
 
             if len(self.audio_data) == 0:
                 self.logger.warning("No audio data available. Returning zeros")
@@ -205,7 +205,7 @@ class HardwareAbstractionLayer(ConfigurableBase):
                 # Publish audio chunk event for empty data
                 audio_event = AudioChunkEvent(
                     chunk_data=chunk,
-                    chunk_size_ms=update_interval_ms,
+                    chunk_size_ms=duration_ms,
                     sample_rate=self.audio_rate_hz,
                     chunk_number=self._chunk_counter,
                     has_more_data=has_more_data,
@@ -230,7 +230,7 @@ class HardwareAbstractionLayer(ConfigurableBase):
             # Publish audio chunk event
             audio_event = AudioChunkEvent(
                 chunk_data=chunk,
-                chunk_size_ms=update_interval_ms,
+                chunk_size_ms=duration_ms,
                 sample_rate=self.audio_rate_hz,
                 chunk_number=self._chunk_counter,
                 has_more_data=has_more_data,
@@ -243,6 +243,14 @@ class HardwareAbstractionLayer(ConfigurableBase):
             self.logger.exception("Error retrieving audio chunk: %s", str(e))
             raise
 
+    def get_sample_rate(self) -> int:
+        """Return the sampling rate of the audio signal in Hz.
+
+        Returns:
+            The audio sampling rate in Hz.
+        """
+        return self.audio_rate_hz
+
     def get_audio_rate_hz(self) -> int:
         """Return the sampling rate of the audio signal in Hz.
 
@@ -250,6 +258,16 @@ class HardwareAbstractionLayer(ConfigurableBase):
             The audio sampling rate in Hz.
         """
         return self.audio_rate_hz
+
+    def get_total_duration_ms(self) -> float | None:
+        """Get total duration of audio in milliseconds.
+
+        Returns:
+            Total duration in milliseconds, or None if no audio data loaded.
+        """
+        if len(self.audio_data) == 0:
+            return None
+        return (len(self.audio_data) / self.audio_rate_hz) * 1000.0
 
     def get_cfg(self) -> dict[str, Any]:
         """Return the updated configuration dictionary.
