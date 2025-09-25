@@ -30,17 +30,19 @@ class BrailleBackend:
     - Negative values: dots fill from bottom up
     """
 
-    def __init__(self, width: int, height: int, title: str = ""):
+    def __init__(self, width: int, height: int, title: str = "", display_time_span_sec: float = 4.0):
         """Initialize Braille backend.
 
         Args:
             width: Width in characters
             height: Height in rows
             title: Optional title for the plot
+            display_time_span_sec: Time duration that maps to full display width
         """
         self.width = width
         self.height = height
         self.title = title
+        self.display_time_span_sec = display_time_span_sec  # Configurable time span
         self.data_buffers: list[DataBuffer] = []
 
         # Auto-scaling parameters
@@ -227,25 +229,74 @@ class BrailleBackend:
         # For now, render only the first data buffer
         buffer = self.data_buffers[0]
 
-        # Get raw data
+        # Get raw data and time axis
         raw_data = buffer.get_values()
+        time_axis = buffer.get_time_axis()
 
-        # Apply backend-aware decimation (2x points for Braille)
-        decimated_data = SmartDecimation.decimate(raw_data, Backend.BRAILLE, self.width, self.height)
+        # Apply time-aware decimation for proper sample rate scaling
+        # Use sliding window mode based on TIME DURATION, not sample count
+        # This ensures identical waveforms use the same mode regardless of sampling rate
+        if time_axis is not None:
+            data_duration_sec = len(raw_data) * time_axis.sample_period_sec
 
-        # Multi-row Braille rendering
+            # CRITICAL FIX: Force sliding window mode for sample-driven data
+            # Sample-driven graphs need index-based scrolling regardless of duration
+            # Detection: regular sample periods indicate synthetic timestamps from TimeSeriesGraph
+            if len(raw_data) >= 3:
+                # For now, assume sample-driven if time_axis exists with regular period
+                is_sample_driven = True
+
+                if is_sample_driven:
+                    # Force sliding window for sample-driven mode (index-based scrolling)
+                    use_sliding_window = True
+                else:
+                    # Original logic for timestamp-driven mode
+                    use_sliding_window = data_duration_sec < 2.0
+            else:
+                # Use sliding window if data spans less than 2 seconds (initialization phase)
+                use_sliding_window = data_duration_sec < 2.0
+        else:
+            # Fallback to sample count if no time axis
+            use_sliding_window = len(raw_data) < (self.width * 0.8)
+
+        decimated_data, display_indices = SmartDecimation.decimate_time_aware(
+            raw_data,
+            time_axis,
+            Backend.BRAILLE,
+            self.width,
+            self.height,
+            sliding_window_mode=use_sliding_window,
+            display_time_span_sec=self.display_time_span_sec,
+        )
+
+        # Multi-row Braille rendering with time-aware positioning
         rows = []
         total_levels = self.height * 4  # Each Braille char has 4 dot levels per column
+
+        # Create a sparse data structure for time-positioned data
+        # Each position can hold up to 2 data points (left and right columns)
+        positioned_data = {}
+        for data_idx, value in enumerate(decimated_data):
+            if data_idx >= len(display_indices):
+                break
+
+            display_pos = display_indices[data_idx]
+            char_col = display_pos // 2  # Which character column
+            sub_col = display_pos % 2  # Left (0) or right (1) column within character
+
+            if char_col < self.width:
+                if char_col not in positioned_data:
+                    positioned_data[char_col] = [0.0, 0.0]  # [left, right]
+                positioned_data[char_col][sub_col] = value
 
         for row in range(self.height):
             row_chars = []
             for col in range(self.width):
-                # Get two data points for this character
-                left_idx = col * 2
-                right_idx = col * 2 + 1
-
-                left_value = decimated_data[left_idx] if left_idx < len(decimated_data) else 0.0
-                right_value = decimated_data[right_idx] if right_idx < len(decimated_data) else 0.0
+                # Get data for this character position
+                if col in positioned_data:
+                    left_value, right_value = positioned_data[col]
+                else:
+                    left_value, right_value = 0.0, 0.0
 
                 # Normalize values to [0, total_levels-1] range
                 y_range = self.y_max - self.y_min

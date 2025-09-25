@@ -25,6 +25,15 @@ application:
 graphics:
   enabled: true             # Enable real-time graphics display | BOOL | default: true
 
+debug_display:
+  backend: "ascii"          # Graphics backend for debug display | ENUM | {auto, ascii, braille} | default: ascii
+                            #   ascii: Universal compatibility, works over SSH, lower resolution
+                            #   braille: 2x higher resolution, modern terminals only
+                            #   auto: Automatic detection based on terminal capabilities
+  display_width_chars: 80   # Display width in characters | INT | 40-200 | default: 80
+  display_height_chars: 20  # Display height in characters | INT | 10-50 | default: 20
+  refresh_rate_fps: 20      # Display refresh rate | INT | 1-60 fps | default: 20
+
 signal:
   # Core signal detection parameters (with clear unit naming)
   frequency_hz: 600         # Target CW frequency for tone detection | INT | 200-2000 Hz | default: 600

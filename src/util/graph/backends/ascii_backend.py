@@ -37,17 +37,19 @@ class ASCIIBackend:
     # Sparkline characters: 8 levels of resolution
     SPARKLINE_CHARS = "▁▂▃▄▅▆▇█"
 
-    def __init__(self, width: int, height: int, title: str = ""):
+    def __init__(self, width: int, height: int, title: str = "", display_time_span_sec: float = 4.0):
         """Initialize ASCII backend.
 
         Args:
             width: Width in characters
             height: Height in rows
             title: Optional title for the plot
+            display_time_span_sec: Time duration that maps to full display width
         """
         self.width = width
         self.height = height
         self.title = title
+        self.display_time_span_sec = display_time_span_sec  # Configurable time span
         self.data_buffers: list[DataBuffer] = []
 
         # Auto-scaling parameters
@@ -174,11 +176,45 @@ class ASCIIBackend:
         # (Multi-series support can be added later)
         buffer = self.data_buffers[0]
 
-        # Get raw data
+        # Get raw data and time axis
         raw_data = buffer.get_values()
+        time_axis = buffer.get_time_axis()
 
-        # Apply backend-aware decimation
-        decimated_data = SmartDecimation.decimate(raw_data, Backend.ASCII, self.width, self.height)
+        # Apply time-aware decimation for proper sample rate scaling
+        # Use sliding window mode based on TIME DURATION, not sample count
+        # This ensures identical waveforms use the same mode regardless of sampling rate
+        if time_axis is not None:
+            data_duration_sec = len(raw_data) * time_axis.sample_period_sec
+
+            # CRITICAL FIX: Force sliding window mode for sample-driven data
+            # Sample-driven graphs need index-based scrolling regardless of duration
+            # Detection: regular sample periods indicate synthetic timestamps from TimeSeriesGraph
+            if len(raw_data) >= 3:
+                # For now, assume sample-driven if time_axis exists with regular period
+                is_sample_driven = True
+
+                if is_sample_driven:
+                    # Force sliding window for sample-driven mode (index-based scrolling)
+                    use_sliding_window = True
+                else:
+                    # Original logic for timestamp-driven mode
+                    use_sliding_window = data_duration_sec < 2.0
+            else:
+                # Use sliding window if data spans less than 2 seconds (initialization phase)
+                use_sliding_window = data_duration_sec < 2.0
+        else:
+            # Fallback to sample count if no time axis
+            use_sliding_window = len(raw_data) < (self.width * 0.8)
+
+        decimated_data, display_indices = SmartDecimation.decimate_time_aware(
+            raw_data,
+            time_axis,
+            Backend.ASCII,
+            self.width,
+            self.height,
+            sliding_window_mode=use_sliding_window,
+            display_time_span_sec=self.display_time_span_sec,
+        )
 
         # Normalize data to sparkline levels
         y_range = self.y_max - self.y_min
@@ -195,29 +231,31 @@ class ASCIIBackend:
                 level = max(0, min(total_levels - 1, level))  # Clamp
                 normalized_values.append(level)
 
-        # Convert levels to sparkline characters arranged in rows
+        # Convert levels to sparkline characters arranged in rows using display indices
         rows = []
         for row_idx in range(self.height):
-            row_chars = []
-            for col_idx in range(min(len(normalized_values), self.width)):
-                level = normalized_values[col_idx]
+            # Initialize row with spaces
+            row_chars = [" "] * self.width
+
+            # Place data points at their correct time-based positions
+            for data_idx, level in enumerate(normalized_values):
+                if data_idx >= len(display_indices):
+                    break
+
+                col_idx = display_indices[data_idx]
+                if col_idx >= self.width:
+                    continue
+
                 # Determine which row this level belongs to (bottom-up)
                 row_level = level // 8
                 char_level = level % 8
 
                 if row_level == (self.height - 1 - row_idx):
                     # This level belongs to this row
-                    row_chars.append(self.SPARKLINE_CHARS[char_level])
+                    row_chars[col_idx] = self.SPARKLINE_CHARS[char_level]
                 elif row_level > (self.height - 1 - row_idx):
                     # This level is above this row (should be filled)
-                    row_chars.append(self.SPARKLINE_CHARS[7])  # Full block
-                else:
-                    # This level is below this row (should be empty)
-                    row_chars.append(" ")
-
-            # Pad row to full width
-            while len(row_chars) < self.width:
-                row_chars.append(" ")
+                    row_chars[col_idx] = self.SPARKLINE_CHARS[7]  # Full block
 
             rows.append("".join(row_chars))
 

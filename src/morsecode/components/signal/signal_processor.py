@@ -681,3 +681,89 @@ class SignalProcessor(ConfigurableBase):
         except Exception as e:
             self.logger.exception("Error finding dominant frequency: %s", str(e))
             return 0.0
+
+    def get_signal_strength(self, audio_data: np.ndarray) -> float:
+        """Get the signal strength/amplitude.
+
+        Args:
+            audio_data: Audio samples as numpy array.
+
+        Returns:
+            Signal strength as a normalized value between 0.0 and 1.0.
+            0.0 indicates no signal, 1.0 indicates maximum signal.
+        """
+        try:
+            if len(audio_data) == 0:
+                return 0.0
+
+            # Calculate RMS (Root Mean Square) for signal strength
+            rms = np.sqrt(np.mean(audio_data**2))
+
+            # Normalize to 0-1 range (assuming typical audio range)
+            # Use a reasonable maximum amplitude for normalization
+            max_amplitude = 1.0  # Assuming normalized audio input
+            normalized_strength = min(rms / max_amplitude, 1.0)
+
+            self.logger.debug("Signal strength: RMS=%.3f, normalized=%.3f", rms, normalized_strength)
+            return float(normalized_strength)
+
+        except Exception as e:
+            self.logger.exception("Error calculating signal strength: %s", str(e))
+            return 0.0
+
+    def get_detection_confidence(self, audio_data: np.ndarray) -> float:
+        """Get confidence level of tone detection.
+
+        Args:
+            audio_data: Audio samples as numpy array.
+
+        Returns:
+            Confidence level between 0.0 and 1.0.
+            Based on SNR and spectral peak characteristics.
+        """
+        try:
+            if len(audio_data) == 0:
+                return 0.0
+
+            # Calculate SNR for confidence
+            snr = self.calculate_snr(audio_data)
+
+            # Get spectral analysis confidence
+            frequencies, magnitudes = self.compute_fft(audio_data)
+
+            # Find peak around target frequency
+            target_bin = int(self.target_frequency_hz * len(magnitudes) / (self.sample_rate_hz / 2))
+            target_bin = max(0, min(target_bin, len(magnitudes) - 1))
+
+            # Calculate peak-to-average ratio in target frequency region
+            window_size = max(1, len(magnitudes) // 20)  # ~5% of spectrum
+            start_idx = max(0, target_bin - window_size // 2)
+            end_idx = min(len(magnitudes), target_bin + window_size // 2)
+
+            peak_magnitude = magnitudes[target_bin]
+            avg_magnitude = np.mean(magnitudes[start_idx:end_idx])
+
+            # Convert measurements to confidence (0-1)
+            snr_confidence = min(max(snr / 10.0, 0.0), 1.0)  # SNR > 10 = high confidence
+            peak_confidence = min(peak_magnitude / (avg_magnitude + 1e-10), 1.0)
+
+            # Combined confidence (weighted average)
+            confidence = 0.7 * snr_confidence + 0.3 * peak_confidence
+
+            self.logger.debug(
+                "Detection confidence: SNR=%.1f, peak_ratio=%.2f, combined=%.3f", snr, peak_confidence, confidence
+            )
+
+            return float(confidence)
+
+        except Exception as e:
+            self.logger.exception("Error calculating detection confidence: %s", str(e))
+            return 0.0
+
+    def get_target_frequency(self) -> float:
+        """Get the target frequency this processor is configured for.
+
+        Returns:
+            Target frequency in Hz that this processor is designed to detect.
+        """
+        return float(self.target_frequency_hz)

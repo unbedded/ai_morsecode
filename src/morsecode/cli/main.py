@@ -132,6 +132,8 @@ Examples:
   morsecode --cfg-show                          # Show config locations
   morsecode --dbg-graphics audio.wav           # Enable real-time signal visualization
   morsecode --dbg-graphics --opt-realtime audio.wav  # Real-time mode with graphics
+  morsecode --dbg-graphics --playback-speed 0.5 audio.wav  # Half-speed analysis mode
+  morsecode --dbg-graphics --playback-speed 2.0 audio.wav  # Double-speed review mode
   morsecode --cfg-set debug_display.backend=braille audio.wav  # Use Braille backend (2x resolution)
         """,
     )
@@ -207,6 +209,14 @@ Examples:
         action="store_true",
         help="Process audio in real-time for live debugging (slows down to actual audio speed)",
         dest="real_time",
+    )
+    options_group.add_argument(
+        "--playback-speed",
+        metavar="FLOAT",
+        type=float,
+        default=1.0,
+        help="Playback speed multiplier (0.5=half speed, 2.0=double speed, default=1.0). Auto-enables real-time mode.",
+        dest="playback_speed",
     )
     options_group.add_argument(
         "--opt-output",
@@ -568,13 +578,27 @@ def main(argv: list[str] | None = None) -> int:
         if args.timing_tolerance is not None:
             overrides.setdefault("decoder", {})["timing_tolerance_norm"] = args.timing_tolerance
 
+        # STEP 2 & 3: Auto-enable real-time mode for graphics or playback speed
+        # This makes debugging much more intuitive - graphics should default to real-time
+        auto_realtime = args.real_time
+        playback_speed = args.playback_speed
+
+        # Auto-enable real-time if graphics requested or playback speed changed
+        if (args.graph_ascii and not args.real_time) or (playback_speed != 1.0 and not args.real_time):
+            auto_realtime = True
+            if args.graph_ascii:
+                print("🎬 Auto-enabling real-time mode for graphics visualization")
+            if playback_speed != 1.0:
+                print(f"⚡ Auto-enabling real-time mode for {playback_speed}x playback speed")
+
         # Run the decoder with ConfigurableBase architecture (simplified, single approach)
         result: int = decoder_app.run_decoder_configurable(
             config_manager=config_manager,
             overrides=overrides,
             output_file=args.output,
             debug_graphics=args.graph_ascii,
-            real_time=args.real_time,
+            real_time=auto_realtime,
+            playback_speed=playback_speed,
         )
         return result
 

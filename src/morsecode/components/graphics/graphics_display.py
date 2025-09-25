@@ -1,10 +1,9 @@
 """Advanced graphics display component for morse code patterns using UILT."""
 
-from collections import deque
 from typing import TYPE_CHECKING
 
 from util.config import AwesomeConfigManager, ConfigurableBase
-from util.graph import ASCIIBackend, BrailleBackend, plot_signal_auto
+from util.graph.time_series_graph import TimeSeriesGraph
 
 from .keys import GraphicsKey
 from .schema import GraphicsSchema
@@ -40,15 +39,16 @@ class GraphicsDisplay(ConfigurableBase):
         # Call ConfigurableBase constructor (handles all config/logging boilerplate)
         super().__init__(cfg_mgr, overrides)
 
-        # Initialize UILT backend and signal buffer
-        self._backend: ASCIIBackend | BrailleBackend | None = None
-        self._signal_buffer: deque[float] = deque(maxlen=self.buffer_size)
-        self._confidence_buffer: deque[float] = deque(maxlen=self.buffer_size)
-        self._timing_buffer: deque[float] = deque(maxlen=self.buffer_size)
+        # FIXED: Use TimeSeriesGraph instead of manual buffer management
+        self._time_series_graph: TimeSeriesGraph | None = None
         self._last_update_time = 0.0
 
-        self._initialize_backend()
-        self.logger.info("GraphicsDisplay initialized: enabled=%s, backend=%s", self.enabled, self.backend_type)
+        self._initialize_time_series_graph()
+        self.logger.info(
+            "GraphicsDisplay initialized: enabled=%s, backend=%s, using TimeSeriesGraph API",
+            self.enabled,
+            self.backend_type,
+        )
 
     def _load_config_values(self) -> None:
         """Load configuration values using type-safe enum access.
@@ -90,33 +90,41 @@ class GraphicsDisplay(ConfigurableBase):
         """Handle reconfiguration side effects.
 
         Called by ConfigurableBase after configuration values are reloaded.
-        Reinitialize backend if configuration changed.
+        Reinitialize TimeSeriesGraph if configuration changed.
         """
-        # Resize buffers if buffer_size changed
-        if hasattr(self, "_signal_buffer"):
-            self._signal_buffer = deque(list(self._signal_buffer), maxlen=self.buffer_size)
-            self._confidence_buffer = deque(list(self._confidence_buffer), maxlen=self.buffer_size)
-            self._timing_buffer = deque(list(self._timing_buffer), maxlen=self.buffer_size)
-
-        # Reinitialize backend with new settings
-        self._initialize_backend()
+        # Reinitialize TimeSeriesGraph with new settings
+        self._initialize_time_series_graph()
         self.logger.info("GraphicsDisplay reconfigured: enabled=%s, backend=%s", self.enabled, self.backend_type)
 
-    def _initialize_backend(self) -> None:
-        """Initialize UILT backend based on configuration."""
+    def _initialize_time_series_graph(self) -> None:
+        """Initialize TimeSeriesGraph based on configuration."""
         if not self.enabled:
-            self._backend = None
+            self._time_series_graph = None
             return
 
-        if self.backend_type == "ascii":
-            self._backend = ASCIIBackend(self.width, self.height, "Morse Signal")
-        elif self.backend_type == "braille":
-            self._backend = BrailleBackend(self.width, self.height, "Morse Signal")
-        else:  # auto
-            # Use plot_signal_auto for automatic backend selection
-            self._backend = None  # Will use convenience function instead
+        # Calculate time window from buffer size and update rate
+        time_window_sec = max(5.0, self.buffer_size / self.update_rate_hz)
 
-        self.logger.debug("Initialized backend: %s", self.backend_type)
+        # Calculate expected sample rate from update rate
+        sample_rate_hz = self.update_rate_hz
+
+        # Create TimeSeriesGraph with proper configuration
+        self._time_series_graph = TimeSeriesGraph(
+            width=self.width,
+            height=self.height,
+            time_window_sec=time_window_sec,
+            backend=self.backend_type,
+            title="Morse Signal",
+            sample_rate_hz=sample_rate_hz,
+            auto_scale=True,  # Allow auto-scaling for signal amplitude
+        )
+
+        self.logger.debug(
+            "Initialized TimeSeriesGraph: backend=%s, window=%.1fs, rate=%.1fHz",
+            self.backend_type,
+            time_window_sec,
+            sample_rate_hz,
+        )
 
     def add_signal_data(self, signal_value: float, confidence: float = 1.0, timing: float = 0.0) -> None:
         """Add signal data point to visualization buffer.
@@ -124,14 +132,21 @@ class GraphicsDisplay(ConfigurableBase):
         Args:
             signal_value: Raw signal amplitude (-1.0 to 1.0)
             confidence: Pattern recognition confidence (0.0 to 1.0)
-            timing: Timing information in seconds
+            timing: Timing information in seconds (optional)
         """
-        if not self.enabled:
+        if not self.enabled or not self._time_series_graph:
             return
 
-        self._signal_buffer.append(signal_value)
-        self._confidence_buffer.append(confidence)
-        self._timing_buffer.append(timing)
+        # FIXED: Use TimeSeriesGraph API - no manual buffer management needed
+        if timing > 0.0:
+            # Use explicit timestamp if provided
+            self._time_series_graph.add_data_point(signal_value, timing)
+        else:
+            # Use sample-driven approach (automatic timing)
+            self._time_series_graph.add_data_point(signal_value)
+
+        # Store confidence for display stats (not used in graph)
+        # Note: Could extend TimeSeriesGraph to support metadata in the future
 
         # Update display at configured rate
         import time
@@ -164,41 +179,26 @@ class GraphicsDisplay(ConfigurableBase):
 
     def _update_display(self) -> None:
         """Update the visual display with current buffer data."""
-        if not self.enabled or not self._signal_buffer:
+        if not self.enabled or not self._time_series_graph:
             return
 
-        signal_data = list(self._signal_buffer)
-
         try:
-            if self._backend:
-                # Use direct backend
-                self._backend.clear()
-                self._backend.plot(signal_data, sample_rate_hz=self.update_rate_hz)
+            # FIXED: Use TimeSeriesGraph render() API - handles all backend logic
+            lines = self._time_series_graph.render()
 
-                if hasattr(self._backend, "render_braille"):
-                    lines = self._backend.render_braille()
-                else:
-                    lines = self._backend.render_sparkline()
-            else:
-                # Use auto backend selection
-                lines, backend_used = plot_signal_auto(
-                    signal_data,
-                    sample_rate_hz=self.update_rate_hz,
-                    title="Morse Signal",
-                    width=self.width,
-                    height=self.height,
-                    prefer_braille=True,
-                )
+            if not lines:
+                return  # No data to display yet
 
             # Clear screen and display (simple approach)
             print("\033[2J\033[H", end="")  # Clear screen and move cursor to top
             for line in lines:
                 print(line)
 
-            # Display stats
-            if self._confidence_buffer:
-                avg_confidence = sum(self._confidence_buffer) / len(self._confidence_buffer)
-                print(f"\nBuffer: {len(signal_data)} samples | Avg Confidence: {avg_confidence:.2f}")
+            # Display stats from TimeSeriesGraph
+            stats = self._time_series_graph.get_stats()
+            rate_hz = stats["calculated_sample_rate_hz"]
+            backend = stats["backend"]
+            print(f"\nBuffer: {stats['sample_count']} samples | Rate: {rate_hz:.1f}Hz | Backend: {backend}")
 
         except Exception as e:
             self.logger.error("Display update failed: %s", e)
@@ -215,7 +215,10 @@ class GraphicsDisplay(ConfigurableBase):
 
     def clear_buffers(self) -> None:
         """Clear all signal buffers."""
-        self._signal_buffer.clear()
-        self._confidence_buffer.clear()
-        self._timing_buffer.clear()
-        self.logger.debug("Signal buffers cleared")
+        if self._time_series_graph:
+            # FIXED: Use TimeSeriesGraph API to clear buffers
+            # Note: TimeSeriesGraph doesn't expose clear() method, but we can recreate it
+            self._initialize_time_series_graph()
+            self.logger.debug("TimeSeriesGraph buffers cleared via recreation")
+        else:
+            self.logger.debug("No TimeSeriesGraph to clear")

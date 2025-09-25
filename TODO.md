@@ -1,6 +1,37 @@
 # MorseCode Graphics Integration - UILT Implementation Roadmap
 
-## 🎯 **Overview**
+## 📋 Progress Tracking Checklist
+
+### ✅ **COMPLETED** - UILT Foundation & Usage Fixes
+- [x] **UILT Library Architecture** - Complete `src/util/graph` system with TimeSeriesGraph API
+- [x] **Usage Bug Fixes** - Fixed 6 critical API usage bugs in application code
+- [x] **Component Integration** - ASCIIDebugDisplay uses proper TimeSeriesGraph API
+- [x] **Event System** - FilteredMagnitudeEvent, FFTSpectrumEvent, MorseProbabilityEvent implemented
+- [x] **Backend Selection** - ASCII/Braille automatic detection working
+- [x] **SSH Compatibility** - Terminal capability detection with safe fallbacks
+
+### 🚧 **IN PROGRESS** - Phase 1: PyQt Replacement Core Features
+- [x] **Real-time Magnitude** ⭐ **CRITICAL** - Normalized magnitude display (-1 to +1)
+- [x] **Multi-Plot Display** 📊 **HIGH** - FFT, Magnitude, 4x Probability charts
+- [ ] **Event Enhancement** 🎯 **HIGH** - DitWidthEvent, enhanced spectrum events
+- [ ] **CLI Integration** 📏 **MEDIUM** - `--debug-graphics` flag integration
+
+### 📋 **PLANNED** - Phase 2-4: Advanced Signal Analysis
+- [ ] **Frequency Analysis** 🔍 **MEDIUM** - Peak frequency meter (300-900Hz)
+- [ ] **WPM Analysis** ⏱️ **MEDIUM** - DIT width discovery visualization
+- [ ] **Symbol Recognition** 🎨 **LOW** - Enhanced convolution probability analysis
+- [ ] **Production CLI** 🚀 **LOW** - Full SSH debugging deployment
+
+### 🎯 **SUCCESS CRITERIA**
+**PyQt Debugging Replacement**: Complete SSH-compatible ASCII/Braille terminal graphics system that replaces all 6 PyQtGraph displays with UILT real-time visualization.
+
+**Target**: 6 real-time displays - Signal amplitude, Frequency spectrum, Magnitude w/threshold, Normalized filtered signal, DIT width discovery, Symbol probability analysis.
+
+---
+
+## 📖 DETAILED IMPLEMENTATION PLAN
+
+### 🎯 **Overview**
 Implementation plan for integrating the Universal Interface for Live Telemetry (UILT) graphics library with MorseCode signal analysis. This document outlines how `src/util/graph` UILT components will be integrated with MorseCode events to replicate PyQtGraph debugging capabilities using SSH-friendly ASCII/Braille terminal graphics.
 
 **UILT Library Integration**: Using the universal `src/util/graph` library for terminal-based signal visualization with backend-aware decimation and 2x resolution Braille mode.

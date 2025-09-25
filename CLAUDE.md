@@ -99,8 +99,9 @@ When working on projects with `src/util/` package, AI assistants MUST:
 
 ### 2. Configuration System (src/util/config/)
 - **Use AwesomeConfigManager** with enum-based schemas
-- **Call `cfg_mgr.register_enum_config()`** to register component schemas
-- **Call `cfg_mgr.register_logging_config(__name__)`** to enable config-driven log levels
+- **Use ConfigurableBase inheritance** for all components requiring configuration
+- **Automatic schema registration**: `cfg_mgr.register_enum_config()` called by ConfigurableBase constructor
+- **Automatic logging setup**: `cfg_mgr.register_logging_config()` called by ConfigurableBase constructor
 - **Type-safe access**: Use `cfg.get_int()`, `cfg.get_string()`, etc. with enum keys
 
 ### 3. Logging System (src/util/logging/)
@@ -109,6 +110,12 @@ When working on projects with `src/util/` package, AI assistants MUST:
 - **🚨 MUST USE % FORMATTING**: `logger.info("Result: %s", value)` NOT f-strings
 - **Security**: Passwords/tokens automatically redacted
 - **Thread-safe**: Multiple threads can safely use same logger
+
+### 4. Graphics System (src/util/graph/) - Optional
+- **Use TimeSeriesGraph API** for terminal-based signal visualization
+- **SSH-compatible**: ASCII/Braille backends with automatic detection
+- **Sample-driven approach**: Use `add_data_point()` without timestamps for consistent scrolling
+- **See**: `src/util/graph/README.md` for complete API documentation
 
 ## 🚨 CRITICAL RULES
 
@@ -224,6 +231,7 @@ application:
 **For complete usage patterns and examples, AI assistants should read:**
 - `src/util/config/README.md` - **FOCUS ON AI-FIRST SECTION ONLY** (marked "LLM POLICY")
 - `src/util/logging/README.md` - **FOCUS ON AI-FIRST SECTION ONLY** (marked "LLM POLICY")
+- `src/util/graph/README.md` - Complete TimeSeriesGraph API reference (when using graphics)
 
 **Note**: The sections below "END LLM POLICY" are human developer documentation and examples. AI assistants should primarily use the AI-FIRST sections for policy guidance, and only reference the human sections when specific implementation details are needed.
 

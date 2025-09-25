@@ -88,28 +88,27 @@ def example_3_backend_comparison():
     """Example 3: Side-by-side backend comparison."""
     print("\n📊 Example 3: Backend Comparison\n")
 
-    # Generate high-frequency signal to show resolution advantage
-    sample_rate_hz = 2000.0
-    duration_sec = 0.05  # 50ms - short burst
+    # Generate smooth sine wave to show resolution advantage clearly
+    sample_rate_hz = 100.0  # Higher rate for smooth curves
+    duration_sec = 2.0  # 2 seconds for clear visualization
+    frequency_hz = 3.0  # 3 Hz sine wave = multiple cycles
     num_samples = int(sample_rate_hz * duration_sec)
 
-    high_freq_signal = []
+    sine_signal = []
     for i in range(num_samples):
         t = i / sample_rate_hz
-        # Multiple frequency components
-        fundamental = math.sin(2 * math.pi * 100 * t)
-        harmonic1 = 0.5 * math.sin(2 * math.pi * 300 * t)
-        harmonic2 = 0.3 * math.sin(2 * math.pi * 500 * t)
-        high_freq_signal.append(fundamental + harmonic1 + harmonic2)
+        # Clean sine wave - shows smooth curves and resolution advantage
+        value = math.sin(2 * math.pi * frequency_hz * t)
+        sine_signal.append(value)
 
     comparison_lines = compare_backends(
-        high_freq_signal, sample_rate_hz=sample_rate_hz, title="High-Frequency Signal Comparison", width=35, height=4
+        sine_signal, sample_rate_hz=sample_rate_hz, title="Sine Wave Resolution Comparison", width=40, height=5
     )
 
     for line in comparison_lines:
         print(line)
 
-    print("\n💡 Notice: Braille backend shows more detail due to 2x horizontal resolution")
+    print("\n💡 Notice: Braille backend shows smoother curves due to 2x horizontal resolution")
 
 
 def example_4_direct_backend_usage():

@@ -1,66 +1,46 @@
 # UILT Debug Tools
 
-This directory contains debugging and development tools used during the creation of the UILT (Universal Interface for Live Telemetry) library. These tools are part of the UILT library structure and provide debugging capabilities for backend development and testing.
+This directory contains maintenance references for the UILT (Universal Interface for Live Telemetry) library.
 
 ## 📁 Files
 
-### **Core Development Demos**
-- **`demo_clean_braille.py`** - Clean Braille implementation with lookup tables
-- **`demo_graph_modes.py`** - ASCII vs Braille backend comparison demos
-- **`test_braille_sine.py`** - Real-time Braille sine wave animation test
-
-### **Debugging Tools**
-- **`debug_braille_pairs.py`** - Debug Braille character pair combinations
-- **`debug_braille_columns.py`** - Debug Braille left/right column mapping
-- **`debug_braille_columns2.py`** - Advanced Braille column mapping tests
-- **`debug_simple_braille.py`** - Simple Braille rendering tests
-- **`debug_step_signal.py`** - Step signal rendering analysis
-- **`debug_braille.py`** - Basic Braille character testing
-- **`debug_ramp.py`** - Ramp wave rendering debugging
-- **`debug_decimation.py`** - Data decimation algorithm testing
-
-### **Orientation Fixes**
-- **`fix_braille_mapping.py`** - Fixed Braille Unicode dot mapping
-- **`test_correct_orientation.py`** - Correct Braille fill direction tests
-- **`test_clean_ascending.py`** - Clean ascending pattern validation
-- **`test_braille_fix.py`** - Braille orientation fix validation
-- **`test_multirow_braille.py`** - Multi-row Braille rendering tests
-- **`test_ported_graph.py`** - Ported graph functionality validation
+- **`fix_braille_mapping.py`** - Braille Unicode dot mapping reference for maintenance
+- **`README.md`** - This documentation
 
 ## 🎯 Purpose
 
-These tools were essential for:
-1. **Debugging Braille Unicode mapping** - Correct dot positioning
-2. **Fixing orientation issues** - Proper bottom-up fill for positive values
-3. **Testing backend functionality** - Ensuring 2x resolution advantage
-4. **Validating signal fidelity** - Preserving timing characteristics
+This directory provides:
+- **Braille Unicode mapping reference** - Correct dot positioning for maintenance
 
 ## 🚀 Usage
 
-Most of these files can be run directly:
+**For current UILT examples, use the organized demos in the examples directory:**
 ```bash
-python src/util/graph/debug/demo_clean_braille.py
-python src/util/graph/debug/test_braille_sine.py
-python src/util/graph/debug/debug_simple_braille.py
+# Navigate to examples directory for current demos
+cd src/util/graph/examples/
+
+# Run comprehensive examples with descriptive names
+python demo_01_identical_signals_validation.py
+python demo_02_sample_rate_comparison.py
+python demo_03_uilt_showcase.py
+python demo_04_braille_backend_features.py
+python demo_05_backend_comparison.py
+python demo_06_real_time_animation.py
+python demo_07_output_instrumentation.py
 ```
 
-## 📝 Historical Context
-
-These files document the development process of solving the "upside-down Braille" issue and implementing correct backend-aware decimation. They show the iterative process of:
-
-1. Initial Braille implementation attempts
-2. Discovery of orientation problems
-3. Unicode dot mapping fixes
-4. Final validation of correct behavior
+**For maintenance reference:**
+```bash
+# View Braille Unicode mapping reference
+python src/util/graph/debug/fix_braille_mapping.py
+```
 
 ## 🔧 For Future Development
 
-Keep these tools for:
-- **Regression testing** - Ensure fixes remain correct
+The Braille mapping reference is useful for:
+- **Regression testing** - Ensure Braille rendering remains correct
 - **New backend development** - Reference patterns for other output formats
-- **Performance debugging** - Isolate specific rendering issues
-- **Educational purposes** - Show development methodology
 
 ---
 
-**Note**: For production usage, use the examples in `src/util/graph/examples/` instead.
+**Note**: This debug directory now contains only essential maintenance references. For current examples and demos, use `src/util/graph/examples/` which contains all valuable content with descriptive names and comprehensive documentation.

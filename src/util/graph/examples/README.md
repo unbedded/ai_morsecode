@@ -1,23 +1,123 @@
-# UILT Library Examples
+# UILT Examples - Visual Demonstrations and Usage Patterns
 
-This directory contains examples demonstrating the **Universal Interface for Live Telemetry (UILT)** graphing library. For complete API documentation and technical details, see [../README.md](../README.md).
+This directory contains comprehensive examples demonstrating **UILT (Universal Interactive Live Terminal)** capabilities for signal visualization and terminal graphics.
 
-## 📁 Available Examples
+## 🎬 Complete Example Gallery
 
-### 🎬 [demo_uilt_showcase.py](demo_uilt_showcase.py) ⭐ **FEATURED**
-**Impressive UILT capabilities showcase for demonstrations**
+### **Core Validation Examples**
 
-Interactive demonstration showcasing UILT's most compelling features:
-- Resolution advantage demo with side-by-side ASCII vs Braille comparison
-- Morse code analysis with precise timing visualization
-- Performance metrics and SSH compatibility demonstrations
-- Ready-to-use showcase for evaluating UILT capabilities
+#### **`demo_01_identical_signals_validation.py`** ⭐ **UNIT TEST PROOF**
+**Purpose**: Visual proof that identical mathematical signals produce identical output regardless of sample rate
 
-**Run:** `python demo_uilt_showcase.py`
+**Features**:
+- ✅ Square wave hash validation (proves pixel-perfect matching)
+- ✅ Morse code timing precision tests
+- ✅ ASCII vs Braille resolution comparison
+- ✅ Probability data compression demonstration
+
+**Run**: `python demo_01_identical_signals_validation.py`
+
+**Best for**: Unit test validation, proving decimation algorithm correctness
 
 ---
 
-### 🚀 [basic_usage.py](basic_usage.py)
+#### **`demo_02_sample_rate_comparison.py`**
+**Purpose**: Side-by-side visual comparison of signals at different sample rates
+
+**Features**:
+- 📊 Side-by-side rendering of same signal at 10Hz, 20Hz, 40Hz
+- 📈 Multiple waveform types (square, triangle, sawtooth, pulse)
+- ⚙️ Decimation effectiveness (16.7:1 ratio demonstrations)
+- 🏁 Backend consistency benchmarks
+
+**Run**: `python demo_02_sample_rate_comparison.py`
+
+**Best for**: Visual debugging, algorithm verification, development demos
+
+---
+
+#### **`demo_03_uilt_showcase.py`** 🚀 **PRODUCTION SHOWCASE**
+**Purpose**: Production-ready showcase for development teams and SSH debugging
+
+**Features**:
+- 🔍 Complex multi-frequency signal analysis
+- 📡 SOS morse pattern with element-by-element timing breakdown
+- ⚡ Backend performance and SSH compatibility matrix
+- 💻 Real-world integration examples with live data simulation
+
+**Run**: `python demo_03_uilt_showcase.py`
+
+**Best for**: Team presentations, production integration demos, SSH debugging
+
+---
+
+### **Specialized Backend Examples**
+
+#### **`demo_04_braille_backend_features.py`**
+**Purpose**: Deep dive into Braille backend capabilities and Unicode handling
+
+**Features**:
+- ⠿ Braille dot pattern mapping
+- 📊 High-resolution signal rendering
+- 🔤 Unicode character set demonstrations
+- 🎯 Resolution advantage quantification
+
+**Run**: `python demo_04_braille_backend_features.py`
+
+**Best for**: Understanding Braille rendering, terminal compatibility testing
+
+---
+
+#### **`demo_05_backend_comparison.py`**
+**Purpose**: Comprehensive comparison between ASCII and Braille backends
+
+**Features**:
+- 📈 Same signals rendered with both backends
+- 📊 Performance characteristics comparison
+- 🎨 Visual quality analysis
+- 🔧 Backend selection guidelines
+
+**Run**: `python demo_05_backend_comparison.py`
+
+**Best for**: Backend selection decisions, optimization analysis
+
+---
+
+### **Advanced Features**
+
+#### **`demo_06_real_time_animation.py`**
+**Purpose**: Real-time signal animation and live data visualization
+
+**Features**:
+- 🎬 Animated sine wave with frame-by-frame updates
+- ⏱️ Real-time rendering performance
+- 📺 Terminal animation techniques
+- 🔄 Live data stream simulation
+
+**Run**: `python demo_06_real_time_animation.py`
+
+**Best for**: Live monitoring applications, real-time debugging
+
+---
+
+#### **`demo_07_output_instrumentation.py`**
+**Purpose**: Advanced output capture and analysis for debugging
+
+**Features**:
+- 📁 File-based output capture
+- 📊 Render comparison analysis
+- 🔍 Performance instrumentation
+- 📈 Visual diff generation
+
+**Run**: `python demo_07_output_instrumentation.py`
+
+**Best for**: Advanced debugging, regression testing, quality assurance
+
+---
+
+### **Legacy/Basic Examples**
+
+#### **`basic_usage.py`**
 **Fundamental UILT capabilities demonstration**
 
 Complete example showing:
@@ -27,33 +127,98 @@ Complete example showing:
 - Manual Y-axis limits vs auto-scaling
 - Performance metrics and effective resolution analysis
 
-**Run:** `python basic_usage.py`
+**Run**: `python basic_usage.py`
 
 ---
+
+## 🎯 Usage Recommendations
+
+### **For New Users**
+Start with:
+1. `demo_01_identical_signals_validation.py` - See core capabilities and proof
+2. `demo_03_uilt_showcase.py` - Understand production use cases
+
+### **For Developers**
+Focus on:
+1. `demo_02_sample_rate_comparison.py` - Algorithm validation
+2. `demo_05_backend_comparison.py` - Technical details
+3. `demo_07_output_instrumentation.py` - Debugging tools
+
+### **For Production Integration**
+Use:
+1. `demo_03_uilt_showcase.py` - Integration patterns
+2. `demo_06_real_time_animation.py` - Live data handling
+
+### **For Presentations**
+Best demos:
+1. `demo_03_uilt_showcase.py` - Impressive feature showcase
+2. `demo_01_identical_signals_validation.py` - Technical proof
+3. `demo_02_sample_rate_comparison.py` - Visual comparisons
 
 ## 🎯 Running Examples
 
 ```bash
-# Run the featured showcase demo (recommended for first-time users)
-python demo_uilt_showcase.py
+# Core validation examples - prove algorithm correctness
+python demo_01_identical_signals_validation.py
+python demo_02_sample_rate_comparison.py
 
-# Run the comprehensive basic usage demo
+# Production showcase - impressive demonstrations
+python demo_03_uilt_showcase.py
+
+# Backend specialization examples
+python demo_04_braille_backend_features.py
+python demo_05_backend_comparison.py
+
+# Advanced features
+python demo_06_real_time_animation.py
+python demo_07_output_instrumentation.py
+
+# Legacy basic usage
 python basic_usage.py
 ```
 
-The basic usage example covers all fundamental UILT capabilities including backend comparison, signal processing, and performance analysis. Additional examples are planned for real-time visualization, morse code integration, and performance benchmarking.
+## 📊 What These Examples Prove
 
-## 💡 Key Features Demonstrated
+### **Algorithm Correctness**
+- ✅ Identical waveforms → identical visual output
+- ✅ Sample rate independence achieved
+- ✅ Hash verification confirms pixel-perfect matching
 
-- **Backend-aware decimation**: ASCII (1 point/char) vs Braille (2 points/char)
-- **Signal fidelity preservation**: Smart decimation maintains peaks and timing
-- **SSH compatibility**: Universal ASCII with high-resolution Braille fallback
-- **Performance optimization**: Efficient memory usage and processing
+### **Production Readiness**
+- ✅ SSH compatibility across terminals
+- ✅ Real-time performance suitable for monitoring
+- ✅ Graceful fallbacks for terminal limitations
 
-## 📚 Complete Documentation
+### **Feature Completeness**
+- ✅ 2x resolution advantage with Braille backend
+- ✅ Precise timing preservation for morse code
+- ✅ Complex signal handling with multiple components
 
-For detailed API reference, architecture design, integration patterns, and advanced usage examples, see the main [UILT documentation](../README.md).
+## 🛠️ Requirements
+
+All examples require:
+- Python 3.8+
+- NumPy
+- UILT library (included in this project)
+
+Some examples may require:
+- UTF-8 terminal support (for Braille examples)
+- Terminal with color support (optional, graceful fallback)
+
+## 🔧 Troubleshooting
+
+**Import Errors**: Ensure you're running from the project root directory
+**Terminal Issues**: Some terminals may not support Braille Unicode (use ASCII fallback)
+**Performance**: For slow terminals, reduce refresh rates in real-time examples
+
+## 📝 Contributing
+
+When adding new examples:
+1. Use descriptive `demo_##_feature_name.py` naming
+2. Include comprehensive docstrings
+3. Add entry to this README with purpose and features
+4. Test on multiple terminal types for compatibility
 
 ---
 
-**Quick reference for immediate integration into your signal processing applications.**
+**Note**: For low-level debugging and development history, see `src/util/graph/debug/` directory.

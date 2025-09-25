@@ -290,17 +290,24 @@ class AwesomeConfigManager:
         self._load_config()
 
     def _find_or_create_config(self, config_file: str | None) -> Path:
-        """Find existing config or create new one using XDG standard location."""
+        """Find existing config with development/production mode selection."""
         if config_file:
             return Path(config_file)
 
-        # XDG Base Directory Specification: ~/.config/morsecode/config.yaml
-        config_path = Path.home() / ".config" / "morsecode" / "config.yaml"
+        # Check for development mode setting to choose config location
+        # Priority: project-local config (development) > XDG user config (production)
+        project_config = Path("config/morse.yaml")
+        user_config = Path.home() / ".config" / "morsecode" / "config.yaml"
 
-        if not config_path.exists():
-            self._create_initial_config(config_path)
+        # If project-local config exists, use it (development mode)
+        if project_config.exists():
+            return project_config
 
-        return config_path
+        # Otherwise, use/create XDG user config (production mode)
+        if not user_config.exists():
+            self._create_initial_config(user_config)
+
+        return user_config
 
     def _create_initial_config(self, config_path: Path) -> None:
         """Create initial configuration file and directory structure."""

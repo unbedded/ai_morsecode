@@ -78,6 +78,14 @@ class DataBuffer:
             # Fallback: try to convert to list
             return list(self.data)
 
+    def get_time_axis(self) -> TimeAxis | None:
+        """Get the time axis associated with this buffer.
+
+        Returns:
+            TimeAxis object or None if no time axis is set
+        """
+        return self.time_axis
+
     def get_time_values(self, max_points: int | None = None) -> list[float]:
         """Get time values for X-axis display.
 
