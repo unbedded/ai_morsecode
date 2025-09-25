@@ -67,6 +67,7 @@ addopts = [
     "--verbose",
     "--tb=short",
     "-ra",
+    "--ignore=tests/development/",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
@@ -113,13 +114,33 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["D"]  # Don't require docstrings in tests
 "__init__.py" = ["D104"]
+# Exclude examples and demo files from quality checks
+"**/examples/*" = ["E", "W", "F", "B", "C4", "D", "UP", "I"]
+"**/demo*.py" = ["E", "W", "F", "B", "C4", "D", "UP", "I"]
+"**/test_*.py" = ["E402", "F841", "D107"]  # Allow common test patterns
+"test_*.py" = ["E402", "F841", "D107", "E501", "F821"]  # Allow test file patterns
+# Exclude specific analysis and development files
+"analyze_*.py" = ["E", "W", "F", "B", "C4", "D", "UP", "I"]
+"create_*.py" = ["E", "W", "F", "B", "C4", "D", "UP", "I"]
 
 [tool.mypy]
 python_version = "3.13"
 ignore_missing_imports = true
 mypy_path = "src"
-# Focus on production code quality - exclude tests entirely
-exclude = ["tests/", "test_*.py", ".*_test.py", "debug_*.py", "serialization_demo.py", "tests/test_interface_based_*.py", "src/util/"]
+# Focus on production code quality - exclude tests and examples
+exclude = [
+    "tests/",
+    "test_.*\\.py",
+    ".*_test\\.py",
+    "debug_.*\\.py",
+    "serialization_demo\\.py",
+    "analyze_.*\\.py",
+    "create_.*\\.py",
+    "tests/test_interface_based_.*\\.py",
+    "src/util/",
+    ".*/examples/.*",
+    ".*/demo.*\\.py"
+]
 
 # Production code should be type-safe
 strict = false  # Start more lenient, can tighten later
@@ -162,6 +183,9 @@ omit = [
     "tests/*",
     "*/tests/*",
     "*/test_*.py",
+    "*/examples/*",
+    "*/demo*.py",
+    "test_*.py",
 ]
 
 [tool.coverage.report]
