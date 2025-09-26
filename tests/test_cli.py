@@ -12,7 +12,7 @@ import argparse
 import logging
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import pytest
 
@@ -52,29 +52,21 @@ class TestArgumentParser:
                 "custom.yaml",
                 "--cfg-profile",
                 "debug",
-                "--sig-freq",
-                "800",
-                "--dec-wpm",
-                "20",
-                "--sig-threshold",
-                "0.4",
-                "--dbg-enable",
-                "--opt-output",
-                "output.txt",
-                "--opt-loglevel",
-                "INFO",
+                "--cfg-override",
+                "signal-frequency-hz=800",
+                "--cfg-override",
+                "decoder-wpm=20",
+                "-s",
+                "signal-signal-threshold-norm=0.4",
+                "--cfg-validate",
             ]
         )
 
         assert args.wav_file == "test.wav"
         assert args.config == "custom.yaml"
         assert args.profile == "debug"
-        assert args.frequency == 800
-        assert args.wpm == 20
-        assert args.signal_threshold == 0.4
-        assert args.debug is True
-        assert args.output == "output.txt"
-        assert args.log_level == "INFO"
+        assert args.lazy_overrides == ["signal-frequency-hz=800", "decoder-wpm=20", "signal-signal-threshold-norm=0.4"]
+        assert args.validate_config is True
 
     def test_parse_utility_commands(self) -> None:
         """Test parsing utility commands."""
@@ -137,38 +129,53 @@ class TestArgumentValidation:
         captured = capsys.readouterr()
         assert "File must be a WAV file" in captured.err
 
-    def test_validate_invalid_frequency(self, capsys: Any) -> None:
-        """Test validation with invalid frequency."""
+    def test_validate_invalid_frequency(self, capsys: Any, tmp_path: Path) -> None:
+        """Test validation with invalid frequency (now handled through config system)."""
         parser = create_parser()
-        args = parser.parse_args(["--sig-freq", "5000", "test.wav"])
+        # Create a dummy WAV file
+        wav_file = tmp_path / "test.wav"
+        wav_file.write_text("fake wav content")
 
-        with pytest.raises(SystemExit):
-            validate_args(args)
+        # Frequency validation is now handled in the config system, not CLI args
+        args = parser.parse_args(["-s", "signal-frequency-hz=5000", str(wav_file)])
 
-        captured = capsys.readouterr()
-        assert "Frequency must be 200-2000 Hz" in captured.err
+        # Basic validation should pass (detailed validation happens in config manager)
+        validate_args(args)  # Should not raise
 
-    def test_validate_invalid_threshold(self, capsys: Any) -> None:
-        """Test validation with invalid threshold."""
+        # The frequency validation happens at config level, not CLI level
+        assert args.lazy_overrides == ["signal-frequency-hz=5000"]
+
+    def test_validate_invalid_threshold(self, capsys: Any, tmp_path: Path) -> None:
+        """Test validation with invalid threshold (now handled through config system)."""
         parser = create_parser()
-        args = parser.parse_args(["--sig-threshold", "2.0", "test.wav"])
+        # Create a dummy WAV file
+        wav_file = tmp_path / "test.wav"
+        wav_file.write_text("fake wav content")
 
-        with pytest.raises(SystemExit):
-            validate_args(args)
+        # Threshold validation is now handled in the config system, not CLI args
+        args = parser.parse_args(["-s", "signal-signal-threshold-norm=2.0", str(wav_file)])
 
-        captured = capsys.readouterr()
-        assert "Signal threshold must be 0.0-1.0" in captured.err
+        # Basic validation should pass (detailed validation happens in config manager)
+        validate_args(args)  # Should not raise
 
-    def test_validate_invalid_wpm(self, capsys: Any) -> None:
-        """Test validation with invalid WPM."""
+        # The threshold validation happens at config level, not CLI level
+        assert args.lazy_overrides == ["signal-signal-threshold-norm=2.0"]
+
+    def test_validate_invalid_wpm(self, capsys: Any, tmp_path: Path) -> None:
+        """Test validation with invalid WPM (now handled through config system)."""
         parser = create_parser()
-        args = parser.parse_args(["--dec-wpm", "100", "test.wav"])
+        # Create a dummy WAV file
+        wav_file = tmp_path / "test.wav"
+        wav_file.write_text("fake wav content")
 
-        with pytest.raises(SystemExit):
-            validate_args(args)
+        # WPM validation is now handled in the config system, not CLI args
+        args = parser.parse_args(["-s", "decoder-wpm=100", str(wav_file)])
 
-        captured = capsys.readouterr()
-        assert "WPM must be 5-60" in captured.err
+        # Basic validation should pass (detailed validation happens in config manager)
+        validate_args(args)  # Should not raise
+
+        # The WPM validation happens at config level, not CLI level
+        assert args.lazy_overrides == ["decoder-wpm=100"]
 
     def test_validate_nonexistent_config(self, capsys: Any) -> None:
         """Test validation with non-existent config file."""
@@ -197,11 +204,11 @@ class TestLoggingSetup:
         assert logging.getLogger().level <= logging.WARNING
 
     def test_setup_logging_debug_override(self, caplog: Any, capsys: Any) -> None:
-        """Test logging setup with debug override."""
+        """Test logging setup with debug enabled in config."""
         config_manager = MagicMock()
         config_manager.get_config.return_value = {
             "log_level": "WARNING",
-            "debug": False,
+            "debug": True,  # Debug enabled in config
             "log_to_file": False,  # Disable file logging for test
         }
 
@@ -209,7 +216,7 @@ class TestLoggingSetup:
         logging.getLogger().handlers.clear()
 
         with caplog.at_level(logging.DEBUG):
-            setup_logging(config_manager, debug_override=True)
+            setup_logging(config_manager)
 
         # Check that debug logging was enabled
         root_logger = logging.getLogger()
@@ -221,15 +228,15 @@ class TestLoggingSetup:
         assert debug_found, f"Debug message not found. Caplog: {caplog.text}, Stderr: {captured.err}"
 
     def test_setup_logging_level_override(self, caplog: Any) -> None:
-        """Test logging setup with log level override."""
+        """Test logging setup with different log level in config."""
         config_manager = MagicMock()
-        config_manager.get_config.return_value = {"log_level": "WARNING", "debug": False}
+        config_manager.get_config.return_value = {"log_level": "INFO", "debug": False}
 
         # Reset logging to ensure clean state
         logging.getLogger().handlers.clear()
 
         with caplog.at_level(logging.INFO):
-            setup_logging(config_manager, log_level_override="INFO")
+            setup_logging(config_manager)
 
         # Check that INFO level was set
         root_logger = logging.getLogger()
@@ -268,14 +275,21 @@ class TestMainFunction:
 
     def test_main_create_config(self, capsys: Any) -> None:
         """Test main function with --cfg-show."""
-        with patch("morsecode.cli.main.show_config_info") as mock_show:
-            result = main(["--cfg-show"])
+        with patch("morsecode.cli.main.AwesomeConfigManager") as mock_config_manager:
+            mock_instance = Mock()
+            mock_instance.config_file = Path("test.yaml")
+            mock_instance.was_created = True
+            mock_instance.profile = None
+            mock_config_manager.return_value = mock_instance
+
+            # Mock the config file to exist and have content
+            with patch("pathlib.Path.exists", return_value=True):
+                with patch("builtins.open", mock_open(read_data="# Test config\napplication:\n  debug: false")):
+                    result = main(["--cfg-show"])
 
         assert result == 0
-        mock_show.assert_called_once()
-
-        # Updated to expect different output since we're using show_config_info
-        # assert "Configuration displayed" in captured.out
+        captured = capsys.readouterr()
+        assert "Config file:" in captured.out
 
     def test_main_validate_config_success(self, capsys: Any) -> None:
         """Test main function with successful config validation."""
@@ -391,18 +405,34 @@ class TestMainFunction:
         mock_config_manager.config_file = Path("test.yaml")
         mock_config_manager.get_config.return_value = {}
 
+        # Mock the new apply_cli_overrides method to return expected overrides
+        def mock_apply_cli_overrides(cli_overrides):
+            overrides = {}
+            for override in cli_overrides:
+                if override == "signal-frequency-hz=800":
+                    overrides.setdefault("signal", {})["frequency_hz"] = 800
+                elif override == "decoder-wpm=25":
+                    overrides.setdefault("decoder", {})["wpm"] = 25
+                elif override == "signal-signal-threshold-norm=0.4":
+                    overrides.setdefault("signal", {})["signal_threshold_norm"] = 0.4
+                elif override == "application-output-file=result.txt":
+                    overrides.setdefault("application", {})["output_file"] = "result.txt"
+            return overrides
+
+        mock_config_manager.apply_cli_overrides = mock_apply_cli_overrides
+
         with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
             result = main(
                 [
                     str(wav_file),
-                    "--sig-freq",
-                    "800",
-                    "--dec-wpm",
-                    "25",
-                    "--sig-threshold",
-                    "0.4",
-                    "--opt-output",
-                    "result.txt",
+                    "--cfg-override",
+                    "signal-frequency-hz=800",
+                    "--cfg-override",
+                    "decoder-wpm=25",
+                    "--cfg-override",
+                    "signal-signal-threshold-norm=0.4",
+                    "--cfg-override",
+                    "application-output-file=result.txt",
                 ]
             )
 
@@ -423,7 +453,8 @@ class TestMainFunction:
         assert overrides["signal"]["frequency_hz"] == 800
         assert overrides["decoder"]["wpm"] == 25
         assert overrides["signal"]["signal_threshold_norm"] == 0.4
-        assert output_file == "result.txt"
+        assert overrides["application"]["output_file"] == "result.txt"
+        assert output_file is None  # Now handled through config overrides
 
     def test_main_argument_validation_failure(self, capsys: Any) -> None:
         """Test main function when argument validation fails."""
@@ -477,21 +508,33 @@ decoder:
             }
             return config_data.get(section, {})
 
+        # Mock the apply_cli_overrides method
+        def mock_apply_cli_overrides(cli_overrides):
+            overrides = {}
+            for override in cli_overrides:
+                if override == "signal-frequency-hz=700":
+                    overrides.setdefault("signal", {})["frequency_hz"] = 700
+                elif override == "application-debug=true":
+                    overrides.setdefault("application", {})["debug"] = True
+                elif override == "application-output-file=decoded.txt":
+                    overrides.setdefault("application", {})["output_file"] = "decoded.txt"
+            return overrides
+
         with patch.object(AwesomeConfigManager, "__init__", return_value=None):
             with patch.object(AwesomeConfigManager, "get_config", side_effect=mock_get_config):
-                # Test with config file and overrides
-                result = main(
-                    [
-                        str(wav_file),
-                        "--cfg-file",
-                        str(config_file),
-                        "--sig-freq",
-                        "700",
-                        "--dbg-enable",
-                        "--opt-output",
-                        "decoded.txt",
-                    ]
-                )
+                with patch.object(AwesomeConfigManager, "apply_cli_overrides", side_effect=mock_apply_cli_overrides):
+                    # Test with config file and overrides
+                    result = main(
+                        [
+                            str(wav_file),
+                            "--cfg-file",
+                            str(config_file),
+                            "--cfg-override",
+                            "signal-frequency-hz=700",
+                            "--cfg-override",
+                            "application-output-file=decoded.txt",
+                        ]
+                    )
 
         assert result == 0
         mock_run_decoder.assert_called_once()
@@ -509,25 +552,24 @@ decoder:
 
         # Should have CLI override
         assert overrides["signal"]["frequency_hz"] == 700
-        assert output_file == "decoded.txt"
+        # Output file is now handled through config overrides
+        assert overrides["application"]["output_file"] == "decoded.txt"
+        assert output_file is None  # Not passed directly anymore
 
     def test_error_reporting(self, capsys: Any) -> None:
         """Test comprehensive error reporting."""
         # Test multiple validation errors - this will exit early due to validation
         try:
-            result = main(["nonexistent.wav", "--sig-freq", "5000", "--dec-wpm", "200", "--sig-threshold", "5.0"])
+            result = main(["nonexistent.wav", "--cfg-override", "signal-frequency-hz=5000"])
             assert result == 1
         except SystemExit:
             pass  # Expected due to validation failure
 
         captured = capsys.readouterr()
 
-        # Should report all validation errors
+        # Should report file validation errors (parameter validation now happens in config system)
         assert "Invalid arguments" in captured.err
         assert "WAV file does not exist" in captured.err
-        assert "Frequency must be 200-2000 Hz" in captured.err
-        assert "WPM must be 5-60" in captured.err
-        assert "Signal threshold must be 0.0-1.0" in captured.err
 
 
 class TestEdgeCases:

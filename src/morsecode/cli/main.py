@@ -19,77 +19,6 @@ from ..components import graphics  # noqa: F401
 logger = logging.getLogger(__name__)
 
 
-def show_config_info(config_manager: AwesomeConfigManager) -> None:
-    """Display configuration file locations and current settings.
-
-    Args:
-        config_manager: Initialized config manager instance
-    """
-    print("🔧 Morse Code Decoder Configuration")
-    print("=" * 50)
-
-    # Show current config file
-    current_path = config_manager.config_file
-    print(f"📄 Current config file: {current_path}")
-    print(f"   Status: {'✨ Auto-created' if config_manager.was_created else '📁 Existing'}")
-
-    if config_manager.profile:
-        print(f"   Profile: {config_manager.profile}")
-
-    print()
-
-    # Show config location (simplified)
-    print("📍 Configuration:")
-    exists = "✅" if current_path.exists() else "❌"
-    print(f"   Location: {current_path} {exists}")
-    print("   Override with: --cfg-file /path/to/config.yaml")
-
-    print()
-
-    # Show current settings
-    try:
-        print("⚙️  Current settings:")
-        # Try different section names that might exist
-        section_mappings = {
-            "app": ["app", "application"],
-            "audio": ["audio"],
-            "signal": ["signal"],
-            "decoder": ["decoder"],
-            "graphics": ["graphics"],
-        }
-
-        for display_name, possible_names in section_mappings.items():
-            found_config = None
-            found_section = None
-
-            for section_name in possible_names:
-                try:
-                    config = config_manager.get_config(section_name)
-                    if config:  # Only use if not empty
-                        found_config = config
-                        found_section = section_name
-                        break
-                except Exception:
-                    continue
-
-            if found_config:
-                print(f"   {display_name} ({found_section}):")
-                for key, value in found_config.items():
-                    print(f"     {key}: {value}")
-            else:
-                print(f"   {display_name}: (no configuration found)")
-
-    except Exception as e:
-        print(f"❌ Error reading configuration: {e}")
-
-    print()
-    print("💡 Tips:")
-    print(f"   • Edit config file: {current_path}")
-    print("   • Validate config: morsecode --cfg-validate")
-    print("   • Auto-created on first run")
-    print("   • Use custom config: morsecode --cfg-file /path/to/config.yaml")
-
-
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser with simplified structure.
 
@@ -102,15 +31,23 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Configuration:
-  The decoder automatically creates and uses a YAML configuration file with four main sections:
-  - app: Application settings (debug, log_level, output_file)
-  - audio: Audio processing (sample_rate, chunk_size_ms, wav_filename)
-  - signal: Signal processing (frequency, threshold, bandwidth)
+  The decoder automatically creates and uses a YAML configuration file with multiple sections:
+  - application: App settings (debug, log_level, output_file, realtime, playback_speed)
+  - graphics: Real-time visualization settings
+  - debug_display: Graphics backend configuration (ascii, braille, plotly)
+  - signal: Signal processing (frequency, threshold, bandwidth, sample_rate, mode)
   - decoder: Morse decoding (wpm, tolerance, dot_duration_ms)
 
-Configuration:
-  Default: ~/.config/morsecode/config.yaml     # XDG standard location (auto-created)
-  Override: --cfg-file /path/to/config.yaml   # Custom config file
+Configuration File Locations:
+  Development: ./config/morse.yaml              # Project-local config (if exists, takes priority)
+  Production:  ~/.config/morsecode/config.yaml # XDG standard location (auto-created)
+  Override:    --cfg-file /path/to/config.yaml # Custom config file
+
+  Config Mode Control:
+    The system automatically detects mode by checking for ./config/morse.yaml:
+    - If ./config/morse.yaml exists → Development mode (project-local config used)
+    - If ./config/morse.yaml missing → Production mode (XDG user config used)
+    - Set application.development_mode: false in config for embedded/production deployment
 
 Profiles:
   Use --profile to activate profile-specific overrides via postfix naming:
@@ -122,19 +59,26 @@ Profiles:
       frequency_production: 800 # Used with --profile production
 
 Examples:
-  morsecode audio.wav --dec-wpm 20              # Standard usage (adjust WPM to match audio)
-  morsecode audio.wav --dec-wpm 13              # For slower operators
-  morsecode pattern.wav --cfg-profile debug    # For synthetic test patterns (stricter timing)
-  morsecode audio.wav --sig-freq 600 --cfg-profile fixed  # Use exact frequency (no adaptive)
-  morsecode --cfg-file custom.yaml audio.wav   # Use custom config file
-  morsecode audio.wav --sig-threshold 0.3      # Override signal detection threshold
-  morsecode audio.wav --cfg-set signal.frequency_hz=800  # General override syntax
-  morsecode --cfg-show                          # Show config locations
-  morsecode --dbg-graphics audio.wav           # Enable real-time signal visualization
-  morsecode --dbg-graphics --opt-realtime audio.wav  # Real-time mode with graphics
-  morsecode --dbg-graphics --playback-speed 0.5 audio.wav  # Half-speed analysis mode
-  morsecode --dbg-graphics --playback-speed 2.0 audio.wav  # Double-speed review mode
-  morsecode --cfg-set debug_display.backend=braille audio.wav  # Use Braille backend (2x resolution)
+  morsecode audio.wav -s decoder-wpm=20                      # Standard usage (adjust WPM to match audio)
+  morsecode audio.wav -s decoder-wpm=13                      # For slower operators
+  morsecode pattern.wav --cfg-profile debug                  # For synthetic test patterns (stricter timing)
+  morsecode --cfg-file custom.yaml audio.wav                 # Use custom config file
+  morsecode audio.wav -s signal-signal-threshold-norm=0.3    # Override signal detection threshold
+  morsecode audio.wav -s signal-frequency-hz=800             # Override target frequency
+  morsecode --cfg-show                                        # Show config file with comments
+  morsecode --cfg-default                                     # Reset config to schema defaults (removes stale entries)
+  morsecode audio.wav -s graphics-enabled=true               # Enable real-time signal visualization
+  morsecode audio.wav -s debug-display-backend=braille       # High-resolution Braille graphs
+  morsecode audio.wav -s debug-display-backend=plotly        # Interactive web-based graphs
+  morsecode audio.wav -s application-debug=true              # Enable debug mode
+  morsecode audio.wav -s application-log-level=DEBUG         # Set debug log level
+  morsecode audio.wav -s application-output-file=result.txt  # Save decoded text to file
+  morsecode audio.wav -s application-realtime=true           # Enable real-time processing
+  morsecode audio.wav -s application-playback-speed=2.0      # 2x playback speed
+
+Multiple overrides (comma-separated for convenience):
+  morsecode audio.wav -s "signal-frequency-hz=800,decoder-wpm=25,application-debug=true"
+  morsecode audio.wav -s "debug-display-backend=plotly,graphics-enabled=true,application-log-level=DEBUG"
         """,
     )
 
@@ -167,12 +111,12 @@ Examples:
         dest="profile",
     )
     config_group.add_argument(
-        "--cfg-set",
+        "--cfg-override",
         "-s",
-        metavar="SECTION.KEY=VALUE",
-        help="Override any configuration parameter (e.g., --cfg-set signal.frequency_hz=800)",
+        metavar="SECTION-KEY=VALUE",
+        help="Override config values. Supports single and comma-separated formats",
         action="append",
-        dest="config_overrides",
+        dest="lazy_overrides",
     )
     config_group.add_argument(
         "--cfg-validate",
@@ -186,115 +130,14 @@ Examples:
         help="Show configuration file locations and current settings",
         dest="show_config",
     )
-
-    # Debug options
-    debug_group = parser.add_argument_group("DEBUG")
-    debug_group.add_argument(
-        "--dbg-enable",
+    config_group.add_argument(
+        "--cfg-default",
         action="store_true",
-        help="Enable debug mode (overrides config file)",
-        dest="debug",
-    )
-    debug_group.add_argument(
-        "--dbg-graphics",
-        action="store_true",
-        help="Enable real-time graphics display (ASCII/Braille) for signal visualization (SSH-friendly)",
-        dest="graph_ascii",
-    )
-
-    # Common options
-    options_group = parser.add_argument_group("OPTIONS")
-    options_group.add_argument(
-        "--opt-realtime",
-        action="store_true",
-        help="Process audio in real-time for live debugging (slows down to actual audio speed)",
-        dest="real_time",
-    )
-    options_group.add_argument(
-        "--playback-speed",
-        metavar="FLOAT",
-        type=float,
-        default=1.0,
-        help="Playback speed multiplier (0.5=half speed, 2.0=double speed, default=1.0). Auto-enables real-time mode.",
-        dest="playback_speed",
-    )
-    options_group.add_argument(
-        "--opt-output",
-        "-o",
-        metavar="FILE",
-        help="Output file for decoded text (overrides config file)",
-        type=str,
-        dest="output",
-    )
-    options_group.add_argument(
-        "--opt-loglevel",
-        metavar="LEVEL",
-        help="Override log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
-        type=str,
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        dest="log_level",
-    )
-
-    # Quick shortcuts for common overrides (convenience aliases)
-    shortcuts_group = parser.add_argument_group("SHORTCUTS")
-    shortcuts_group.add_argument(
-        "--sig-freq",
-        "-f",
-        metavar="HZ",
-        help="Shortcut for --cfg-set signal.frequency_hz=VALUE (200-2000)",
-        type=int,
-        dest="frequency",
-    )
-    shortcuts_group.add_argument(
-        "--dec-wpm",
-        "-w",
-        metavar="WPM",
-        help="Shortcut for --cfg-set decoder.wpm=VALUE (5-60)",
-        type=int,
-        dest="wpm",
-    )
-    shortcuts_group.add_argument(
-        "--sig-threshold",
-        metavar="FLOAT",
-        help="Shortcut for --cfg-set signal.signal_threshold_norm=VALUE (0.0-1.0)",
-        type=float,
-        dest="signal_threshold",
-    )
-    shortcuts_group.add_argument(
-        "--dec-tolerance",
-        "-t",
-        metavar="FLOAT",
-        help="Shortcut for --cfg-set decoder.timing_tolerance_norm=VALUE (0.0-1.0)",
-        type=float,
-        dest="timing_tolerance",
+        help="Smart config reset: remove stale/orphaned entries while preserving valid customizations",
+        dest="reset_config",
     )
 
     return parser
-
-
-def parse_config_override(override_str: str) -> tuple[str, str, str]:
-    """Parse a configuration override string.
-
-    Args:
-        override_str: String in format "section.key=value"
-
-    Returns:
-        Tuple of (section, key, value)
-
-    Raises:
-        ValueError: If format is invalid
-    """
-    if "=" not in override_str:
-        raise ValueError(f"Invalid override format: {override_str} (expected: section.key=value)")
-
-    key_path, value = override_str.split("=", 1)
-
-    if "." not in key_path:
-        raise ValueError(f"Invalid override format: {override_str} (expected: section.key=value)")
-
-    section, key = key_path.split(".", 1)
-
-    return section, key, value
 
 
 def validate_args(args: argparse.Namespace) -> None:
@@ -316,30 +159,6 @@ def validate_args(args: argparse.Namespace) -> None:
         elif not wav_path.suffix.lower() == ".wav":
             errors.append(f"File must be a WAV file: {args.wav_file}")
 
-    # Shortcut override validation
-    if args.frequency is not None and not (200 <= args.frequency <= 2000):
-        errors.append(f"Frequency must be 200-2000 Hz, got: {args.frequency}")
-
-    if args.signal_threshold is not None and not (0.0 <= args.signal_threshold <= 1.0):
-        errors.append(f"Signal threshold must be 0.0-1.0, got: {args.signal_threshold}")
-
-    if args.timing_tolerance is not None and not (0.0 <= args.timing_tolerance <= 1.0):
-        errors.append(f"Timing tolerance must be 0.0-1.0, got: {args.timing_tolerance}")
-
-    if args.wpm is not None and not (5 <= args.wpm <= 60):
-        errors.append(f"WPM must be 5-60, got: {args.wpm}")
-
-    # Config override validation
-    if hasattr(args, "config_overrides") and args.config_overrides:
-        for override_str in args.config_overrides:
-            try:
-                section, key, value = parse_config_override(override_str)
-                # Basic validation - more detailed validation happens in config manager
-                if not section or not key or value == "":
-                    errors.append(f"Invalid override: {override_str} (empty section, key, or value)")
-            except ValueError as e:
-                errors.append(str(e))
-
     # Config file validation (if specified)
     if args.config:
         config_path = Path(args.config)
@@ -353,13 +172,11 @@ def validate_args(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
-def setup_logging(config_manager: Any, debug_override: bool = False, log_level_override: str | None = None) -> None:
+def setup_logging(config_manager: Any) -> None:
     """Configure logging based on configuration with embedded system defaults.
 
     Args:
         config_manager: AwesomeConfigManager instance
-        debug_override: CLI debug flag override
-        log_level_override: CLI log level override
     """
     from datetime import datetime
     from pathlib import Path
@@ -372,13 +189,8 @@ def setup_logging(config_manager: Any, debug_override: bool = False, log_level_o
     # Read development mode from config (configurable per deployment)
     DEVELOPMENT_MODE = app_config.get("development_mode", True)
 
-    # Priority: CLI log level override > debug override > config file
-    if log_level_override:
-        log_level = log_level_override
-    elif debug_override:
-        log_level = "DEBUG"
-    else:
-        log_level = app_config.get("log_level", "INFO")
+    # Log level comes from config file (can be overridden via --cfg-override)
+    log_level = app_config.get("log_level", "INFO")
 
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
@@ -430,7 +242,7 @@ def setup_logging(config_manager: Any, debug_override: bool = False, log_level_o
             datefmt="%Y-%m-%d %H:%M:%S",
         )
 
-    if debug_override or app_config.get("debug", False):
+    if app_config.get("debug", False):
         logging.getLogger().setLevel(logging.DEBUG)
         # Use root logger directly to ensure debug message is captured
         logging.getLogger().debug("Debug mode enabled")
@@ -484,14 +296,21 @@ def main(argv: list[str] | None = None) -> int:
         try:
             config_manager = AwesomeConfigManager(config_file=args.config, profile=args.profile)
 
-            # Provide user feedback about config location
+            # Provide user feedback about config location and mode
             if not args.config:  # Only show message for auto-detected configs
                 config_path = config_manager.config_file
+                # Determine mode
+                project_config = Path("config/morse.yaml")
+                if project_config.exists():
+                    mode_info = "(Development mode - project-local config)"
+                else:
+                    mode_info = "(Production mode - XDG user config)"
+
                 if config_manager.was_created:
-                    print(f"✨ Created new configuration: {config_path}")
+                    print(f"✨ Created new configuration: {config_path} {mode_info}")
                     print("💡 Tip: Edit this file to customize your settings")
                 else:
-                    print(f"📁 Using config: {config_path}")
+                    print(f"📁 Using config: {config_path} {mode_info}")
         except Exception as e:
             print(f"Error: Failed to load configuration - {e}", file=sys.stderr)
             print(
@@ -514,8 +333,58 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
 
         if args.show_config:
-            show_config_info(config_manager)
+            # Simple approach: just show the actual YAML file with helpful comments
+            config_path = config_manager.config_file
+            print(f"📄 Config file: {config_path}")
+            if config_path.exists():
+                print(f"Status: {'✨ Auto-created' if config_manager.was_created else '📁 Existing'}")
+                if config_manager.profile:
+                    print(f"Profile: {config_manager.profile}")
+                print()
+                try:
+                    with open(config_path) as f:
+                        print(f.read())
+                except Exception as e:
+                    print(f"❌ Error reading config file: {e}", file=sys.stderr)
+                    return 1
+            else:
+                print("❌ Config file does not exist")
+                return 1
             return 0
+
+        if args.reset_config:
+            # Smart reset: remove stale/orphaned entries, preserve valid customizations
+            config_path = config_manager.config_file
+            print(f"🔄 Smart config reset: {config_path}")
+            print("🧹 Removing stale/orphaned entries while preserving valid customizations")
+            print("✅ Valid profile overrides will be preserved")
+
+            if config_path.exists():
+                # Backup existing config
+                import shutil
+                from datetime import datetime
+
+                timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+                backup_path = config_path.with_suffix(f".backup-{timestamp}.yaml")
+                shutil.copy2(config_path, backup_path)
+                print(f"📦 Backup created: {backup_path}")
+
+            # Smart reset using automatic cleanup approach
+            try:
+                stale_removed, orphaned_removed = config_manager.smart_reset_config()
+                if stale_removed > 0:
+                    print("✅ Smart config reset completed")
+                    print(f"🧹 Removed {stale_removed} stale entries")
+                    print("✅ Preserved all valid schema fields and profile overrides")
+                else:
+                    print("✅ Smart config reset completed")
+                    print("🧹 No stale entries found - config was already clean")
+                    print("💡 Note: Schemas are registered when the application runs normally")
+                print(f"💡 To restore full backup: cp {backup_path} {config_path}")
+                return 0
+            except Exception as e:
+                print(f"❌ Error during smart config reset: {e}", file=sys.stderr)
+                return 1
 
         # Require WAV file for processing
         if not args.wav_file:
@@ -523,8 +392,8 @@ def main(argv: list[str] | None = None) -> int:
             print("Usage: morsecode [options] audio.wav", file=sys.stderr)
             return 1
 
-        # Setup logging
-        setup_logging(config_manager, args.debug, args.log_level)
+        # Setup logging (debug and log level handled through config overrides)
+        setup_logging(config_manager)
 
         logger.info("Morse Code Decoder started with registry-based config")
         logger.info("Processing file: %s", args.wav_file)
@@ -538,67 +407,27 @@ def main(argv: list[str] | None = None) -> int:
         if args.wav_file:
             overrides.setdefault("audio", {})["wav_filename"] = args.wav_file
 
-        # Process general config overrides (--set)
-        if hasattr(args, "config_overrides") and args.config_overrides:
-            for override_str in args.config_overrides:
-                try:
-                    section, key, value = parse_config_override(override_str)
+        # Process config overrides through unified system
+        if hasattr(args, "lazy_overrides") and args.lazy_overrides:
+            try:
+                parsed_overrides = config_manager.apply_cli_overrides(args.lazy_overrides)
+                for section, section_overrides in parsed_overrides.items():
+                    for key, value in section_overrides.items():
+                        overrides.setdefault(section, {})[key] = value
+                        print(f"🔧 Config override: {section}.{key} = {value}")
+            except ValueError as e:
+                print(f"❌ {e}", file=sys.stderr)
+                return 1
 
-                    # Auto-convert common value types
-                    converted_value: Any = value
-                    if value.lower() in ("true", "false"):
-                        converted_value = value.lower() == "true"
-                    elif value.lower() == "null":
-                        converted_value = None
-                    else:
-                        # Try to convert to number if possible
-                        try:
-                            if "." in value:
-                                converted_value = float(value)
-                            else:
-                                converted_value = int(value)
-                        except ValueError:
-                            # Keep as string if not a number
-                            converted_value = value
-
-                    overrides.setdefault(section, {})[key] = converted_value
-                    logger.info("Config override: %s.%s = %s", section, key, converted_value)
-                except ValueError as e:
-                    logger.error("Invalid config override: %s", e)
-                    print(f"Error: {e}", file=sys.stderr)
-                    return 1
-
-        # Process shortcut overrides (convert to general overrides)
-        if args.frequency is not None:
-            overrides.setdefault("signal", {})["frequency_hz"] = args.frequency
-        if args.signal_threshold is not None:
-            overrides.setdefault("signal", {})["signal_threshold_norm"] = args.signal_threshold
-        if args.wpm is not None:
-            overrides.setdefault("decoder", {})["wpm"] = args.wpm
-        if args.timing_tolerance is not None:
-            overrides.setdefault("decoder", {})["timing_tolerance_norm"] = args.timing_tolerance
-
-        # STEP 2 & 3: Auto-enable real-time mode for graphics or playback speed
-        # This makes debugging much more intuitive - graphics should default to real-time
-        auto_realtime = args.real_time
-        playback_speed = args.playback_speed
-
-        # Auto-enable real-time if graphics requested or playback speed changed
-        if (args.graph_ascii and not args.real_time) or (playback_speed != 1.0 and not args.real_time):
-            auto_realtime = True
-            if args.graph_ascii:
-                print("🎬 Auto-enabling real-time mode for graphics visualization")
-            if playback_speed != 1.0:
-                print(f"⚡ Auto-enabling real-time mode for {playback_speed}x playback speed")
-
-        # Run the decoder with ConfigurableBase architecture (simplified, single approach)
+        # Run the decoder with ConfigurableBase architecture
+        # All settings now handled through config overrides
         result: int = decoder_app.run_decoder_configurable(
             config_manager=config_manager,
             overrides=overrides,
-            output_file=args.output,
-            debug_graphics=args.graph_ascii,
-            real_time=auto_realtime,
-            playback_speed=playback_speed,
+            output_file=None,  # Handled through config overrides
+            debug_graphics=False,  # Handled through config overrides
+            real_time=False,  # Handled through config overrides
+            playback_speed=1.0,  # Handled through config overrides
         )
         return result
 

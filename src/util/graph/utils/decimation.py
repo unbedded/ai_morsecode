@@ -142,11 +142,21 @@ class SmartDecimation:
             # CRITICAL FIX: Ensure indices span full width for target resolution
             target_points = SmartDecimation.calculate_effective_resolution(backend, width, height)
             if len(decimated_data) < target_points:
-                # Spread available data across full width
+                # Spread available data evenly across full width (avoid duplicate indices)
                 decimated_indices = []
-                step = (target_points - 1) / (len(decimated_data) - 1) if len(decimated_data) > 1 else 0
-                for i in range(len(decimated_data)):
-                    decimated_indices.append(int(i * step))
+                if len(decimated_data) == 1:
+                    decimated_indices = [0]  # Single point at start
+                else:
+                    # Use numpy linspace equivalent to avoid index clustering
+                    for i in range(len(decimated_data)):
+                        index = int((i * (target_points - 1)) / (len(decimated_data) - 1))
+                        if index not in decimated_indices:  # Prevent duplicates
+                            decimated_indices.append(index)
+                        else:
+                            # If duplicate, increment to next available
+                            while index in decimated_indices and index < target_points - 1:
+                                index += 1
+                            decimated_indices.append(index)
             else:
                 decimated_indices = list(range(min(len(decimated_data), target_points)))
             return decimated_data, decimated_indices
@@ -170,11 +180,21 @@ class SmartDecimation:
             # CRITICAL FIX: Ensure indices span full width for proper display
             target_resolution = SmartDecimation.calculate_effective_resolution(backend, width, height)
             if len(decimated_data) < target_resolution:
-                # Spread available data across full width
+                # Spread available data evenly across full width (avoid duplicate indices)
                 decimated_indices = []
-                step = (target_resolution - 1) / (len(decimated_data) - 1) if len(decimated_data) > 1 else 0
-                for i in range(len(decimated_data)):
-                    decimated_indices.append(int(i * step))
+                if len(decimated_data) == 1:
+                    decimated_indices = [0]  # Single point at start
+                else:
+                    # Use numpy linspace equivalent to avoid index clustering
+                    for i in range(len(decimated_data)):
+                        index = int((i * (target_resolution - 1)) / (len(decimated_data) - 1))
+                        if index not in decimated_indices:  # Prevent duplicates
+                            decimated_indices.append(index)
+                        else:
+                            # If duplicate, increment to next available
+                            while index in decimated_indices and index < target_resolution - 1:
+                                index += 1
+                            decimated_indices.append(index)
             else:
                 decimated_indices = list(range(len(decimated_data)))
             return decimated_data, decimated_indices

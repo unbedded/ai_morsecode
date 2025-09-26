@@ -68,6 +68,17 @@ class ConfigSection:
         try:
             return int(value)
         except (ValueError, TypeError) as e:
+            # Try to fall back to schema default for invalid values
+            default_value = self._get_schema_default(key_str)
+            if default_value is not None:
+                self._logger.warning(
+                    "Invalid value for %s.%s=%s, using schema default: %s",
+                    self._section_name,
+                    key_str,
+                    value,
+                    default_value,
+                )
+                return int(default_value)
             raise ValueError(f"Cannot convert {self._section_name}.{key_str}={value} to int") from e
 
     def get_double(self, key: Any) -> float:
@@ -104,6 +115,17 @@ class ConfigSection:
         try:
             return float(value)
         except (ValueError, TypeError) as e:
+            # Try to fall back to schema default for invalid values
+            default_value = self._get_schema_default(key_str)
+            if default_value is not None:
+                self._logger.warning(
+                    "Invalid value for %s.%s=%s, using schema default: %s",
+                    self._section_name,
+                    key_str,
+                    value,
+                    default_value,
+                )
+                return float(default_value)
             raise ValueError(f"Cannot convert {self._section_name}.{key_str}={value} to float") from e
 
     def get_float(self, key: Any) -> float:
@@ -125,18 +147,22 @@ class ConfigSection:
         key_str = key.value if hasattr(key, "value") else str(key)
 
         # Try to get value from config data first
+        value = None
         if key_str in self._config_data:
             value = self._config_data[key_str]
+            # If value is explicitly None/null, treat as missing and use schema default
+            if value is None:
+                value = self._get_schema_default(key_str)
         else:
             # Fall back to schema default if available
             value = self._get_schema_default(key_str)
-            # Check if we have a schema but key is not found (different from None default)
-            if value is None and self._schema_obj and not hasattr(self._schema_obj, key_str):
-                raise KeyError(
-                    f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
-                )
 
-        return str(value) if value is not None else None
+        if value is None:
+            raise KeyError(
+                f"Configuration key '{self._section_name}.{key_str}' not found and no schema default available"
+            )
+
+        return str(value)
 
     def get_bool(self, key: Any) -> bool:
         """Get boolean value for configuration key.
@@ -171,7 +197,25 @@ class ConfigSection:
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
-            return value.lower() in ("true", "1", "yes", "on")
+            lower_val = value.lower()
+            if lower_val in ("true", "1", "yes", "on"):
+                return True
+            elif lower_val in ("false", "0", "no", "off"):
+                return False
+            else:
+                # Invalid boolean string - try to fall back to schema default
+                default_value = self._get_schema_default(key_str)
+                if default_value is not None:
+                    self._logger.warning(
+                        "Invalid boolean value for %s.%s=%s, using schema default: %s",
+                        self._section_name,
+                        key_str,
+                        value,
+                        default_value,
+                    )
+                    return bool(default_value)
+                # No schema default available, raise error
+                raise ValueError(f"Cannot convert {self._section_name}.{key_str}={value} to bool")
         return bool(value)
 
     def get_enum(self, key: Any, enum_class: type) -> Any:
@@ -246,7 +290,33 @@ class ConfigSection:
         if not self._schema_obj:
             return None
 
-        # Check if schema has this field with a default
+        # Check if schema is a Pydantic BaseModel
+        if hasattr(self._schema_obj, "model_fields"):
+            model_fields = self._schema_obj.model_fields
+            if key_str in model_fields:
+                field_info = model_fields[key_str]
+                # The default is a CfgField object in Pydantic models
+                if hasattr(field_info, "default") and hasattr(field_info.default, "default"):
+                    cfg_field = field_info.default
+                    self._logger.debug(
+                        "Using schema default for %s.%s = %s", self._section_name, key_str, cfg_field.default
+                    )
+                    return cfg_field.default
+
+        # Check if schema has this field with a default (Pydantic dataclass style)
+        if hasattr(self._schema_obj, "__dataclass_fields__"):
+            dataclass_fields = self._schema_obj.__dataclass_fields__
+            if key_str in dataclass_fields:
+                field_info = dataclass_fields[key_str]
+                # Get the actual CfgField from the schema class attribute
+                cfg_field = getattr(self._schema_obj, key_str, None)
+                if cfg_field and hasattr(cfg_field, "default"):
+                    self._logger.debug(
+                        "Using schema default for %s.%s = %s", self._section_name, key_str, cfg_field.default
+                    )
+                    return cfg_field.default
+
+        # Fallback: Check if schema has this field as a direct attribute
         if hasattr(self._schema_obj, key_str):
             field_obj = getattr(self._schema_obj, key_str)
             if hasattr(field_obj, "default"):
@@ -482,14 +552,135 @@ application:
                 self.logger.debug("Applied profile override: %s.%s = %s", module_name, base_key, value)
 
     def register_enum_config(self, section_name: str, schema_obj: Any) -> None:
-        """Register an enum-based configuration schema.
+        """Register an enum-based configuration schema with automatic cleanup.
 
         Args:
             section_name: Configuration section name
             schema_obj: Schema dataclass with CfgField definitions
+
+        This method automatically cleans stale/orphaned entries when schema is registered.
+        Perfect timing: we have schema in hand and are touching the config anyway.
         """
         self.logger.debug("Enum config registered for section '%s'", section_name)
         self._field_configs[section_name] = schema_obj
+
+        # 🧹 AUTOMATIC CLEANUP: Clean this section now that we have schema
+        self._auto_clean_config_section(section_name, schema_obj)
+
+    def apply_cli_overrides(self, cli_overrides: list[str]) -> dict[str, dict[str, Any]]:
+        """Parse and apply CLI-style configuration overrides with flexible formats.
+
+        Args:
+            cli_overrides: List of CLI override strings in various formats
+
+        Returns:
+            Dictionary of parsed overrides in format {section: {key: value}}
+
+        Raises:
+            ValueError: If override format is invalid
+
+        Supported formats:
+            1. Single override per argument: ["signal-frequency-hz=800", "decoder-wpm=20"]
+            2. Comma-separated: ["signal-frequency-hz=800,decoder-wpm=20"]
+            3. Mixed formats: ["signal-frequency-hz=800", "decoder-wpm=20,application-debug=true"]
+
+        Example usage:
+            # Instead of: --cfg-override signal-frequency-hz=800 --cfg-override decoder-wpm=20
+            # You can use: --cfg-override signal-frequency-hz=800,decoder-wpm=20
+        """
+        overrides: dict[str, dict[str, Any]] = {}
+
+        # First, expand any comma-separated override strings
+        expanded_overrides = []
+        for override_str in cli_overrides:
+            override_str = override_str.strip()
+            if not override_str:
+                continue
+
+            # Support comma-separated overrides for convenience
+            if "," in override_str and "=" in override_str:
+                # Split by comma, but be careful not to split values that contain commas in quotes
+                parts = []
+                current_part = ""
+                in_quotes = False
+                quote_char = None
+
+                for i, char in enumerate(override_str):
+                    if char in ('"', "'") and (i == 0 or override_str[i - 1] != "\\"):
+                        if not in_quotes:
+                            in_quotes = True
+                            quote_char = char
+                        elif char == quote_char:
+                            in_quotes = False
+                            quote_char = None
+                    elif char == "," and not in_quotes:
+                        if current_part.strip():
+                            parts.append(current_part.strip())
+                        current_part = ""
+                        continue
+                    current_part += char
+
+                if current_part.strip():
+                    parts.append(current_part.strip())
+                expanded_overrides.extend(parts)
+            else:
+                expanded_overrides.append(override_str)
+
+        # Now process each individual override
+        for override_str in expanded_overrides:
+            override_str = override_str.strip()
+            if not override_str:
+                continue
+
+            try:
+                # Parse section-key=value format
+                if "=" not in override_str:
+                    raise ValueError(f"Invalid override format: {override_str} (expected: section-key=value)")
+
+                section_key, value = override_str.split("=", 1)
+
+                # Split section and key, handling multi-dash keys
+                if "-" not in section_key:
+                    raise ValueError(f"Invalid override format: {override_str} (expected: section-key=value)")
+
+                parts = section_key.split("-")
+                section = parts[0]
+                key = "-".join(parts[1:]).replace("-", "_")  # Convert kebab-case to snake_case
+
+                # Auto-convert common value types
+                converted_value: Any = value
+                if value.lower() in ("true", "false"):
+                    converted_value = value.lower() == "true"
+                elif value.lower() == "null":
+                    converted_value = None
+                else:
+                    # Try to convert to number if possible
+                    try:
+                        if "." in value:
+                            converted_value = float(value)
+                        else:
+                            converted_value = int(value)
+                    except ValueError:
+                        # Keep as string if not a number
+                        converted_value = value
+
+                # Store parsed override
+                overrides.setdefault(section, {})[key] = converted_value
+
+                # Log if logger is available (may not be in mocked tests)
+                if hasattr(self, "logger") and self.logger:
+                    self.logger.info(
+                        "Parsed CLI override: %s.%s = %s (%s)",
+                        section,
+                        key,
+                        converted_value,
+                        type(converted_value).__name__,
+                    )
+
+            except Exception as e:
+                raise ValueError(f"Failed to parse override '{override_str}': {e}") from e
+
+        return overrides
 
     def validate_config(self) -> bool:
         """Validate the loaded configuration against registered field schemas.
@@ -521,3 +712,133 @@ application:
             raise ConfigValidationError(f"Config validation failed: {'; '.join(errors)}")
 
         return True
+
+    def _auto_clean_config_section(self, section_name: str, schema_obj: Any) -> None:
+        """Automatically clean stale/orphaned entries from config section.
+
+        This method removes:
+        1. Stale fields: Keys that exist in config but not in current schema
+        2. Orphaned profiles: Profile overrides for fields that no longer exist
+        3. Invalid values: Values that don't match schema types (future enhancement)
+
+        Args:
+            section_name: Name of config section to clean
+            schema_obj: Schema object with current field definitions
+        """
+        if section_name not in self._raw_config:
+            self.logger.debug("No config section '%s' to clean", section_name)
+            return
+
+        current_section = self._raw_config[section_name].copy()
+        valid_base_fields = set()
+
+        # Extract valid field names from schema
+        if hasattr(schema_obj, "__dataclass_fields__"):
+            valid_base_fields = set(schema_obj.__dataclass_fields__.keys())
+        elif hasattr(schema_obj, "model_fields"):  # Pydantic models
+            valid_base_fields = set(schema_obj.model_fields.keys())
+        else:
+            self.logger.warning("Cannot determine schema fields for section '%s'", section_name)
+            return
+
+        # Track what gets cleaned
+        stale_fields = []
+        orphaned_profiles = []
+
+        # Check each key in current config
+        for config_key in list(current_section.keys()):
+            # First check if this is a regular schema field
+            if config_key in valid_base_fields:
+                continue  # Keep valid schema field
+
+            # Check if this might be a profile override (contains underscore)
+            if "_" in config_key:
+                # Extract base field name (everything before last underscore)
+                parts = config_key.split("_")
+                base_field = "_".join(parts[:-1])
+
+                # Valid profile override if base field exists in schema
+                if base_field in valid_base_fields:
+                    continue  # Keep valid profile override
+                else:
+                    # Orphaned profile override - base field removed from schema
+                    orphaned_profiles.append(config_key)
+                    del self._raw_config[section_name][config_key]
+            else:
+                # Regular field not in schema - stale entry
+                stale_fields.append(config_key)
+                del self._raw_config[section_name][config_key]
+
+        # Log cleanup actions (ERROR level as requested by user)
+        if stale_fields:
+            self.logger.error(
+                "🧹 Auto-cleanup removed %d stale fields from [%s]: %s",
+                len(stale_fields),
+                section_name,
+                ", ".join(stale_fields),
+            )
+
+        if orphaned_profiles:
+            self.logger.error(
+                "🧹 Auto-cleanup removed %d orphaned profile overrides from [%s]: %s",
+                len(orphaned_profiles),
+                section_name,
+                ", ".join(orphaned_profiles),
+            )
+
+        # Save cleaned config back to file if anything was removed
+        if stale_fields or orphaned_profiles:
+            self._save_config()
+            self.logger.info("🧹 Auto-cleanup completed for [%s] - config file updated", section_name)
+
+    def _save_config(self) -> None:
+        """Save current config back to YAML file."""
+        try:
+            with open(self.config_file, "w", encoding="utf-8") as f:
+                yaml.dump(self._raw_config, f, default_flow_style=False, sort_keys=False)
+            self.logger.debug("Config saved to: %s", self.config_file)
+        except Exception as e:
+            self.logger.error("Failed to save config file %s: %s", self.config_file, e)
+
+    def smart_reset_config(self) -> tuple[int, int]:
+        """Smart config reset using automatic cleanup approach.
+
+        This method:
+        1. Preserves all valid schema fields and their user-customized values
+        2. Preserves valid profile overrides (e.g., frequency_hz_debug)
+        3. Removes only stale/orphaned entries (same logic as auto-cleanup)
+        4. Works with currently registered schemas (no imports needed)
+
+        Returns:
+            Tuple of (stale_fields_removed, orphaned_profiles_removed)
+        """
+        total_stale = 0
+        total_orphaned = 0
+
+        self.logger.info("🧹 Starting smart config reset...")
+
+        # Clean all sections that have registered schemas
+        if not self._field_configs:
+            self.logger.warning("No registered schemas found - please run application first to register schemas")
+            return total_stale, total_orphaned
+
+        for section_name, schema_obj in self._field_configs.items():
+            if section_name in self._raw_config:
+                # Count before cleanup
+                before_count = len(self._raw_config[section_name])
+
+                # Trigger automatic cleanup for this section
+                self._auto_clean_config_section(section_name, schema_obj)
+
+                # Count after cleanup
+                after_count = len(self._raw_config.get(section_name, {}))
+                removed = before_count - after_count
+                total_stale += removed
+
+                if removed > 0:
+                    self.logger.info("🧹 Smart reset cleaned [%s]: %d entries removed", section_name, removed)
+                else:
+                    self.logger.info("✅ Section [%s] was already clean", section_name)
+
+        self.logger.info("🧹 Smart reset completed: %d total entries removed", total_stale)
+        return total_stale, total_orphaned

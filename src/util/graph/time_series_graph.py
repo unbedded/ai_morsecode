@@ -9,6 +9,7 @@ from collections import deque
 
 from .backends.ascii_backend import ASCIIBackend
 from .backends.braille_backend import BrailleBackend
+from .backends.plotly_backend import PlotlyBackend
 
 
 class TimeSeriesGraph:
@@ -109,7 +110,7 @@ class TimeSeriesGraph:
         self._sample_count = 0
 
         # Initialize backend
-        self._backend: ASCIIBackend | BrailleBackend | None = None
+        self._backend: ASCIIBackend | BrailleBackend | PlotlyBackend | None = None
         self._initialize_backend()
 
     def _initialize_backend(self) -> None:
@@ -123,8 +124,10 @@ class TimeSeriesGraph:
             self._backend = ASCIIBackend(self.width, self.height, self.title, display_time_span_sec=display_time_span)
         elif self.backend_type == "braille":
             self._backend = BrailleBackend(self.width, self.height, self.title, display_time_span_sec=display_time_span)
+        elif self.backend_type == "plotly":
+            self._backend = PlotlyBackend(self.width, self.height, self.title, display_time_span_sec=display_time_span)
         else:  # auto
-            # Try braille first, fallback to ascii
+            # Try braille first, then ascii, fallback if both fail
             try:
                 self._backend = BrailleBackend(
                     self.width, self.height, self.title, display_time_span_sec=display_time_span
@@ -251,8 +254,11 @@ class TimeSeriesGraph:
         # Render based on backend type
         if hasattr(self._backend, "render_braille"):
             return self._backend.render_braille()
-        else:
+        elif hasattr(self._backend, "render_sparkline"):
             return self._backend.render_sparkline()
+        else:
+            # Plotly backend doesn't return text lines, instead use show() or render_html()
+            return [f"Plotly graph '{self.title}' - use show() or render_html() to display"]
 
     def get_stats(self) -> dict:
         """Get statistics about the time-series graph state.
@@ -292,3 +298,60 @@ class TimeSeriesGraph:
                 for i in range(self._buffer_size)
             ]
         )
+
+    # Plotly-specific convenience methods
+    def show(self) -> None:
+        """Show plot in browser (Plotly backend only)."""
+        if hasattr(self._backend, "show"):
+            self._backend.show()
+        else:
+            raise NotImplementedError(f"show() not supported by {self.backend_type} backend")
+
+    def render_html(self, auto_open: bool = False) -> str:
+        """Render as HTML (Plotly backend only).
+
+        Args:
+            auto_open: If True, automatically open in browser
+
+        Returns:
+            HTML string representation
+        """
+        if hasattr(self._backend, "render_html"):
+            return self._backend.render_html(auto_open=auto_open)
+        else:
+            raise NotImplementedError(f"render_html() not supported by {self.backend_type} backend")
+
+    def render_json(self) -> dict:
+        """Render as JSON dictionary (Plotly backend only).
+
+        Returns:
+            JSON dictionary representation
+        """
+        if hasattr(self._backend, "render_json"):
+            return self._backend.render_json()
+        else:
+            raise NotImplementedError(f"render_json() not supported by {self.backend_type} backend")
+
+    def save_html(self, filename: str) -> None:
+        """Save as HTML file (Plotly backend only).
+
+        Args:
+            filename: Output HTML filename
+        """
+        if hasattr(self._backend, "save_html"):
+            self._backend.save_html(filename)
+        else:
+            raise NotImplementedError(f"save_html() not supported by {self.backend_type} backend")
+
+    def save_image(self, filename: str, width: int = 1200, height: int = 600) -> None:
+        """Save as image file (Plotly backend only).
+
+        Args:
+            filename: Output image filename
+            width: Image width in pixels
+            height: Image height in pixels
+        """
+        if hasattr(self._backend, "save_image"):
+            self._backend.save_image(filename, width=width, height=height)
+        else:
+            raise NotImplementedError(f"save_image() not supported by {self.backend_type} backend")

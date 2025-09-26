@@ -179,6 +179,86 @@ self.frequency = 600             # Hz? kHz? MHz? 💥
 self.timeout = 5000              # ms? sec? 💥
 ```
 
+### 📋 Schema Evolution & User Edit Preservation Rules
+
+These rules ensure configuration changes don't break user customizations during software updates:
+
+#### ✅ GUARANTEED Behaviors
+1. **User Edits Always Preserved**: Manual config file changes are never overwritten
+2. **Schema Defaults for New Fields**: Missing config values use schema defaults automatically
+3. **Invalid Value Recovery**: Corrupt values fall back to schema defaults with warnings
+4. **Backward Compatibility**: Older config files work with newer software versions
+5. **Read-Only Operations**: Accessing config values never modifies files
+
+#### 🔧 Schema Evolution Support
+- **Adding New Fields**: Automatically use schema defaults, no user action required
+- **Type Conversion**: Strings to bool/int/float with fallback to defaults on errors
+- **Missing Sections**: Entire missing config sections get populated from schema
+- **Partial Configs**: Mix of user values + schema defaults works seamlessly
+
+#### 🧹 NEW: Automatic Config Cleanup (Self-Healing)
+When `cfg_mgr.register_enum_config()` is called, the system automatically cleans the config section:
+
+**What Gets Removed:**
+1. **Stale Fields**: Keys that exist in config but not in current schema
+2. **Orphaned Profiles**: Profile overrides for fields that no longer exist (e.g., `removed_field_debug`)
+3. **Invalid Entries**: Malformed or deprecated configuration entries
+
+**What Gets Preserved:**
+1. **Valid Schema Fields**: All current schema fields and their values
+2. **Valid Profile Overrides**: Profile overrides for existing fields (e.g., `frequency_hz_debug`)
+3. **User Customizations**: All valid user-edited values remain unchanged
+
+**Behavior:**
+- Cleanup happens automatically during schema registration (no manual commands needed)
+- Changes are logged at ERROR level for visibility: `🧹 Auto-cleanup removed 3 stale fields from [signal]: old_param, deprecated_setting, removed_field`
+- Config file is automatically updated when stale entries are found
+- Zero impact on valid configuration - only removes obsolete entries
+
+**Example:**
+```python
+# This triggers automatic cleanup of the 'signal' section
+cfg_mgr.register_enum_config("signal", SignalSchema)
+# Logs: 🧹 Auto-cleanup removed 2 stale fields from [signal]: old_bandwidth, deprecated_mode
+# Logs: 🧹 Auto-cleanup removed 1 orphaned profile overrides from [signal]: old_bandwidth_debug
+```
+
+This eliminates the need for manual `--cfg-clean` commands and ensures config files stay clean automatically.
+
+#### 🚨 Testing Requirements
+All configuration components **MUST** have tests covering:
+- Schema evolution (new fields added)
+- User edit preservation (manual changes kept)
+- Invalid value recovery (graceful degradation)
+- Missing config handling (defaults applied)
+- **NEW**: Automatic cleanup (stale fields removed, valid entries preserved)
+
+Example test patterns:
+```python
+def test_schema_evolution_preserves_user_edits():
+    # Create config with v1 schema + user customizations
+    # Load with v2 schema (has new fields)
+    # Verify: user values preserved + new fields get defaults
+
+def test_automatic_cleanup_removes_stale_entries():
+    # Create config with stale fields + orphaned profiles
+    # Register schema (triggers cleanup)
+    # Verify: stale removed, valid preserved, profiles handled correctly
+```
+
+#### 📝 CLI Multiple Override Formats
+Supports both individual and comma-separated config overrides:
+```bash
+# Individual flags (traditional)
+morsecode audio.wav --cfg-override signal-frequency-hz=800 --cfg-override decoder-wpm=20
+
+# Comma-separated (convenient for multiple changes)
+morsecode audio.wav --cfg-override "signal-frequency-hz=800,decoder-wpm=20,application-debug=true"
+
+# Mixed format (most flexible)
+morsecode audio.wav --cfg-override signal-frequency-hz=800 --cfg-override "decoder-wpm=20,application-debug=true"
+```
+
 # 🤖 **END LLM POLICY** ⬆️
 
 ---

@@ -5,6 +5,7 @@ PyQt debugging capabilities over SSH connections. Focuses on normalized
 magnitude signal visualization for Morse code signal analysis.
 """
 
+import shutil
 from dataclasses import dataclass
 from enum import Enum
 
@@ -30,7 +31,6 @@ from util.graph.time_series_graph import TimeSeriesGraph
 
 from .constants import (
     BufferConstants,
-    ChartCalculations,
     DebugConstants,
     SignalConstants,
 )
@@ -55,7 +55,12 @@ class DebugDisplaySchema:
     """Configuration schema for ASCII debug display."""
 
     display_width_chars = CfgField(
-        type=CfgType.INT, default=80, min=40, max=200, unit="chars", description="Display width in characters"
+        type=CfgType.INT,
+        default=0,
+        min=0,
+        max=200,
+        unit="chars",
+        description="Display width: 0=auto terminal detection, or fixed width 40-200",
     )
 
     display_height_chars = CfgField(
@@ -72,7 +77,9 @@ class DebugDisplaySchema:
 
     enable_debug_logging = CfgField(type=CfgType.BOOL, default=False, description="Enable debug logging for display")
 
-    backend = CfgField(type=CfgType.STRING, default="ascii", description="Graphics backend: auto, ascii, braille")
+    backend = CfgField(
+        type=CfgType.STRING, default="ascii", description="Graphics backend: auto, ascii, braille, plotly"
+    )
 
     # Sample rate calculation parameters
     chunk_size_ms = CfgField(
@@ -86,11 +93,11 @@ class DebugDisplaySchema:
 
     convolution_interval_ms = CfgField(
         type=CfgType.INT,
-        default=500,
-        min=100,
+        default=20,
+        min=10,
         max=2000,
         unit="ms",
-        description="Convolution processing interval for probability data",
+        description="Convolution processing interval for probability data (20ms = 50Hz sync with FFT/magnitude)",
     )
 
     playback_speed = CfgField(
@@ -101,6 +108,31 @@ class DebugDisplaySchema:
         unit="x",
         description="Playback speed multiplier for time synchronization",
     )
+
+
+def resolve_display_width(config_width: int) -> int:
+    """Resolve display width from configuration value.
+
+    Args:
+        config_width: 0 for auto terminal detection, or fixed width integer
+
+    Returns:
+        Integer width in characters, clamped to 40-200 range
+    """
+    if config_width == 0:
+        # Auto detection mode
+        try:
+            terminal_size = shutil.get_terminal_size()
+            width = terminal_size.columns
+            # Clamp to reasonable bounds for graphics display
+            width = max(40, min(200, width))
+            return width
+        except OSError:
+            # Fallback if terminal size detection fails (non-interactive environment)
+            return 80
+    else:
+        # Fixed width mode - clamp to safe bounds
+        return max(40, min(200, config_width))
 
 
 class ASCIIDebugDisplay(ConfigurableBase):
@@ -195,7 +227,16 @@ class ASCIIDebugDisplay(ConfigurableBase):
     def _load_config_values(self) -> None:
         """Load configuration values using ConfigurableBase pattern."""
         print("🔧 _load_config_values() CALLED - BUFFER INITIALIZATION STARTING")  # Very obvious debug
-        self.display_width_chars = self._cfg_section.get_int(DebugDisplayCfgKey.DISPLAY_WIDTH)
+
+        # Resolve display width (0 = auto detection, >0 = fixed width)
+        config_width = self._cfg_section.get_int(DebugDisplayCfgKey.DISPLAY_WIDTH)
+        self.display_width_chars = resolve_display_width(config_width)
+
+        # Log width resolution for transparency
+        if config_width == 0:
+            self.logger.info("Width: AUTO detected terminal size: %d chars", self.display_width_chars)
+        else:
+            self.logger.info("Width: Fixed configuration: %d → %d chars", config_width, self.display_width_chars)
         self.display_height_chars = self._cfg_section.get_int(DebugDisplayCfgKey.DISPLAY_HEIGHT)
         self.refresh_rate_fps = self._cfg_section.get_int(DebugDisplayCfgKey.REFRESH_RATE_FPS)
         self.buffer_size_sec = self._cfg_section.get_double(DebugDisplayCfgKey.BUFFER_SIZE_SEC)
@@ -217,8 +258,9 @@ class ASCIIDebugDisplay(ConfigurableBase):
         # Calculate time window based on current configuration
         time_window_sec = max(5.0, self.buffer_size_sec)  # At least 5 seconds
 
-        # Fix width issue: calculate full chart width same as FFT
-        full_chart_width = ChartCalculations.main_chart_width(self.display_width_chars)
+        # FIXED: Use full display width for TimeSeriesGraph to avoid blank columns
+        # The TimeSeriesGraph should use the full resolution, margin handling is done in display layout
+        full_chart_width = self.display_width_chars  # Use full width for maximum resolution
 
         # Calculate expected sample rates from configuration
         # Magnitude events: Audio chunks processed every chunk_size_ms
@@ -226,6 +268,9 @@ class ASCIIDebugDisplay(ConfigurableBase):
 
         # Probability events: Convolution runs every convolution_interval_ms
         probability_sample_rate_hz = 1000.0 / self.convolution_interval_ms
+
+        # SYNCHRONIZED SCROLLING: Use the fastest rate for all graphs to ensure uniform visual scrolling
+        self.unified_scroll_rate_hz = max(magnitude_sample_rate_hz, probability_sample_rate_hz)
 
         # Create TimeSeriesGraph instances for each probability type
         # Fix: Use same width calculation as FFT and MAGNITUDE for consistency
@@ -236,7 +281,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
             time_window_sec=time_window_sec,
             backend=self.backend_type,  # Config-driven backend selection
             title="Dit Probability",
-            sample_rate_hz=probability_sample_rate_hz,  # Explicit rate, no auto-detection
+            sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
             playback_speed=self.playback_speed,  # STEP 1: Time synchronization
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
@@ -249,7 +294,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
             time_window_sec=time_window_sec,
             backend=self.backend_type,  # Config-driven backend selection
             title="Dash Probability",
-            sample_rate_hz=probability_sample_rate_hz,  # Explicit rate
+            sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
             playback_speed=self.playback_speed,  # STEP 1: Time synchronization
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
@@ -262,7 +307,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
             time_window_sec=time_window_sec,
             backend=self.backend_type,  # Config-driven backend selection
             title="Letter Space Probability",
-            sample_rate_hz=probability_sample_rate_hz,  # Explicit rate
+            sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
             playback_speed=self.playback_speed,  # STEP 1: Time synchronization
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
@@ -275,7 +320,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
             time_window_sec=time_window_sec,
             backend=self.backend_type,  # Config-driven backend selection
             title="Word Space Probability",
-            sample_rate_hz=probability_sample_rate_hz,  # Explicit rate
+            sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
             playback_speed=self.playback_speed,  # STEP 1: Time synchronization
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
@@ -290,7 +335,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
             time_window_sec=time_window_sec,
             backend=self.backend_type,  # Config-driven backend selection
             title="Filtered Magnitude",
-            sample_rate_hz=magnitude_sample_rate_hz,  # Explicit rate based on chunk_size_ms
+            sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
             playback_speed=self.playback_speed,  # STEP 1: Time synchronization
             y_min=0.0,  # Fixed normalized range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
@@ -304,15 +349,15 @@ class ASCIIDebugDisplay(ConfigurableBase):
             self.display_width_chars,
         )
         self.logger.info(
-            "Sample rates configured: magnitude=%.1fHz (chunk=%dms), probability=%.1fHz (conv=%dms)",
+            "Sample rates: magnitude=%.1fHz (chunk=%dms), probability=%.1fHz (conv=%dms), unified_scroll=%.1fHz",
             magnitude_sample_rate_hz,
             self.chunk_size_ms,
             probability_sample_rate_hz,
             self.convolution_interval_ms,
+            self.unified_scroll_rate_hz,
         )
         # CLEANUP: Create FFT TimeSeriesGraph to replace old manual backend system
         # FFT data comes at audio processing rate, not convolution rate
-        fft_sample_rate_hz = 1000.0 / self.chunk_size_ms  # Same as magnitude
 
         self._fft_graph = TimeSeriesGraph(
             width=full_chart_width,
@@ -320,7 +365,7 @@ class ASCIIDebugDisplay(ConfigurableBase):
             time_window_sec=time_window_sec,
             backend=self.backend_type,  # Config-driven backend selection
             title="FFT Magnitude Spectrum",
-            sample_rate_hz=fft_sample_rate_hz,  # Explicit rate
+            sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
             playback_speed=self.playback_speed,  # STEP 1: Time synchronization
         )
 
@@ -397,16 +442,120 @@ class ASCIIDebugDisplay(ConfigurableBase):
             return
 
         try:
-            layout = self._build_display_layout()
-            # Use Rich Live for layout management, but don't over-update it
-            self._live_display = Live(layout, console=self._console, refresh_per_second=self.refresh_rate_fps)
-            self._live_display.start()
-            self._is_running = True
+            # Handle Plotly backend differently - it opens in browser
+            if self.backend_type == "plotly":
+                self._is_running = True
+                self.logger.info("Plotly debug display started - graphs will open in browser")
+                self._start_plotly_dashboard()
+            else:
+                # Terminal-based backends (ASCII/Braille)
+                layout = self._build_display_layout()
+                # Use Rich Live for layout management, but don't over-update it
+                self._live_display = Live(layout, console=self._console, refresh_per_second=self.refresh_rate_fps)
+                self._live_display.start()
+                self._is_running = True
 
-            self.logger.info("ASCII debug display started")
+                self.logger.info("ASCII debug display started")
 
         except Exception as e:
             self.logger.exception("Failed to start display: %s", e)
+            raise
+
+    def _start_plotly_dashboard(self) -> None:
+        """Initialize Plotly dashboard with all graphs in browser."""
+        import tempfile
+        import time
+        import webbrowser
+
+        try:
+            # Create a combined dashboard HTML with all graphs
+            html_content = (
+                """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Morse Code Decoder - Real-time Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .graph { background: white; border-radius: 8px; padding: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .full-width { grid-column: 1 / -1; }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .info { background: #e3f2fd; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Morse Code Decoder - Real-time Dashboard</h1>
+    <div class="info">
+        <strong>Live Dashboard Active:</strong> Graphs will automatically update as new data arrives.
+        <strong>Sample Rate:</strong> All graphs synchronized at """
+                + f"{self.unified_scroll_rate_hz}"
+                + """Hz for smooth scrolling.
+    </div>
+    <div class="dashboard">
+        <div class="graph full-width" id="fft-graph">
+            <div>FFT Peak Magnitude</div>
+        </div>
+        <div class="graph full-width" id="magnitude-graph">
+            <div>Normalized Magnitude</div>
+        </div>
+        <div class="graph" id="dit-graph">
+            <div>Dit Probability</div>
+        </div>
+        <div class="graph" id="dash-graph">
+            <div>Dash Probability</div>
+        </div>
+        <div class="graph" id="letter-graph">
+            <div>Letter Probability</div>
+        </div>
+        <div class="graph" id="word-graph">
+            <div>Word Probability</div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize empty plots that will be updated by the backend
+        const config = {displayModeBar: true, displaylogo: false, responsive: true};
+        const layout = {
+            margin: {l: 50, r: 20, t: 40, b: 40},
+            xaxis: {title: 'Time (s)'},
+            yaxis: {title: 'Amplitude'},
+            hovermode: 'x unified'
+        };
+
+        // Create placeholder plots
+        Plotly.newPlot('fft-graph', [], {...layout, title: 'FFT Peak Magnitude'}, config);
+        Plotly.newPlot('magnitude-graph', [], {...layout, title: 'Normalized Magnitude'}, config);
+        Plotly.newPlot('dit-graph', [], {...layout, title: 'Dit Probability'}, config);
+        Plotly.newPlot('dash-graph', [], {...layout, title: 'Dash Probability'}, config);
+        Plotly.newPlot('letter-graph', [], {...layout, title: 'Letter Probability'}, config);
+        Plotly.newPlot('word-graph', [], {...layout, title: 'Word Probability'}, config);
+
+        console.log('Morse Code Decoder Dashboard initialized');
+        console.log('Graphs will be updated via TimeSeriesGraph.show() calls');
+    </script>
+</body>
+</html>"""
+            )
+
+            # Save to temp file and open in browser
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".html", delete=False) as f:
+                f.write(html_content)
+                self._plotly_dashboard_file = f.name
+
+            webbrowser.open(f"file://{self._plotly_dashboard_file}")
+            self.logger.info("Plotly dashboard opened in browser: %s", self._plotly_dashboard_file)
+
+            # Show individual graphs as they receive data
+            time.sleep(1)  # Give browser time to load
+            if hasattr(self, "_fft_graph"):
+                self._fft_graph.show()
+            if hasattr(self, "_magnitude_graph"):
+                self._magnitude_graph.show()
+
+        except Exception as e:
+            self.logger.exception("Failed to start Plotly dashboard: %s", e)
             raise
 
     def stop_display(self) -> None:
