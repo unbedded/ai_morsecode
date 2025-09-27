@@ -225,32 +225,30 @@ def run_decoder_configurable(
 
         logger.info("Components initialized successfully")
 
-        # Initialize ASCII debug display if requested
-        if debug_graphics:
-            # Check graphics backend to choose between full display and pattern logging
+        # Check graphics mode to determine display type
+        graphics_section = config_manager.get_section("graphics")
+        graphics_mode = graphics_section.get_string("mode") if graphics_section else "disabled"
+
+        # Only initialize graphics if not disabled
+        if graphics_mode != "disabled":
             debug_overrides = overrides.get("graphics", {}) if overrides else {}
             debug_overrides["playback_speed"] = playback_speed
 
-            # Get backend setting to determine display type
-            from .components.graphics.keys import GraphicsKey
-
-            graphics_section = config_manager.get_section("graphics")
-            backend = graphics_section.get_string(GraphicsKey.BACKEND) if graphics_section else "ascii"
-
-            if backend == "pattern":
+            if graphics_mode == "pattern":
                 from .components.graphics.pattern_display import PatternDisplay
 
                 logger.info("Initializing pattern display for simple logging")
                 debug_display = PatternDisplay(config_manager, overrides=debug_overrides)
+                debug_display.start_display()
                 print("📋 Pattern Display started - Simple morse pattern logging")
                 print("   Patterns will be logged as they are detected...")
             else:
                 from .components.graphics.graphics_display import GraphicsDisplay
 
-                logger.info("Initializing graphics display for %s backend", backend)
+                logger.info("Initializing graphics display for %s mode", graphics_mode)
                 debug_display = GraphicsDisplay(config_manager, overrides=debug_overrides)
                 debug_display.start_display()
-                print(f"🔍 Graphics Display started - {backend} backend")
+                print(f"🔍 Graphics Display started - {graphics_mode} mode")
                 print("   Press Ctrl+C to stop...")
 
         # Set up progress reporting via events (only if debug display is not active)

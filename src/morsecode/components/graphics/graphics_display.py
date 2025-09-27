@@ -6,8 +6,6 @@ Designed for both development and production use.
 """
 
 import shutil
-from dataclasses import dataclass
-from enum import Enum
 
 from rich.console import Console
 from rich.layout import Layout
@@ -26,7 +24,6 @@ from morsecode.events.types import (
     ToneDetectedEvent,
 )
 from util.config import ConfigurableBase
-from util.config.types import CfgField, CfgType
 from util.graph.time_series_graph import TimeSeriesGraph
 
 from .constants import (
@@ -36,83 +33,6 @@ from .constants import (
 )
 from .keys import GraphicsKey
 from .schema import GraphicsSchema
-
-
-class GraphicsDisplayCfgKey(Enum):
-    """Configuration keys for graphics display component."""
-
-    ENABLED = "enabled"
-    DISPLAY_WIDTH = "display_width_chars"
-    DISPLAY_HEIGHT = "display_height_chars"
-    REFRESH_RATE_FPS = "refresh_rate_fps"
-    BUFFER_SIZE_SEC = "buffer_size_sec"
-    ENABLE_DEBUG_LOGGING = "enable_debug_logging"
-    BACKEND = "backend"
-    CHUNK_SIZE_MS = "chunk_size_ms"
-    CONVOLUTION_INTERVAL_MS = "convolution_interval_ms"
-    PLAYBACK_SPEED = "playback_speed"
-
-
-@dataclass
-class GraphicsDisplaySchema:
-    """Configuration schema for graphics display."""
-
-    enabled = CfgField(type=CfgType.BOOL, default=True, description="Enable real-time graphics display")
-
-    display_width_chars = CfgField(
-        type=CfgType.INT,
-        default=0,
-        min=0,
-        max=200,
-        unit="chars",
-        description="Display width: 0=auto terminal detection, or fixed width 40-200",
-    )
-
-    display_height_chars = CfgField(
-        type=CfgType.INT, default=20, min=10, max=50, unit="chars", description="Display height in characters"
-    )
-
-    refresh_rate_fps = CfgField(
-        type=CfgType.INT, default=20, min=1, max=60, unit="fps", description="Display refresh rate"
-    )
-
-    buffer_size_sec = CfgField(
-        type=CfgType.DOUBLE, default=5.0, min=0.5, max=20.0, unit="sec", description="Time-series buffer size"
-    )
-
-    enable_debug_logging = CfgField(type=CfgType.BOOL, default=False, description="Enable debug logging for display")
-
-    backend = CfgField(
-        type=CfgType.STRING, default="ascii", description="Graphics backend: auto, ascii, braille, plotly"
-    )
-
-    # Sample rate calculation parameters
-    chunk_size_ms = CfgField(
-        type=CfgType.INT,
-        default=20,
-        min=10,
-        max=100,
-        unit="ms",
-        description="Processing chunk size (should match decoder_app.py actual processing)",
-    )
-
-    convolution_interval_ms = CfgField(
-        type=CfgType.INT,
-        default=20,
-        min=10,
-        max=2000,
-        unit="ms",
-        description="Convolution processing interval for probability data (20ms = 50Hz sync with FFT/magnitude)",
-    )
-
-    playback_speed = CfgField(
-        type=CfgType.DOUBLE,
-        default=1.0,
-        min=0.1,
-        max=10.0,
-        unit="x",
-        description="Playback speed multiplier for time synchronization",
-    )
 
 
 def resolve_display_width(config_width: int) -> int:
@@ -234,8 +154,9 @@ class GraphicsDisplay(ConfigurableBase):
         """Load configuration values using ConfigurableBase pattern."""
         print("🔧 _load_config_values() CALLED - BUFFER INITIALIZATION STARTING")  # Very obvious debug
 
-        # Load enabled flag first
-        self.enabled = self._cfg_section.get_bool(GraphicsKey.ENABLED)
+        # Load graphics mode first
+        self.mode = self._cfg_section.get_string(GraphicsKey.MODE)
+        self.enabled = self.mode != "disabled"  # Derived from mode
 
         # Resolve display width (0 = auto detection, >0 = fixed width)
         config_width = self._cfg_section.get_int(GraphicsKey.DISPLAY_WIDTH_CHARS)
@@ -249,15 +170,13 @@ class GraphicsDisplay(ConfigurableBase):
         self.display_height_chars = self._cfg_section.get_int(GraphicsKey.DISPLAY_HEIGHT_CHARS)
         self.refresh_rate_fps = self._cfg_section.get_int(GraphicsKey.REFRESH_RATE_FPS)
         self.buffer_size_sec = self._cfg_section.get_double(GraphicsKey.BUFFER_SIZE_SEC)
-        self.enable_debug_logging = self._cfg_section.get_bool(GraphicsKey.ENABLE_DEBUG_LOGGING)
-        self.backend_type = self._cfg_section.get_string(GraphicsKey.BACKEND)
+        self.log_level = self._cfg_section.get_string(GraphicsKey.LOG_LEVEL)
+        self.backend_type = self.mode if self.enabled else "disabled"
 
-        # Load sample rate calculation parameters
-        self.chunk_size_ms = self._cfg_section.get_int(GraphicsKey.CHUNK_SIZE_MS)
-        self.convolution_interval_ms = self._cfg_section.get_int(GraphicsKey.CONVOLUTION_INTERVAL_MS)
+        # Register dynamic logging configuration to override app log level
+        self._cfg_mgr.register_logging_config(__name__, default_level=self.log_level)
 
-        # STEP 1: Load playback speed for time synchronization
-        self.playback_speed = self._cfg_section.get_double(GraphicsKey.PLAYBACK_SPEED)
+        # Note: timing parameters moved to application config where they belong
 
         # REMOVED: Legacy buffer size calculations - now handled by TimeSeriesGraph
 
@@ -271,12 +190,14 @@ class GraphicsDisplay(ConfigurableBase):
         # The TimeSeriesGraph should use the full resolution, margin handling is done in display layout
         full_chart_width = self.display_width_chars  # Use full width for maximum resolution
 
-        # Calculate expected sample rates from configuration
-        # Magnitude events: Audio chunks processed every chunk_size_ms
-        magnitude_sample_rate_hz = 1000.0 / self.chunk_size_ms
+        # Calculate expected sample rates from typical decoder behavior
+        # Magnitude events: Audio chunks typically processed every 20ms
+        chunk_size_ms = 20  # Typical audio chunk size
+        magnitude_sample_rate_hz = 1000.0 / chunk_size_ms
 
-        # Probability events: Convolution runs every convolution_interval_ms
-        probability_sample_rate_hz = 1000.0 / self.convolution_interval_ms
+        # Probability events: Convolution typically runs every 20ms
+        convolution_interval_ms = 20  # Typical convolution interval
+        probability_sample_rate_hz = 1000.0 / convolution_interval_ms
 
         # SYNCHRONIZED SCROLLING: Use the fastest rate for all graphs to ensure uniform visual scrolling
         self.unified_scroll_rate_hz = max(magnitude_sample_rate_hz, probability_sample_rate_hz)
@@ -291,7 +212,7 @@ class GraphicsDisplay(ConfigurableBase):
             backend=self.backend_type,  # Config-driven backend selection
             title="Dit Probability",
             sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
-            playback_speed=self.playback_speed,  # STEP 1: Time synchronization
+            playback_speed=1.0,  # Default real-time
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
             auto_scale=False,
@@ -304,7 +225,7 @@ class GraphicsDisplay(ConfigurableBase):
             backend=self.backend_type,  # Config-driven backend selection
             title="Dash Probability",
             sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
-            playback_speed=self.playback_speed,  # STEP 1: Time synchronization
+            playback_speed=1.0,  # Default real-time
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
             auto_scale=False,
@@ -317,7 +238,7 @@ class GraphicsDisplay(ConfigurableBase):
             backend=self.backend_type,  # Config-driven backend selection
             title="Letter Space Probability",
             sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
-            playback_speed=self.playback_speed,  # STEP 1: Time synchronization
+            playback_speed=1.0,  # Default real-time
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
             auto_scale=False,
@@ -330,7 +251,7 @@ class GraphicsDisplay(ConfigurableBase):
             backend=self.backend_type,  # Config-driven backend selection
             title="Word Space Probability",
             sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
-            playback_speed=self.playback_speed,  # STEP 1: Time synchronization
+            playback_speed=1.0,  # Default real-time
             y_min=0.0,  # Fixed probability range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
             auto_scale=False,
@@ -345,7 +266,7 @@ class GraphicsDisplay(ConfigurableBase):
             backend=self.backend_type,  # Config-driven backend selection
             title="Filtered Magnitude",
             sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
-            playback_speed=self.playback_speed,  # STEP 1: Time synchronization
+            playback_speed=1.0,  # Default real-time
             y_min=0.0,  # Fixed normalized range 0.0-1.0
             y_max=1.0,  # No auto-scaling for consistent comparison
             auto_scale=False,
@@ -360,9 +281,9 @@ class GraphicsDisplay(ConfigurableBase):
         self.logger.info(
             "Sample rates: magnitude=%.1fHz (chunk=%dms), probability=%.1fHz (conv=%dms), unified_scroll=%.1fHz",
             magnitude_sample_rate_hz,
-            self.chunk_size_ms,
+            chunk_size_ms,
             probability_sample_rate_hz,
-            self.convolution_interval_ms,
+            convolution_interval_ms,
             self.unified_scroll_rate_hz,
         )
         # CLEANUP: Create FFT TimeSeriesGraph to replace old manual backend system
@@ -375,7 +296,7 @@ class GraphicsDisplay(ConfigurableBase):
             backend=self.backend_type,  # Config-driven backend selection
             title="FFT Magnitude Spectrum",
             sample_rate_hz=self.unified_scroll_rate_hz,  # Unified rate for synchronized scrolling
-            playback_speed=self.playback_speed,  # STEP 1: Time synchronization
+            playback_speed=1.0,  # Default real-time
         )
 
         self.logger.info("CLEANUP: All graphics now use unified TimeSeriesGraph - NO MORE FRAGMENTATION")
@@ -962,7 +883,7 @@ class GraphicsDisplay(ConfigurableBase):
         self._current_prob_word = event.prob_word_space
 
         # Debug logging for timing synchronization
-        if self.enable_debug_logging:
+        if self.log_level == "DEBUG":
             self.logger.debug(
                 "PHASE 3: TimeSeriesGraph + unified graphics: dominant=%s(%.3f)", dominant_type, dominant_prob
             )
@@ -971,7 +892,7 @@ class GraphicsDisplay(ConfigurableBase):
     def _on_error_event(self, event: ErrorEvent) -> None:
         """Handle error events."""
         self._error_count += 1
-        if self.enable_debug_logging:
+        if self.log_level == "DEBUG":
             self.logger.debug("Error event received: %s", event.message)
 
     def _prime_buffers_with_placeholder_data(self) -> None:

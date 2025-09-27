@@ -19,6 +19,7 @@ class CfgKey(Enum):
     TIMING_TOLERANCE_NORM = "timing_tolerance_norm"
     MIN_SILENCE_MS = "min_silence_ms"
     ALGORITHM = "algorithm"
+    LOG_LEVEL = "log_level"
 
 
 class CfgSection(Enum):

@@ -25,6 +25,7 @@ class SignalCfgKey(Enum):
     # FFT and noise floor parameters
     FFT_WINDOW_SIZE = "fft_window_size"
     NOISE_FLOOR_DB = "noise_floor_db"
+    LOG_LEVEL = "log_level"
 
 
 class SignalCfgSection(Enum):

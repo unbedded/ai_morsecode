@@ -1,0 +1,9 @@
+# Morse Code Decoder Configuration
+# Updated: 2025-09-27 06:56:43
+# Backup created: morse.yaml.backup-20250927-065643
+#
+# This file uses clear parameter names with unit suffixes for safety.
+# All defaults are optimized for real-world morse code audio.
+#
+
+{}

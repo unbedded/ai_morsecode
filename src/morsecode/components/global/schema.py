@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from util.config.types import CfgField, CfgType
+from util.config.types import CfgField, CfgType, string_choices_field
 
 
 @dataclass
@@ -11,11 +11,10 @@ class ConfigSchema:
 
     debug = CfgField(type=CfgType.BOOL, default=False, description="Enable debug mode and verbose logging")
 
-    log_level = CfgField(
-        type=CfgType.STRING,
+    log_level = string_choices_field(
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
         default="INFO",
-        regex=r"^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$",
-        description="Logging level for the application",
+        description_prefix="Global application log level",
     )
 
     output_file = CfgField(

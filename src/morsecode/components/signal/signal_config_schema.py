@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from util.config.types import CfgField, CfgType, enum_field
+from util.config.types import CfgField, CfgType, enum_field, string_choices_field
 
 
 class SignalMode(Enum):
@@ -132,4 +132,10 @@ class SignalConfigSchema:
         max=-10,
         unit="dB",
         description="Noise floor threshold for signal detection",
+    )
+
+    log_level = string_choices_field(
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        default="INFO",
+        description_prefix="Override app log level if more verbose",
     )

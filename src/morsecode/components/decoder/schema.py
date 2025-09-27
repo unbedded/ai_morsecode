@@ -6,7 +6,7 @@ with type validation, units, and constraints.
 
 from dataclasses import dataclass
 
-from util.config.types import CfgField, CfgType
+from util.config.types import CfgField, CfgType, string_choices_field
 
 
 @dataclass
@@ -87,4 +87,10 @@ class ConfigSchema:
         default="pattern",
         choices=["pattern", "convolution"],
         description="Decoder algorithm: 'pattern' for traditional timing-based, 'convolution' for signal processing",
+    )
+
+    log_level = string_choices_field(
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        default="INFO",
+        description_prefix="Override app log level if more verbose",
     )

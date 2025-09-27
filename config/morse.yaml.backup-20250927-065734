@@ -1,0 +1,26 @@
+# Morse Code Decoder Configuration
+# Updated: 2025-09-27 06:57:22
+# Backup created: morse.yaml.backup-20250927-065722
+#
+# This file uses clear parameter names with unit suffixes for safety.
+# All defaults are optimized for real-world morse code audio.
+#
+
+graphics:
+  buffer_size_sec: 5.0
+  display_height_chars: 20
+  display_width_chars: 0
+  log_level: INFO
+  mode: disabled
+  refresh_rate_fps: 20
+decoder:
+  algorithm: pattern
+  auto_detect_min_samples: 10
+  auto_detect_wpm: true
+  dot_duration_ms: 80.0
+  log_level: INFO
+  min_silence_ms: 200.0
+  timing_tolerance_norm: 0.3
+  wpm: 15
+  wpm_range_max: 50
+  wpm_range_min: 12

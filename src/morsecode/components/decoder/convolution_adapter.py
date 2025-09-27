@@ -38,16 +38,9 @@ class ConvolutionMorseDecoder:
         # Initialize logging
         self._logger = ComponentLogger(__name__, cfg_mgr)
 
-        # Get convolution interval from configuration (matching graphics_display.py)
-        from morsecode.components.graphics.graphics_display import GraphicsDisplayCfgKey, GraphicsDisplaySchema
-
-        cfg_mgr.register_enum_config("graphics_display", GraphicsDisplaySchema)
-        cfg_section = cfg_mgr.get_section("graphics_display")
-        if overrides:
-            cfg_section.apply_overrides(overrides)
-
-        # Use configured convolution interval instead of hardcoded value
-        self._max_buffer_duration_ms: float = float(cfg_section.get_int(GraphicsDisplayCfgKey.CONVOLUTION_INTERVAL_MS))
+        # FIXED: Use reasonable default instead of decoder details that leaked into graphics config
+        # Convolution interval should be an application-level timing parameter, not graphics config
+        self._max_buffer_duration_ms: float = 500.0  # 500ms convolution interval (reasonable default)
 
         # State for converting detection events to signal chunks
         self._current_tone_state: bool = False

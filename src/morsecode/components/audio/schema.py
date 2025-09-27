@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from util.config.types import CfgField, CfgType
+from util.config.types import CfgField, CfgType, string_choices_field
 
 
 @dataclass
@@ -20,3 +20,9 @@ class ConfigSchema:
     auto_gain_control = CfgField(type=CfgType.BOOL, default=True, description="Enable automatic gain control")
 
     chunk_size_ms = CfgField(type=CfgType.INT, default=50, min=10, max=1000, unit="ms", description="Audio chunk size")
+
+    log_level = string_choices_field(
+        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        default="INFO",
+        description_prefix="Override app log level if more verbose",
+    )

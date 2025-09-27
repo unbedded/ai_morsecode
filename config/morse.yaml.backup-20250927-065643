@@ -1,0 +1,27 @@
+application:
+  debug: false
+  log_level: INFO
+  output_file: null
+  playback_speed: 1.0
+  logging: null
+graphics:
+  mode: disabled
+  display_width_chars: 0
+  display_height_chars: 20
+  refresh_rate_fps: 20
+  buffer_size_sec: 5.0
+signal:
+  frequency_hz: 600
+  signal_threshold_norm: 0.25
+  bandwidth_hz: 50
+  sample_rate_hz: 44100
+  mode: AUTO
+  adaptive_frequency: true
+  signal_threshold_norm_debug: 0.3
+  adaptive_frequency_debug: false
+decoder:
+  wpm: 20
+  timing_tolerance_norm: 0.7
+  dot_duration_ms: null
+  timing_tolerance_norm_debug: 0.3
+  wpm_debug: 15

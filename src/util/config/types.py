@@ -54,3 +54,17 @@ def enum_field(enum_class, default, prefix=""):
     choices_str = ", ".join([e.value for e in enum_class])
     description = f"{prefix}: {choices_str}" if prefix else f"Options: {choices_str}"
     return CfgField(type=CfgType.ENUM, default=default, choices=list(enum_class), description=description)
+
+
+def string_choices_field(choices, default, description_prefix=""):
+    """Helper to create string config field with clear choices formatting.
+
+    Args:
+        choices: List of string choices (e.g., ["DEBUG", "INFO", "WARN", "ERROR"])
+        default: Default choice (e.g., "INFO")
+        description_prefix: Description prefix (e.g., "Override app log level if more verbose")
+
+    Returns:
+        CfgField with choices list - formatting handled by config generation
+    """
+    return CfgField(type=CfgType.STRING, default=default, choices=choices, description=description_prefix)

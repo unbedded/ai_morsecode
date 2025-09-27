@@ -65,15 +65,17 @@ Examples:
   morsecode audio.wav -s signal-signal-threshold-norm=0.3    # Override signal detection threshold
   morsecode audio.wav -s signal-frequency-hz=800             # Override target frequency
   morsecode --cfg-show                                        # Show config file with comments
-  morsecode --cfg-default                                     # Reset ALL values to schema defaults (creates backup)
-  morsecode audio.wav -s graphics-enabled=true               # Enable real-time signal visualization
-  morsecode audio.wav -s debug-display-backend=braille       # High-resolution Braille graphs
-  morsecode audio.wav -s debug-display-backend=plotly        # Interactive web-based graphs
+  morsecode --cfg-bkup-reset2defaults                        # Backup and delete config file (simple reset)
+  morsecode audio.wav -s graphics-mode=ascii                 # ASCII graphs (SSH-compatible)
+  morsecode audio.wav -s graphics-mode=braille               # High-resolution Braille graphs
+  morsecode audio.wav -s graphics-mode=plotly                # Interactive web-based graphs
+  morsecode audio.wav -s graphics-mode=pattern               # Simple pattern logging
   morsecode audio.wav -s application-debug=true              # Enable debug mode
   morsecode audio.wav -s application-log-level=DEBUG         # Set debug log level
   morsecode audio.wav -s application-output-file=result.txt  # Save decoded text to file
-  morsecode audio.wav -s application-realtime=true           # Enable real-time processing
-  morsecode audio.wav -s application-playback-speed=2.0      # 2x playback speed
+  morsecode audio.wav -s application-playback-speed=1.0      # Real-time processing (default)
+  morsecode audio.wav -s application-playback-speed=0        # Batch mode (as fast as possible)
+  morsecode audio.wav -s application-playback-speed=2.0      # 2x faster than real-time
 
 Multiple overrides (comma-separated for convenience):
   morsecode audio.wav -s "signal-frequency-hz=800,decoder-wpm=25,application-debug=true"
@@ -118,21 +120,16 @@ Multiple overrides (comma-separated for convenience):
         dest="lazy_overrides",
     )
     config_group.add_argument(
-        "--cfg-validate",
-        action="store_true",
-        help="Validate configuration file and exit",
-        dest="validate_config",
-    )
-    config_group.add_argument(
         "--cfg-show",
         action="store_true",
         help="Show configuration file locations and current settings",
         dest="show_config",
     )
     config_group.add_argument(
-        "--cfg-default",
+        "--cfg-bkup-reset2defaults",
+        "-R",
         action="store_true",
-        help="Reset ALL configuration values to schema defaults (automatically creates backup)",
+        help="Backup and delete config file to restore schema defaults (simple and reliable)",
         dest="reset_config",
     )
 
@@ -318,19 +315,6 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
 
-        if args.validate_config:
-            try:
-                # Test loading all module configs
-                config_manager.get_config("app")
-                config_manager.get_config("audio")
-                config_manager.get_config("signal")
-                config_manager.get_config("decoder")
-                print("✅ Configuration is valid")
-                return 0
-            except Exception as e:
-                print(f"❌ Configuration validation failed: {e}", file=sys.stderr)
-                return 1
-
         if args.show_config:
             # Simple approach: just show the actual YAML file with helpful comments
             # Note: Don't register schemas here as it triggers auto-cleanup that removes working config
@@ -353,14 +337,14 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.reset_config:
-            # True reset: reset ALL values to schema defaults
+            # Simple and reliable: backup and delete config file
             config_path = config_manager.config_file
-            print(f"🔄 Resetting configuration to defaults: {config_path}")
-            print("⚠️  This will reset ALL values to schema defaults")
+            print(f"🔄 Backup and delete config file to restore defaults: {config_path}")
+            print("⚠️  Config file will be deleted and recreated with schema defaults")
             print("📁 A backup will be created automatically")
 
             if config_path.exists():
-                # Backup existing config
+                # Create backup before deletion
                 import shutil
                 from datetime import datetime
 
@@ -369,22 +353,15 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.copy2(config_path, backup_path)
                 print(f"📦 Backup created: {backup_path}")
 
-            # True reset to schema defaults
-            try:
-                sections_reset, total_fields = config_manager.smart_reset_config()
-                if sections_reset > 0:
-                    print("✅ Configuration reset completed")
-                    print(f"🔄 Reset {sections_reset} sections with {total_fields} total fields")
-                    print("📁 Previous configuration backed up")
-                    print("🏭 All values now set to schema defaults")
-                else:
-                    print("✅ No registered schemas found")
-                    print("💡 Note: Schemas are registered when the application runs normally")
+                # Delete the config file - AwesomeConfigManager will recreate with defaults
+                config_path.unlink()
+                print("✅ Config file deleted - fresh defaults will be created on next run")
                 print(f"💡 To restore previous config: cp {backup_path} {config_path}")
-                return 0
-            except Exception as e:
-                print(f"❌ Error during config reset: {e}", file=sys.stderr)
-                return 1
+            else:
+                print("✅ No config file exists - defaults will be used automatically")
+                print("💡 Config file will be created with schema defaults on next run")
+
+            return 0
 
         # Require WAV file for processing
         if not args.wav_file:

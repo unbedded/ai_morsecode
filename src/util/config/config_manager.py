@@ -390,27 +390,23 @@ class AwesomeConfigManager:
         self.logger.info("Created initial configuration at: %s", config_path)
 
     def _create_minimal_config(self, config_path: Path) -> None:
-        """Create minimal application config template."""
+        """Create minimal application config template with basic schema if available."""
+        # If we have schemas registered, use them for a richer initial config
+        if self._field_configs:
+            self.logger.debug("Creating initial config from registered schemas")
+            self.create_sample_config(str(config_path))
+            return
+
+        # Fallback to truly minimal config if no schemas are registered yet
         with open(config_path, "w", encoding="utf-8") as f:
             f.write("# Application Configuration\n")
             f.write("# Components will auto-register their schemas on first run\n")
+            f.write("# Run 'update_config_file_from_schemas()' to generate full config\n")
             f.write("\n")
             f.write("application:\n")
             f.write("  debug: false\n")
             f.write('  log_level: "INFO"\n')
             f.write("  output_file: null\n")
-            f.write("  \n")
-            f.write("  # Development vs Production mode\n")
-            f.write("  development_mode: true  # Set to false for embedded/production deployment\n")
-            f.write("  \n")
-            f.write("  # Embedded system logging (performance monitoring)\n")
-            f.write("  log_to_file: true\n")
-            f.write('  log_directory: "/var/log/morsecode"  # Falls back to ~/.local/share/morsecode/logs\n')
-            f.write("  log_max_files: 10\n")
-            f.write("  log_max_size_mb: 100\n")
-            f.write("  \n")
-            f.write("  # Per-component log level overrides\n")
-            f.write("  logging: {}\n")
             f.write("\n")
 
     def _load_config(self) -> None:
@@ -482,8 +478,188 @@ class AwesomeConfigManager:
         config_path = f"application.logging.{module_name}"
         self.register_enum_config(config_path, LoggingSchema)
 
+    def _format_field_comment(self, cfg_field, field_name: str) -> str:
+        """Generate rich inline comment from CfgField metadata.
+
+        Args:
+            cfg_field: CfgField object with metadata
+            field_name: Name of the field (for context)
+
+        Returns:
+            Formatted comment string with type, constraints, and default
+        """
+        parts = []
+
+        # Description
+        if cfg_field.description:
+            parts.append(cfg_field.description)
+
+        # Type info
+        type_str = cfg_field.type.value.upper()
+        parts.append(type_str)
+
+        # Choices/Constraints
+        if cfg_field.choices:
+            if len(cfg_field.choices) <= 6:  # Short lists inline
+                choices_str = ",".join(str(c) for c in cfg_field.choices)
+                parts.append(f"{{{choices_str}}}")
+            else:
+                parts.append("multiple options")
+        elif cfg_field.min is not None and cfg_field.max is not None:
+            unit = f" {cfg_field.unit}" if cfg_field.unit else ""
+            parts.append(f"{cfg_field.min}-{cfg_field.max}{unit}")
+        elif cfg_field.unit:
+            parts.append(cfg_field.unit)
+
+        # Default value
+        default_val = cfg_field.default
+        if hasattr(default_val, "value"):  # Enum
+            default_val = default_val.value
+        elif default_val is None:
+            default_val = "null"
+        elif isinstance(default_val, str):
+            default_val = f'"{default_val}"'
+
+        parts.append(f"default: {default_val}")
+
+        return " | ".join(parts)
+
+    def _format_yaml_value(self, value) -> str:
+        """Format a value for YAML output with proper quoting."""
+        if value is None:
+            return "null"
+        elif isinstance(value, bool):
+            return "true" if value else "false"
+        elif isinstance(value, str):
+            # Quote strings that need it
+            if value in ("true", "false", "null") or value.isdigit():
+                return f'"{value}"'
+            return value
+        elif hasattr(value, "value"):  # Enum
+            return f'"{value.value}"'
+        else:
+            return str(value)
+
+    def _write_schema_driven_config(self, file_handle, complete_config: dict) -> None:
+        """Write config with rich inline comments from schema metadata."""
+        from datetime import datetime
+
+        # Header
+        file_handle.write("# Morse Code Decoder Configuration\n")
+        file_handle.write(f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        file_handle.write("#\n")
+        file_handle.write("# This file uses clear parameter names with unit suffixes for safety.\n")
+        file_handle.write("# All defaults are optimized for real-world morse code audio.\n")
+        file_handle.write("#\n")
+        file_handle.write("# Unit naming conventions:\n")
+        file_handle.write("#   *_hz = frequency units\n")
+        file_handle.write("#   *_norm = normalized values [0.0-1.0]\n")
+        file_handle.write("#   *_ms, *_sec = time units\n")
+        file_handle.write("#\n\n")
+
+        # Write each section with rich comments
+        for section_name, section_data in complete_config.items():
+            file_handle.write(f"{section_name}:\n")
+
+            schema_class = self._field_configs.get(section_name)
+            if not schema_class:
+                # Fallback for sections without schemas
+                for key, value in section_data.items():
+                    formatted_value = self._format_yaml_value(value)
+                    file_handle.write(f"  {key}: {formatted_value}\n")
+                file_handle.write("\n")
+                continue
+
+            # Get schema fields for rich comments
+            schema_fields = {}
+            for attr_name in dir(schema_class):
+                if not attr_name.startswith("_"):
+                    attr_value = getattr(schema_class, attr_name, None)
+                    if hasattr(attr_value, "default") and hasattr(attr_value, "type"):
+                        schema_fields[attr_name] = attr_value
+
+            # Write each field with comment
+            for key, value in section_data.items():
+                formatted_value = self._format_yaml_value(value)
+
+                # Generate rich comment if we have schema info
+                if key in schema_fields:
+                    comment = self._format_field_comment(schema_fields[key], key)
+                    # Format with proper spacing for readability
+                    key_value = f"{key}: {formatted_value}"
+                    padding = max(25 - len(key_value), 1)
+                    file_handle.write(f"  {key_value}{' ' * padding}# {comment}\n")
+                else:
+                    # Fallback without comment
+                    file_handle.write(f"  {key}: {formatted_value}\n")
+
+            file_handle.write("\n")
+
+    def update_config_file_from_schemas(self) -> None:
+        """Update config file with all registered schemas and their defaults.
+
+        This regenerates the YAML file to include any new fields added to schemas.
+        Creates a backup of the existing config before updating.
+        Uses rich inline comments from schema metadata.
+        """
+        from datetime import datetime
+        from pathlib import Path
+
+        # Create backup of existing config
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_path = Path(f"{self.config_file}.backup-{timestamp}")
+
+        if Path(self.config_file).exists():
+            import shutil
+
+            shutil.copy(self.config_file, backup_path)
+            self.logger.info("Created config backup: %s", backup_path)
+
+        # Build complete config from all registered schemas
+        complete_config = {}
+
+        for section_name, schema_class in self._field_configs.items():
+            section_config = {}
+
+            # Get current values (preserves user customizations)
+            current_section = self.get_config(section_name)
+
+            # Iterate over class attributes to find CfgField objects
+            for attr_name in dir(schema_class):
+                # Skip private attributes and methods
+                if attr_name.startswith("_"):
+                    continue
+
+                attr_value = getattr(schema_class, attr_name, None)
+
+                # Check if this is a CfgField
+                if hasattr(attr_value, "default") and hasattr(attr_value, "type"):
+                    # Use current value if exists, otherwise use schema default
+                    if attr_name in current_section:
+                        value = current_section[attr_name]
+                    else:
+                        value = attr_value.default
+
+                    # Convert enum values to their string representation for YAML
+                    if hasattr(value, "value"):  # Enum objects have .value
+                        value = value.value
+
+                    section_config[attr_name] = value
+
+            if section_config:
+                complete_config[section_name] = section_config
+
+        # Write updated config file with rich comments
+        with open(self.config_file, "w", encoding="utf-8") as f:
+            self._write_schema_driven_config(f, complete_config)
+
+        self.logger.info("Updated config file with all registered schemas: %s", self.config_file)
+
+        # Reload the updated config
+        self._load_config()
+
     def create_sample_config(self, output_file: str) -> None:
-        """Create a sample configuration file with default values.
+        """Create a sample configuration file with default values from registered schemas.
 
         Args:
             output_file: Path where the sample config file should be created
@@ -494,44 +670,38 @@ class AwesomeConfigManager:
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # TODO: Replace with schema-driven config generation
-        # This hardcoded template was identified as technical debt during debugging sessions.
-        # The new static registration architecture will generate config from component schemas.
+        # Build complete config from all registered schemas
+        complete_config = {}
 
-        # For now, create a minimal config that will be replaced by schema-driven generation
-        from datetime import datetime
+        for section_name, schema_class in self._field_configs.items():
+            section_config = {}
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # Iterate over class attributes to find CfgField objects
+            for attr_name in dir(schema_class):
+                # Skip private attributes and methods
+                if attr_name.startswith("_"):
+                    continue
 
-        sample_config = f"""# Morse Code Decoder Configuration
-# Generated: {timestamp}
-# TODO: This will be replaced with schema-driven generation
-#
-# This file uses clear parameter names with unit suffixes for safety.
-# All defaults are optimized for real-world morse code audio.
-#
-# Unit naming conventions:
-#   *_hz = frequency units
-#   *_norm = normalized values [0.0-1.0]
-#   *_ms, *_sec = time units
-#
+                attr_value = getattr(schema_class, attr_name, None)
 
-application:
-  debug: false              # Enable debug mode and verbose logging
-  log_level: "INFO"         # Global log level
-  output_file: null         # Output file path for decoded text
+                # Check if this is a CfgField
+                if hasattr(attr_value, "default") and hasattr(attr_value, "type"):
+                    value = attr_value.default
 
-  # Per-component log level overrides for debugging
-  logging: {{}}
+                    # Convert enum values to their string representation for YAML
+                    if hasattr(value, "value"):  # Enum objects have .value
+                        value = value.value
 
-# NOTE: Component-specific configurations will be generated from schemas
-# when the new static registration architecture is implemented.
-# For now, delete this file and let the system auto-create it from defaults.
-"""
+                    section_config[attr_name] = value
 
-        # Write the sample config
-        with open(output_file, "w") as f:
-            f.write(sample_config)
+            if section_config:
+                complete_config[section_name] = section_config
+
+        # Write sample config file with rich comments
+        with open(output_file, "w", encoding="utf-8") as f:
+            self._write_schema_driven_config(f, complete_config)
+
+        self.logger.info("Created sample config with schema-driven generation: %s", output_file)
 
     def _apply_profile_overrides(self, module_name: str, config: dict[str, Any]) -> None:
         """Apply profile-specific overrides to config.

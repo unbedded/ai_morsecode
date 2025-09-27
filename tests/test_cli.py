@@ -58,7 +58,6 @@ class TestArgumentParser:
                 "decoder-wpm=20",
                 "-s",
                 "signal-signal-threshold-norm=0.4",
-                "--cfg-validate",
             ]
         )
 
@@ -66,7 +65,6 @@ class TestArgumentParser:
         assert args.config == "custom.yaml"
         assert args.profile == "debug"
         assert args.lazy_overrides == ["signal-frequency-hz=800", "decoder-wpm=20", "signal-signal-threshold-norm=0.4"]
-        assert args.validate_config is True
 
     def test_parse_utility_commands(self) -> None:
         """Test parsing utility commands."""
@@ -75,10 +73,6 @@ class TestArgumentParser:
         # Test cfg-show
         args = parser.parse_args(["--cfg-show"])
         assert args.show_config is True
-
-        # Test cfg-validate
-        args = parser.parse_args(["--cfg-validate"])
-        assert args.validate_config is True
 
     def test_parse_no_args(self) -> None:
         """Test parsing with no arguments."""
@@ -290,34 +284,6 @@ class TestMainFunction:
         assert result == 0
         captured = capsys.readouterr()
         assert "Config file:" in captured.out
-
-    def test_main_validate_config_success(self, capsys: Any) -> None:
-        """Test main function with successful config validation."""
-        # Create a properly mocked config manager
-        mock_config_manager = MagicMock()
-        mock_config_manager.config_file = Path("test.yaml")
-        mock_config_manager.get_config.return_value = {}
-
-        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
-            result = main(["--cfg-validate"])
-
-        assert result == 0
-        captured = capsys.readouterr()
-        assert "Configuration is valid" in captured.out
-
-    def test_main_validate_config_failure(self, capsys: Any) -> None:
-        """Test main function with config validation failure."""
-        # Create a properly mocked config manager that raises an exception
-        mock_config_manager = MagicMock()
-        mock_config_manager.config_file = Path("test.yaml")
-        mock_config_manager.get_config.side_effect = Exception("Invalid config")
-
-        with patch("morsecode.cli.main.AwesomeConfigManager", return_value=mock_config_manager):
-            result = main(["--cfg-validate"])
-
-        assert result == 1
-        captured = capsys.readouterr()
-        assert "Configuration validation failed" in captured.err
 
     def test_main_no_wav_file(self, capsys: Any) -> None:
         """Test main function without WAV file for processing."""

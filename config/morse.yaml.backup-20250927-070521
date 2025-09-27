@@ -1,0 +1,20 @@
+# Morse Code Decoder Configuration
+# Generated: 2025-09-27 07:05:08
+#
+# This file uses clear parameter names with unit suffixes for safety.
+# All defaults are optimized for real-world morse code audio.
+#
+# Unit naming conventions:
+#   *_hz = frequency units
+#   *_norm = normalized values [0.0-1.0]
+#   *_ms, *_sec = time units
+#
+
+graphics:
+  buffer_size_sec: 5.0     # Time-series buffer size | DOUBLE | 0.5-20.0 sec | default: 5.0
+  display_height_chars: 20 # Display height in characters | INT | 10-50 chars | default: 20
+  display_width_chars: 0   # Display width: 0=auto terminal detection, or fixed width 40-200 | INT | 0-200 chars | default: 0
+  log_level: INFO          # Override app log level if more verbose | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
+  mode: disabled           # Graphics mode: disabled, ascii (SSH), braille (high-res), plotly (interactive), pattern (logging) | STRING | {disabled,ascii,braille,plotly,pattern} | default: "disabled"
+  refresh_rate_fps: 20     # Display refresh rate | INT | 1-60 fps | default: 20
+

@@ -1,5 +1,5 @@
 # Morse Code Decoder Configuration
-# Generated: 2025-09-27 07:05:21
+# Generated: 2025-09-27 07:04:31
 #
 # This file uses clear parameter names with unit suffixes for safety.
 # All defaults are optimized for real-world morse code audio.
@@ -14,7 +14,7 @@ graphics:
   buffer_size_sec: 5.0     # Time-series buffer size | DOUBLE | 0.5-20.0 sec | default: 5.0
   display_height_chars: 20 # Display height in characters | INT | 10-50 chars | default: 20
   display_width_chars: 0   # Display width: 0=auto terminal detection, or fixed width 40-200 | INT | 0-200 chars | default: 0
-  log_level: INFO          # Override app log level if more verbose | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
+  log_level: INFO          # Override app log level if more verbose | STR | ['DEBUG'|'INFO'|'WARN'|'ERROR'] | default: 'INFO' | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
   mode: disabled           # Graphics mode: disabled, ascii (SSH), braille (high-res), plotly (interactive), pattern (logging) | STRING | {disabled,ascii,braille,plotly,pattern} | default: "disabled"
   refresh_rate_fps: 20     # Display refresh rate | INT | 1-60 fps | default: 20
 
@@ -23,7 +23,7 @@ decoder:
   auto_detect_min_samples: 10 # Minimum timing samples needed for auto WPM detection | INT | 5-50 samples | default: 10
   auto_detect_wpm: true    # Automatically detect WPM from audio timing patterns | BOOL | default: True
   dot_duration_ms: 80.0    # Duration of a dot element in milliseconds | DOUBLE | 20.0-300.0 ms | default: 80.0
-  log_level: INFO          # Override app log level if more verbose | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
+  log_level: INFO          # Override app log level if more verbose | STR | ['DEBUG'|'INFO'|'WARN'|'ERROR'] | default: 'INFO' | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
   min_silence_ms: 200.0    # Minimum silence duration to detect word boundaries | DOUBLE | 50.0-1000.0 ms | default: 200.0
   timing_tolerance_norm: 0.3 # Tolerance factor for timing variations (0.0-1.0) | DOUBLE | 0.1-0.8 norm | default: 0.3
   wpm: 15                  # Words per minute for timing calculations | INT | 5-50 wpm | default: 15
@@ -33,7 +33,7 @@ decoder:
 audio:
   auto_gain_control: true  # Enable automatic gain control | BOOL | default: True
   chunk_size_ms: 50        # Audio chunk size | INT | 10-1000 ms | default: 50
-  log_level: INFO          # Override app log level if more verbose | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
+  log_level: INFO          # Override app log level if more verbose | STR | ['DEBUG'|'INFO'|'WARN'|'ERROR'] | default: 'INFO' | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
   sample_rate: 44100       # Audio sample rate | INT | 8000-96000 Hz | default: 44100
   wav_filename: null       # Audio file path | STRING | default: null
 
@@ -47,7 +47,7 @@ signal:
   freq_range_max: 1000     # Maximum frequency for signal detection range | INT | 500-3000 Hz | default: 1000
   freq_range_min: 200      # Minimum frequency for signal detection range | INT | 50-1000 Hz | default: 200
   frequency_hz: 600        # Target CW frequency for tone detection | INT | 200-2000 Hz | default: 600
-  log_level: INFO          # Override app log level if more verbose | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
+  log_level: INFO          # Override app log level if more verbose | STR | ['DEBUG'|'INFO'|'WARN'|'ERROR'] | default: 'INFO' | STRING | {DEBUG,INFO,WARN,ERROR} | default: "INFO"
   mode: AUTO               # Signal processing mode: AUTO, MANUAL, ADAPTIVE | ENUM | {SignalMode.AUTO,SignalMode.MANUAL,SignalMode.ADAPTIVE} | default: AUTO
   n_move_avg_elements: 6   # Moving average smoothing window size for signal processing | INT | 1-20 count | default: 6
   noise_floor_db: -40      # Noise floor threshold for signal detection | INT | -80--10 dB | default: -40

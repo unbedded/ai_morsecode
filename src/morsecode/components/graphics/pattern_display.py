@@ -56,8 +56,9 @@ class PatternDisplay(ConfigurableBase):
         Only method we need to implement - all boilerplate handled by base class.
         """
         # STEP 1: Load core configuration with type safety
-        self.enabled = self._cfg_section.get_bool(GraphicsKey.ENABLED)
-        self.backend_type = self._cfg_section.get_string(GraphicsKey.BACKEND)
+        self.mode = self._cfg_section.get_string(GraphicsKey.MODE)
+        self.enabled = self.mode != "disabled"  # Derived from mode
+        self.backend_type = self.mode if self.enabled else "disabled"
         # Map descriptive field names to simple property names for compatibility
         self.width = self._cfg_section.get_int(GraphicsKey.DISPLAY_WIDTH_CHARS)
         self.height = self._cfg_section.get_int(GraphicsKey.DISPLAY_HEIGHT_CHARS)

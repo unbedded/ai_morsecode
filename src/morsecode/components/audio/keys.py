@@ -10,6 +10,7 @@ class CfgKey(Enum):
     WAV_FILENAME = "wav_filename"
     AUTO_GAIN_CONTROL = "auto_gain_control"
     CHUNK_SIZE_MS = "chunk_size_ms"
+    LOG_LEVEL = "log_level"
 
 
 class CfgSection(Enum):
