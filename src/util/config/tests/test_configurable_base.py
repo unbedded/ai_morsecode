@@ -13,7 +13,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from tests.mock_config_manager import MockAwesomeConfigManager
+from .mock_config_manager import MockAwesomeConfigManager
 from util.config import CfgField, CfgType, ConfigurableBase
 
 

@@ -195,9 +195,13 @@ class GraphicsDisplay(ConfigurableBase):
         chunk_size_ms = 20  # Typical audio chunk size
         magnitude_sample_rate_hz = 1000.0 / chunk_size_ms
 
-        # Probability events: Convolution typically runs every 20ms
-        convolution_interval_ms = 20  # Typical convolution interval
+        # Probability events: Convolution typically runs every 40ms (slower than magnitude)
+        convolution_interval_ms = 40  # Typical convolution interval
         probability_sample_rate_hz = 1000.0 / convolution_interval_ms
+
+        # Store sample rates as instance attributes for test access
+        self._magnitude_sample_rate_hz = magnitude_sample_rate_hz
+        self._probability_sample_rate_hz = probability_sample_rate_hz
 
         # SYNCHRONIZED SCROLLING: Use the fastest rate for all graphs to ensure uniform visual scrolling
         self.unified_scroll_rate_hz = max(magnitude_sample_rate_hz, probability_sample_rate_hz)
@@ -311,6 +315,11 @@ class GraphicsDisplay(ConfigurableBase):
             self.display_width_chars,
             self.display_height_chars,
         )
+
+    @property
+    def _magnitude_backend(self):
+        """Expose magnitude graph backend for testing."""
+        return self._magnitude_graph
 
     def _setup_event_subscriptions(self) -> None:
         """Subscribe to all relevant events for debugging display."""
