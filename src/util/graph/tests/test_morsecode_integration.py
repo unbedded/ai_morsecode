@@ -16,7 +16,7 @@ from typing import Any
 src_dir = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(src_dir))
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from util.config import AwesomeConfigManager
 
 
@@ -176,7 +176,7 @@ class TestMorsecodeGraphicsIntegration(unittest.TestCase):
                 "update_rate_hz": 10.0,
             }
 
-            debug_display = ASCIIDebugDisplay(cfg_mgr, overrides={"debug_display": overrides})
+            debug_display = GraphicsDisplay(cfg_mgr, overrides=overrides)
 
             # Test magnitude backend directly
             mag_backend = debug_display._magnitude_backend
@@ -261,7 +261,7 @@ class TestMorsecodeGraphicsIntegration(unittest.TestCase):
             cfg_mgr = AwesomeConfigManager()
             overrides = {"backend": "ascii", "chart_width": self.width, "chart_height": self.height}
 
-            debug_display = ASCIIDebugDisplay(cfg_mgr, overrides={"debug_display": overrides})
+            debug_display = GraphicsDisplay(cfg_mgr, overrides=overrides)
 
             # Test compression function directly
             compressed_data = debug_display._compress_repeated_values(prob_data)
@@ -325,7 +325,7 @@ class TestMorsecodeGraphicsIntegration(unittest.TestCase):
 
                 # Create debug display
                 cfg_mgr = AwesomeConfigManager()
-                debug_display = ASCIIDebugDisplay(cfg_mgr)
+                debug_display = GraphicsDisplay(cfg_mgr)
 
                 # Get actual calculated sample rates
                 mag_rate = debug_display._magnitude_sample_rate_hz

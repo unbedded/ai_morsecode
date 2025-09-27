@@ -13,7 +13,7 @@ import time
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from morsecode.events.types import FilteredMagnitudeEvent, MorseProbabilityEvent
 from util.config import AwesomeConfigManager
 
@@ -35,7 +35,7 @@ def test_final_fixes():
         "enable_debug_logging": True,  # Show configuration details
     }
 
-    debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+    debug_display = GraphicsDisplay(cfg_mgr, overrides)
 
     print("🔍 ISSUE 1: Width Consistency")
     print("-" * 30)

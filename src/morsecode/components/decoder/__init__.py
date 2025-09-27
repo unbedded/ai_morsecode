@@ -1,5 +1,8 @@
-"""Morse decoder component implementations."""
+"""Morse decoder component implementations with factory pattern support."""
 
-from .morse_decoder import MorseDecoder
+from .convolution_adapter import ConvolutionMorseDecoder
+from .factory import DecoderFactory
+from .pattern_decoder import PatternBasedMorseDecoder
 
-__all__ = ["MorseDecoder"]
+# Export factory as primary interface
+__all__ = ["DecoderFactory", "PatternBasedMorseDecoder", "ConvolutionMorseDecoder"]

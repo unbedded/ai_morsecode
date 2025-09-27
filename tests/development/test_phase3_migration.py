@@ -13,7 +13,7 @@ import time
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from morsecode.events.types import MorseProbabilityEvent
 from util.config import AwesomeConfigManager
 
@@ -33,7 +33,7 @@ def test_phase3_migration():
         "enable_debug_logging": True,
     }
 
-    debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+    debug_display = GraphicsDisplay(cfg_mgr, overrides)
 
     # Validate Phase 3 changes
     print("🔍 Phase 3 Migration Validation:")

@@ -14,7 +14,7 @@ import time
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from morsecode.events.types import FFTSpectrumEvent, FilteredMagnitudeEvent, MorseProbabilityEvent
 from util.config import AwesomeConfigManager
 
@@ -36,7 +36,7 @@ def test_fragmentation_eliminated():
         "enable_debug_logging": True,
     }
 
-    debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+    debug_display = GraphicsDisplay(cfg_mgr, overrides)
 
     print("🔍 VALIDATION 1: Single Graphics System")
     print("-" * 40)

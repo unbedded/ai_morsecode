@@ -33,8 +33,7 @@ def create_parser() -> argparse.ArgumentParser:
 Configuration:
   The decoder automatically creates and uses a YAML configuration file with multiple sections:
   - application: App settings (debug, log_level, output_file, realtime, playback_speed)
-  - graphics: Real-time visualization settings
-  - debug_display: Graphics backend configuration (ascii, braille, plotly)
+  - graphics: Real-time visualization settings (enabled, backend, display size, refresh rate)
   - signal: Signal processing (frequency, threshold, bandwidth, sample_rate, mode)
   - decoder: Morse decoding (wpm, tolerance, dot_duration_ms)
 
@@ -66,7 +65,7 @@ Examples:
   morsecode audio.wav -s signal-signal-threshold-norm=0.3    # Override signal detection threshold
   morsecode audio.wav -s signal-frequency-hz=800             # Override target frequency
   morsecode --cfg-show                                        # Show config file with comments
-  morsecode --cfg-default                                     # Reset config to schema defaults (removes stale entries)
+  morsecode --cfg-default                                     # Reset ALL values to schema defaults (creates backup)
   morsecode audio.wav -s graphics-enabled=true               # Enable real-time signal visualization
   morsecode audio.wav -s debug-display-backend=braille       # High-resolution Braille graphs
   morsecode audio.wav -s debug-display-backend=plotly        # Interactive web-based graphs
@@ -114,7 +113,7 @@ Multiple overrides (comma-separated for convenience):
         "--cfg-override",
         "-s",
         metavar="SECTION-KEY=VALUE",
-        help="Override config values. Supports single and comma-separated formats",
+        help="Override config values (ephemeral - does not modify config file). Supports comma-separated formats",
         action="append",
         dest="lazy_overrides",
     )
@@ -133,7 +132,7 @@ Multiple overrides (comma-separated for convenience):
     config_group.add_argument(
         "--cfg-default",
         action="store_true",
-        help="Smart config reset: remove stale/orphaned entries while preserving valid customizations",
+        help="Reset ALL configuration values to schema defaults (automatically creates backup)",
         dest="reset_config",
     )
 
@@ -334,6 +333,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.show_config:
             # Simple approach: just show the actual YAML file with helpful comments
+            # Note: Don't register schemas here as it triggers auto-cleanup that removes working config
             config_path = config_manager.config_file
             print(f"📄 Config file: {config_path}")
             if config_path.exists():
@@ -353,11 +353,11 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if args.reset_config:
-            # Smart reset: remove stale/orphaned entries, preserve valid customizations
+            # True reset: reset ALL values to schema defaults
             config_path = config_manager.config_file
-            print(f"🔄 Smart config reset: {config_path}")
-            print("🧹 Removing stale/orphaned entries while preserving valid customizations")
-            print("✅ Valid profile overrides will be preserved")
+            print(f"🔄 Resetting configuration to defaults: {config_path}")
+            print("⚠️  This will reset ALL values to schema defaults")
+            print("📁 A backup will be created automatically")
 
             if config_path.exists():
                 # Backup existing config
@@ -369,21 +369,21 @@ def main(argv: list[str] | None = None) -> int:
                 shutil.copy2(config_path, backup_path)
                 print(f"📦 Backup created: {backup_path}")
 
-            # Smart reset using automatic cleanup approach
+            # True reset to schema defaults
             try:
-                stale_removed, orphaned_removed = config_manager.smart_reset_config()
-                if stale_removed > 0:
-                    print("✅ Smart config reset completed")
-                    print(f"🧹 Removed {stale_removed} stale entries")
-                    print("✅ Preserved all valid schema fields and profile overrides")
+                sections_reset, total_fields = config_manager.smart_reset_config()
+                if sections_reset > 0:
+                    print("✅ Configuration reset completed")
+                    print(f"🔄 Reset {sections_reset} sections with {total_fields} total fields")
+                    print("📁 Previous configuration backed up")
+                    print("🏭 All values now set to schema defaults")
                 else:
-                    print("✅ Smart config reset completed")
-                    print("🧹 No stale entries found - config was already clean")
+                    print("✅ No registered schemas found")
                     print("💡 Note: Schemas are registered when the application runs normally")
-                print(f"💡 To restore full backup: cp {backup_path} {config_path}")
+                print(f"💡 To restore previous config: cp {backup_path} {config_path}")
                 return 0
             except Exception as e:
-                print(f"❌ Error during smart config reset: {e}", file=sys.stderr)
+                print(f"❌ Error during config reset: {e}", file=sys.stderr)
                 return 1
 
         # Require WAV file for processing

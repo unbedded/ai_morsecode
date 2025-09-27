@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from morsecode.events.types import MorseProbabilityEvent
 from util.config import AwesomeConfigManager
 
@@ -24,7 +24,7 @@ def test_debug_display_buffers():
         "refresh_rate_fps": 10,
     }
 
-    debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+    debug_display = GraphicsDisplay(cfg_mgr, overrides)
     print(f"✅ Fixed window size: {debug_display._fixed_window_size}")
     print(f"✅ Probability buffer maxlen: {debug_display._prob_dit_buffer.maxlen}")
     print(f"✅ Buffer starts pre-filled: {len(debug_display._prob_dit_buffer)} samples")

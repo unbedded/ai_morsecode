@@ -733,13 +733,25 @@ application:
         valid_base_fields = set()
 
         # Extract valid field names from schema
-        if hasattr(schema_obj, "__dataclass_fields__"):
+        if hasattr(schema_obj, "__dataclass_fields__") and schema_obj.__dataclass_fields__:
+            # Standard dataclass with populated fields
             valid_base_fields = set(schema_obj.__dataclass_fields__.keys())
         elif hasattr(schema_obj, "model_fields"):  # Pydantic models
             valid_base_fields = set(schema_obj.model_fields.keys())
         else:
-            self.logger.warning("Cannot determine schema fields for section '%s'", section_name)
-            return
+            # Handle CfgField-based schemas (common pattern in this codebase)
+            # These use @dataclass but with CfgField objects that don't populate __dataclass_fields__
+            valid_base_fields = set()
+            for attr_name in dir(schema_obj):
+                if not attr_name.startswith("_"):
+                    attr_value = getattr(schema_obj, attr_name)
+                    # Check if it's a CfgField by looking for the 'type' attribute
+                    if hasattr(attr_value, "type") and hasattr(attr_value, "default"):
+                        valid_base_fields.add(attr_name)
+
+            if not valid_base_fields:
+                self.logger.warning("Cannot determine schema fields for section '%s'", section_name)
+                return
 
         # Track what gets cleaned
         stale_fields = []
@@ -801,44 +813,103 @@ application:
             self.logger.error("Failed to save config file %s: %s", self.config_file, e)
 
     def smart_reset_config(self) -> tuple[int, int]:
-        """Smart config reset using automatic cleanup approach.
+        """Reset configuration to schema defaults (true reset).
 
         This method:
-        1. Preserves all valid schema fields and their user-customized values
-        2. Preserves valid profile overrides (e.g., frequency_hz_debug)
-        3. Removes only stale/orphaned entries (same logic as auto-cleanup)
-        4. Works with currently registered schemas (no imports needed)
+        1. Resets ALL values to schema defaults
+        2. Removes ALL profile overrides
+        3. Creates a backup of the current config
+        4. Behaves like deleting morse.yaml and starting fresh
 
         Returns:
-            Tuple of (stale_fields_removed, orphaned_profiles_removed)
+            Tuple of (sections_reset, total_fields_reset)
         """
-        total_stale = 0
-        total_orphaned = 0
+        import shutil
+        from datetime import datetime
 
-        self.logger.info("🧹 Starting smart config reset...")
+        self.logger.info("🔄 Resetting configuration to schema defaults...")
 
-        # Clean all sections that have registered schemas
-        if not self._field_configs:
-            self.logger.warning("No registered schemas found - please run application first to register schemas")
-            return total_stale, total_orphaned
+        # Create backup before reset
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_file = f"{self.config_file}.backup-{timestamp}"
 
+        try:
+            shutil.copy2(self.config_file, backup_file)
+            self.logger.info("📁 Backup created: %s", backup_file)
+        except Exception as e:
+            self.logger.warning("Failed to create backup: %s", e)
+
+        sections_reset = 0
+        total_fields_reset = 0
+
+        # Import and register all available schemas to get complete defaults
+        self._register_all_schemas()
+
+        # Reset each registered section to schema defaults
         for section_name, schema_obj in self._field_configs.items():
-            if section_name in self._raw_config:
-                # Count before cleanup
-                before_count = len(self._raw_config[section_name])
+            section_defaults = self._extract_schema_defaults(schema_obj)
 
-                # Trigger automatic cleanup for this section
-                self._auto_clean_config_section(section_name, schema_obj)
+            if section_defaults:
+                self._raw_config[section_name] = section_defaults.copy()
+                sections_reset += 1
+                total_fields_reset += len(section_defaults)
+                self.logger.info("✅ Reset [%s] section: %d fields to defaults", section_name, len(section_defaults))
 
-                # Count after cleanup
-                after_count = len(self._raw_config.get(section_name, {}))
-                removed = before_count - after_count
-                total_stale += removed
+        # Remove any sections not covered by schemas
+        schema_sections = set(self._field_configs.keys())
+        config_sections = set(self._raw_config.keys())
+        orphaned_sections = config_sections - schema_sections
 
-                if removed > 0:
-                    self.logger.info("🧹 Smart reset cleaned [%s]: %d entries removed", section_name, removed)
-                else:
-                    self.logger.info("✅ Section [%s] was already clean", section_name)
+        for section_name in orphaned_sections:
+            del self._raw_config[section_name]
+            self.logger.info("🗑️ Removed orphaned section: [%s]", section_name)
 
-        self.logger.info("🧹 Smart reset completed: %d total entries removed", total_stale)
-        return total_stale, total_orphaned
+        # Save the reset configuration
+        self._save_config()
+
+        self.logger.info(
+            "✅ Configuration reset complete: %d sections reset, %d total fields", sections_reset, total_fields_reset
+        )
+        return sections_reset, total_fields_reset
+
+    def _register_all_schemas(self):
+        """Register all available component schemas to ensure complete defaults."""
+        try:
+            # Import all component schemas to register them
+            import importlib
+
+            from morsecode.components.audio.schema import AudioSchema
+            from morsecode.components.decoder.schema import DecoderSchema
+            from morsecode.components.graphics.schema import GraphicsSchema
+            from morsecode.components.signal.signal_config_schema import SignalConfigSchema as SignalSchema
+
+            GlobalSchema = importlib.import_module("morsecode.components.global.schema").GlobalSchema
+
+            # Register schemas if not already registered
+            if "audio" not in self._field_configs:
+                self.register_enum_config("audio", AudioSchema)
+            if "signal" not in self._field_configs:
+                self.register_enum_config("signal", SignalSchema)
+            if "decoder" not in self._field_configs:
+                self.register_enum_config("decoder", DecoderSchema)
+            if "graphics" not in self._field_configs:
+                self.register_enum_config("graphics", GraphicsSchema)
+            if "global" not in self._field_configs:
+                self.register_enum_config("global", GlobalSchema)
+
+        except ImportError as e:
+            self.logger.warning("Could not import all schemas for reset: %s", e)
+
+    def _extract_schema_defaults(self, schema_obj) -> dict:
+        """Extract default values from a schema object."""
+        defaults = {}
+
+        # Handle CfgField-based schemas (same detection logic as auto-cleanup)
+        for attr_name in dir(schema_obj):
+            if not attr_name.startswith("_"):
+                attr_value = getattr(schema_obj, attr_name)
+                # Check if it's a CfgField
+                if hasattr(attr_value, "type") and hasattr(attr_value, "default"):
+                    defaults[attr_name] = attr_value.default
+
+        return defaults

@@ -16,7 +16,7 @@ from util.config import AwesomeConfigManager
 from util.logging import ComponentLogger
 
 
-class ConvMorseDecoderAdapter:
+class ConvolutionMorseDecoder:
     """Adapter to make ConvMorseDecoder compatible with MorseDecoder Protocol.
 
     This adapter bridges the gap between:
@@ -31,23 +31,23 @@ class ConvMorseDecoderAdapter:
     """
 
     def __init__(self, cfg_mgr: AwesomeConfigManager, overrides: dict[str, Any] | None = None):
-        """Initialize the ConvMorseDecoderAdapter."""
+        """Initialize the ConvolutionMorseDecoder."""
         # Initialize the underlying convolution decoder
         self._conv_decoder = ConvMorseDecoder(cfg_mgr, overrides)
 
         # Initialize logging
         self._logger = ComponentLogger(__name__, cfg_mgr)
 
-        # Get convolution interval from configuration (matching debug_display.py)
-        from morsecode.components.graphics.debug_display import DebugDisplayCfgKey, DebugDisplaySchema
+        # Get convolution interval from configuration (matching graphics_display.py)
+        from morsecode.components.graphics.graphics_display import GraphicsDisplayCfgKey, GraphicsDisplaySchema
 
-        cfg_mgr.register_enum_config("debug_display", DebugDisplaySchema)
-        cfg_section = cfg_mgr.get_section("debug_display")
+        cfg_mgr.register_enum_config("graphics_display", GraphicsDisplaySchema)
+        cfg_section = cfg_mgr.get_section("graphics_display")
         if overrides:
             cfg_section.apply_overrides(overrides)
 
         # Use configured convolution interval instead of hardcoded value
-        self._max_buffer_duration_ms: float = float(cfg_section.get_int(DebugDisplayCfgKey.CONVOLUTION_INTERVAL_MS))
+        self._max_buffer_duration_ms: float = float(cfg_section.get_int(GraphicsDisplayCfgKey.CONVOLUTION_INTERVAL_MS))
 
         # State for converting detection events to signal chunks
         self._current_tone_state: bool = False
@@ -75,7 +75,7 @@ class ConvMorseDecoderAdapter:
         self._conv_decoder.set_sample_rate(self._sample_rate_hz)
 
         self._logger.info(
-            "ConvMorseDecoderAdapter initialized with convolution_interval_ms=%.1f", self._max_buffer_duration_ms
+            "ConvolutionMorseDecoder initialized with convolution_interval_ms=%.1f", self._max_buffer_duration_ms
         )
 
         # Inform graphics system of our probability sample rate at initialization
@@ -387,7 +387,7 @@ class ConvMorseDecoderAdapter:
                 else:
                     self._dashes_detected += 1
 
-            self._logger.info("ConvMorseDecoderAdapter finalized")
+            self._logger.info("ConvolutionMorseDecoder finalized")
 
         except Exception as e:
             self._logger.exception("Error finalizing decoder: %s", str(e))
@@ -434,7 +434,7 @@ class ConvMorseDecoderAdapter:
             self._characters_decoded = 0
             self._words_decoded = 0
 
-            self._logger.info("ConvMorseDecoderAdapter reset")
+            self._logger.info("ConvolutionMorseDecoder reset")
 
         except Exception as e:
             self._logger.exception("Error resetting decoder: %s", str(e))

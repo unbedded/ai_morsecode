@@ -138,7 +138,7 @@ class TestRunDecoderConfigurable:
 
     @patch("morsecode.decoder_app.HardwareAbstractionLayer")
     @patch("morsecode.decoder_app.SignalProcessor")
-    @patch("morsecode.decoder_app.MorseDecoder")
+    @patch("morsecode.decoder_app.DecoderFactory")
     @patch("morsecode.decoder_app._write_output")
     def test_successful_decoding(self, mock_write, mock_decoder_class, mock_processor_class, mock_hal_class) -> None:
         """Test successful decoding with ConfigurableBase architecture."""
@@ -149,7 +149,7 @@ class TestRunDecoderConfigurable:
 
         mock_hal_class.return_value = mock_hal
         mock_processor_class.return_value = mock_processor
-        mock_decoder_class.return_value = mock_decoder
+        mock_decoder_class.create.return_value = mock_decoder
 
         # Mock the processing loop
         mock_hal.has_data.side_effect = [True, True, False]  # Two chunks then stop
@@ -170,7 +170,7 @@ class TestRunDecoderConfigurable:
         # Verify components were initialized with overrides
         mock_hal_class.assert_called_once_with(config_manager, overrides={"wav_filename": "test.wav"})
         mock_processor_class.assert_called_once_with(cfg_mgr=config_manager, overrides=None)
-        mock_decoder_class.assert_called_once_with(cfg_mgr=config_manager, overrides=None)
+        mock_decoder_class.create.assert_called_once_with(cfg_mgr=config_manager, overrides=None)
 
         # Verify processing was called
         mock_decoder.finalize_decoding.assert_called_once()
@@ -190,7 +190,7 @@ class TestRunDecoderConfigurable:
 
     @patch("morsecode.decoder_app.HardwareAbstractionLayer")
     @patch("morsecode.decoder_app.SignalProcessor")
-    @patch("morsecode.decoder_app.MorseDecoder")
+    @patch("morsecode.decoder_app.DecoderFactory")
     def test_no_data_available(self, mock_decoder_class, mock_processor_class, mock_hal_class) -> None:
         """Test handling when HAL has no data."""
         # Setup mocks

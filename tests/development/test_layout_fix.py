@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from util.config import AwesomeConfigManager
 
 
@@ -18,7 +18,7 @@ def test_layout_fix():
     overrides = {"display_width_chars": 80, "display_height_chars": 25, "enable_debug_logging": False}
 
     try:
-        debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+        debug_display = GraphicsDisplay(cfg_mgr, overrides)
 
         # Try to build the layout
         layout = debug_display._build_display_layout()

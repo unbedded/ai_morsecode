@@ -17,7 +17,7 @@ from .components import graphics  # noqa: F401
 
 # Concrete implementations that satisfy Protocol interfaces
 from .components.audio.hal import HardwareAbstractionLayer
-from .components.decoder.conv_adapter import ConvMorseDecoderAdapter as MorseDecoder
+from .components.decoder.factory import DecoderFactory
 from .components.signal.signal_processor import SignalProcessor
 from .events.bus import get_global_event_bus
 from .events.types import AudioChunkEvent, MorsePatternEvent, TextDecodedEvent, ToneDetectedEvent
@@ -189,7 +189,7 @@ def run_decoder_configurable(
     Returns:
         Exit code (0 for success, 1 for error)
     """
-    debug_display = None  # Initialize at function scope for cleanup
+    debug_display: Any = None  # Initialize at function scope for cleanup
 
     try:
         logger.info("Starting Morse code decoder (ConfigurableBase architecture)")
@@ -219,22 +219,39 @@ def run_decoder_configurable(
         # This is clean: no typed configs, no mock managers, direct instantiation
         hal = HardwareAbstractionLayer(config_manager, overrides=overrides.get("audio") if overrides else None)
         processor = SignalProcessor(cfg_mgr=config_manager, overrides=signal_overrides)
-        decoder = MorseDecoder(cfg_mgr=config_manager, overrides=overrides.get("decoder") if overrides else None)
+        decoder = DecoderFactory.create(
+            cfg_mgr=config_manager, overrides=overrides.get("decoder") if overrides else None
+        )
 
         logger.info("Components initialized successfully")
 
         # Initialize ASCII debug display if requested
         if debug_graphics:
-            from .components.graphics.debug_display import ASCIIDebugDisplay
-
-            logger.info("Initializing ASCII debug display for SSH debugging")
-            # Pass playback_speed for time synchronization
-            debug_overrides = overrides.get("debug_display", {}) if overrides else {}
+            # Check graphics backend to choose between full display and pattern logging
+            debug_overrides = overrides.get("graphics", {}) if overrides else {}
             debug_overrides["playback_speed"] = playback_speed
-            debug_display = ASCIIDebugDisplay(config_manager, overrides=debug_overrides)
-            debug_display.start_display()
-            print("🔍 ASCII Debug Display started - PyQt replacement for SSH debugging")
-            print("   Press Ctrl+C to stop...")
+
+            # Get backend setting to determine display type
+            from .components.graphics.keys import GraphicsKey
+
+            graphics_section = config_manager.get_section("graphics")
+            backend = graphics_section.get_string(GraphicsKey.BACKEND) if graphics_section else "ascii"
+
+            if backend == "pattern":
+                from .components.graphics.pattern_display import PatternDisplay
+
+                logger.info("Initializing pattern display for simple logging")
+                debug_display = PatternDisplay(config_manager, overrides=debug_overrides)
+                print("📋 Pattern Display started - Simple morse pattern logging")
+                print("   Patterns will be logged as they are detected...")
+            else:
+                from .components.graphics.graphics_display import GraphicsDisplay
+
+                logger.info("Initializing graphics display for %s backend", backend)
+                debug_display = GraphicsDisplay(config_manager, overrides=debug_overrides)
+                debug_display.start_display()
+                print(f"🔍 Graphics Display started - {backend} backend")
+                print("   Press Ctrl+C to stop...")
 
         # Set up progress reporting via events (only if debug display is not active)
         progress_reporter = None

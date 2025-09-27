@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.graphics_display import GraphicsDisplay
+from morsecode.components.graphics.pattern_display import PatternDisplay
 from util.config import AwesomeConfigManager
 
 
@@ -26,7 +26,7 @@ def test_graphics_with_simple_signal():
         "update_rate_hz": 30.0,
         "buffer_size": 500,
     }
-    gd = GraphicsDisplay(cfg_mgr, overrides)
+    gd = PatternDisplay(cfg_mgr, overrides)
     print(f"Graphics display created: enabled={gd.enabled}, backend={gd.backend_type}")
 
     # Test with 50% duty cycle square wave (same as our demo)

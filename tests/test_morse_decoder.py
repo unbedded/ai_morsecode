@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from morsecode.components.decoder.keys import CfgKey
-from morsecode.components.decoder.morse_decoder import MorseDecoder
+from morsecode.components.decoder.pattern_decoder import PatternBasedMorseDecoder as MorseDecoder
 from util.config import AwesomeConfigManager
 
 

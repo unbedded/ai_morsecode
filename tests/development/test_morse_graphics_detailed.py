@@ -7,7 +7,7 @@ sys.path.insert(0, "src")
 
 import time
 
-from morsecode.components.graphics.graphics_display import GraphicsDisplay
+from morsecode.components.graphics.pattern_display import PatternDisplay
 from util.config import AwesomeConfigManager
 
 
@@ -26,7 +26,7 @@ def test_graphics_detailed():
         "update_rate_hz": 5.0,  # Slower updates to see changes
         "buffer_size": 200,
     }
-    gd = GraphicsDisplay(cfg_mgr, overrides)
+    gd = PatternDisplay(cfg_mgr, overrides)
 
     # Disable automatic screen clearing for this test
     gd._update_display = create_frame_by_frame_display(gd)

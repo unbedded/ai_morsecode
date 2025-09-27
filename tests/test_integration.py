@@ -17,7 +17,7 @@ import pytest
 from morsecode.components.audio.hal import HardwareAbstractionLayer
 from morsecode.components.audio.keys import CfgKey as AudioCfgKey
 from morsecode.components.decoder.keys import CfgKey as DecoderCfgKey
-from morsecode.components.decoder.morse_decoder import MorseDecoder
+from morsecode.components.decoder.pattern_decoder import PatternBasedMorseDecoder as MorseDecoder
 from morsecode.components.signal.signal_config_keys import SignalCfgKey
 from morsecode.components.signal.signal_config_schema import SignalMode
 from morsecode.components.signal.signal_processor import SignalProcessor

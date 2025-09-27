@@ -14,7 +14,7 @@ import time
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from morsecode.events.types import FilteredMagnitudeEvent, MorseProbabilityEvent
 from util.config import AwesomeConfigManager
 
@@ -34,7 +34,7 @@ def test_phase4_complete_migration():
         "enable_debug_logging": False,  # Reduce noise for testing
     }
 
-    debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+    debug_display = GraphicsDisplay(cfg_mgr, overrides)
 
     # Validate Phase 4 migration
     print("🔍 Phase 4 Migration Validation:")
@@ -204,7 +204,7 @@ def test_phase4_width_fix():
     print("=" * 60)
 
     cfg_mgr = AwesomeConfigManager()
-    debug_display = ASCIIDebugDisplay(cfg_mgr, {"display_width_chars": 100})
+    debug_display = GraphicsDisplay(cfg_mgr, {"display_width_chars": 100})
 
     # Check that all TimeSeriesGraph instances use the same width
     if hasattr(debug_display, "_magnitude_graph"):

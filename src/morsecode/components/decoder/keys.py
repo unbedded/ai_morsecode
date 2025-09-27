@@ -18,6 +18,7 @@ class CfgKey(Enum):
     DOT_DURATION_MS = "dot_duration_ms"
     TIMING_TOLERANCE_NORM = "timing_tolerance_norm"
     MIN_SILENCE_MS = "min_silence_ms"
+    ALGORITHM = "algorithm"
 
 
 class CfgSection(Enum):

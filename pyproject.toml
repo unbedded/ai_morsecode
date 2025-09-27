@@ -41,8 +41,8 @@ dev = [
 
 [project.scripts]
 morsecode = "morsecode.cli.main:main"
-morsecode-test-gen = "morsecode.cli.test_generator:main"
-morsecode-test-data = "morsecode.cli.test_data_generator:main"
+morsecode-test-gen = "tests.fixtures.test_generator:main"
+morsecode-test-data = "tests.fixtures.test_data_generator:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/morsecode"
@@ -53,10 +53,10 @@ Issues = "https://github.com/yourusername/morsecode/issues"
 version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "tests"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]

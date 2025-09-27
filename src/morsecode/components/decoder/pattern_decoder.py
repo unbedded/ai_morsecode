@@ -100,7 +100,7 @@ MORSE_CODE_TABLE = {
 CHARACTER_TO_MORSE = {v: k for k, v in MORSE_CODE_TABLE.items()}
 
 
-class MorseDecoder(ConfigurableBase):
+class PatternBasedMorseDecoder(ConfigurableBase):
     """A class to decode Morse code patterns from tone detection events.
 
     This class processes sequences of tone on/off events with timing information
@@ -125,7 +125,7 @@ class MorseDecoder(ConfigurableBase):
     CONFIG_KEYS = CfgKey
 
     def __init__(self, cfg_mgr, overrides=None) -> None:
-        """Initialize the MorseDecoder with ConfigurableBase pattern.
+        """Initialize the PatternBasedMorseDecoder with ConfigurableBase pattern.
 
         Args:
             cfg_mgr: Config manager for enum-based configuration.
@@ -159,7 +159,9 @@ class MorseDecoder(ConfigurableBase):
             self.logger.exception("Error validating MorseDecoder configuration: %s", str(e))
             raise RuntimeError(f"Failed to initialize morse decoder: {e}") from e
 
-        self.logger.info("MorseDecoder initialized with %d WPM, dot=%.1fms", self.wpm_estimate, self.dot_duration_ms)
+        self.logger.info(
+            "PatternBasedMorseDecoder initialized with %d WPM, dot=%.1fms", self.wpm_estimate, self.dot_duration_ms
+        )
 
     def _load_config_values(self) -> None:
         """Load configuration values using type-safe enum access.
@@ -205,7 +207,7 @@ class MorseDecoder(ConfigurableBase):
 
         # STEP 4: Log completion with lazy % formatting (CRITICAL!)
         self.logger.info(
-            "MorseDecoder configured: %d WPM, dot=%.1fms, tolerance=%.2f",
+            "PatternBasedMorseDecoder configured: %d WPM, dot=%.1fms, tolerance=%.2f",
             self.wpm_estimate,
             self.dot_duration_ms,
             self.detection_tolerance,
@@ -240,7 +242,7 @@ class MorseDecoder(ConfigurableBase):
         try:
             self._validate_configuration()
             self.logger.info(
-                "MorseDecoder reconfigured with %d WPM, dot=%.1fms", self.wpm_estimate, self.dot_duration_ms
+                "PatternBasedMorseDecoder reconfigured with %d WPM, dot=%.1fms", self.wpm_estimate, self.dot_duration_ms
             )
         except Exception as e:
             self.logger.exception("Error during MorseDecoder reconfiguration: %s", str(e))

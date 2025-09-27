@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, "src")
 
-from morsecode.components.graphics.debug_display import ASCIIDebugDisplay
+from morsecode.components.graphics.graphics_display import GraphicsDisplay
 from morsecode.events.types import MorseProbabilityEvent
 from util.config import AwesomeConfigManager
 
@@ -25,7 +25,7 @@ def test_phase1_consolidation():
         "enable_debug_logging": True,
     }
 
-    debug_display = ASCIIDebugDisplay(cfg_mgr, overrides)
+    debug_display = GraphicsDisplay(cfg_mgr, overrides)
 
     # Validate Phase 1 changes (now implemented through Phase 3)
     print("🔍 Phase 1 Validation (via Phase 3 implementation):")

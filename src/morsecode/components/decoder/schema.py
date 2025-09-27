@@ -81,3 +81,10 @@ class ConfigSchema:
         unit="ms",
         description="Minimum silence duration to detect word boundaries",
     )
+
+    algorithm = CfgField(
+        type=CfgType.STRING,
+        default="pattern",
+        choices=["pattern", "convolution"],
+        description="Decoder algorithm: 'pattern' for traditional timing-based, 'convolution' for signal processing",
+    )

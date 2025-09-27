@@ -26,11 +26,10 @@ application:
 
 graphics:
   enabled: true             # Enable real-time graphics display | BOOL | default: true
-  backend: "ascii"          # Graphics backend for debug display | ENUM | {auto, ascii, braille, plotly, pattern} | default: ascii
+  backend: "ascii"          # Graphics backend for debug display | ENUM | {auto, ascii, braille, plotly} | default: ascii
                             #   ascii: Universal compatibility, works over SSH, lower resolution
                             #   braille: 2x higher resolution, modern terminals only
                             #   plotly: Rich interactive web-based graphs in browser (requires: pip install plotly)
-                            #   pattern: Simple pattern logging (lightweight alternative)
                             #   auto: Automatic detection based on terminal capabilities
   display_width_chars: 0   # Display width: 0=auto terminal detection, or fixed width 40-200 | default: 0
   display_height_chars: 20  # Display height in characters | INT | 10-50 | default: 20
@@ -89,6 +88,5 @@ decoder:
 # Graphics and debugging:
 #   morsecode audio.wav -s application-debug=true -s application-log-level=DEBUG   # Verbose logging
 #   morsecode audio.wav -s graphics-backend=plotly             # Interactive web graphs
-#   morsecode audio.wav -s graphics-backend=pattern            # Simple pattern logging
 #   morsecode audio.wav -s graphics-enabled=true               # Enable real-time visualization
 #   morsecode --cfg-show                                        # Show current config with comments
